@@ -7,4 +7,3 @@ This is a minimal stdio-based MCP (Model Context Protocol) server implementation
 ```bash
 cargo build
 ```
-
