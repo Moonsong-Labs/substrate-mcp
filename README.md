@@ -1,6 +1,6 @@
-# Basic MCP Server in Rust
+# Substrate MCP 
 
-This is a minimal stdio-based MCP (Model Context Protocol) server implementation in Rust.
+Substrate MCP Server.
 
 ## Building
 
