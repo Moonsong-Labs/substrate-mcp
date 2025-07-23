@@ -42,7 +42,7 @@ If you built the server locally instead of installing it, use the full path:
 }
 ```
 
-If you want, you can add it directly using the Claude Code cli with the following command:
+Alternatively, you can add using cli:
 
 ```claude mcp add substrate /path/to/substrate-mcp/target/release/substrate-mcp```
 
