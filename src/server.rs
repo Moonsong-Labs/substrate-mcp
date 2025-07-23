@@ -24,7 +24,7 @@ impl SubstrateService {
             content: vec![Content {
                 annotations: None,
                 raw: RawContent::Text(RawTextContent {
-                    text: format!("Hello, World! From substrate MCP"),
+                    text: "Hello, World! From substrate MCP".to_string(),
                 }),
             }],
             is_error: None,
