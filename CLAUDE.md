@@ -96,3 +96,31 @@ The project can be installed via:
 - Local build: `cargo build --release`
 
 For Claude Code configuration, see README.md for detailed setup instructions.
+## Substrate Integration Guidelines
+
+### Preferred Crates
+When interacting with Substrate nodes, always prefer using the official `polkadot-sdk` crates over third-party alternatives:
+- Use `sc-rpc-api` for RPC client traits
+- Use `sp-core` for core types and primitives
+- Use `sp-runtime` for runtime types
+- Use `jsonrpsee` for WebSocket client (this is what polkadot-sdk uses internally)
+
+### RPC Communication Pattern
+For RPC communication with Substrate nodes:
+1. Use `jsonrpsee` to create WebSocket clients
+2. Use the traits from `sc-rpc-api` for type safety
+3. Prefer simple sequential async/await over complex parallelization
+4. Natural rate limiting through sequential requests is often sufficient
+
+### Code Design Principles
+1. **Simplicity First**: Start with simple sequential code before adding complexity
+2. **Avoid Over-engineering**: Don't use parallelization libraries like `rayon` for I/O-bound operations
+3. **Use Async/Await**: Substrate RPC operations are I/O-bound, use tokio's async runtime
+4. **Error Handling**: Use `anyhow` for error propagation in tool implementations
+
+### Common RPC Methods for Storage
+When working with storage:
+- `state_getKeysPaged`: Fetch storage keys with pagination
+- `state_getStorage`: Get storage value at specific block
+- `chain_getBlockHash`: Get block hash from block number
+- Always handle SCALE encoding/decoding appropriately
