@@ -1,11 +1,10 @@
-use std::future::poll_fn;
-
 use rmcp::handler::server::tool::{Parameters, ToolRouter};
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
     CallToolResult, Content, RawContent, RawTextContent, ServerCapabilities, ServerInfo,
 };
 use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData as McpError};
+use std::future::Future;
 
 use crate::polkadot_sdk_releases;
 
@@ -16,7 +15,7 @@ pub struct SubstrateService {
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
 pub struct GetPolkadotSdkReleasePrdocsRequest {
-    /// polkadot-sdk release (e.g)
+    /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412')
     pub release: String,
 }
 
@@ -35,7 +34,13 @@ impl SubstrateService {
             GetPolkadotSdkReleasePrdocsRequest,
         >,
     ) -> Result<CallToolResult, McpError> {
-        let response = polkadot_sdk_releases::query_prdocs(&release).await?;
+        let response = polkadot_sdk_releases::query_prdocs(&release)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: e.to_string().into(),
+                data: None,
+            })?;
 
         Ok(CallToolResult {
             content: vec![Content {
