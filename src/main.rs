@@ -2,6 +2,7 @@ use anyhow::Result;
 use rmcp::service::ServiceExt;
 use tokio::io::{stdin, stdout};
 
+mod polkadot_sdk_releases;
 mod server;
 use server::SubstrateService;
 
