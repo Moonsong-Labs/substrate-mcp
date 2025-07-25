@@ -31,3 +31,12 @@ jobs:
           components: clippy
       - name: Linting
         run: cargo clippy -- -D warnings
+
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run tests
+        run: cargo test

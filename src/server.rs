@@ -1,13 +1,22 @@
-use rmcp::handler::server::tool::ToolRouter;
+use rmcp::handler::server::tool::{Parameters, ToolRouter};
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
     CallToolResult, Content, RawContent, RawTextContent, ServerCapabilities, ServerInfo,
 };
-use rmcp::{tool, tool_handler, tool_router, ErrorData as McpError};
+use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData as McpError};
+use std::future::Future;
+
+use crate::polkadot_sdk_releases;
 
 #[derive(Clone)]
 pub struct SubstrateService {
     tool_router: ToolRouter<Self>,
+}
+
+#[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
+pub struct GetPolkadotSdkReleasePrdocsRequest {
+    /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412')
+    pub release: String,
 }
 
 #[tool_router]
@@ -18,14 +27,25 @@ impl SubstrateService {
         }
     }
 
-    #[tool(description = "Says hello to the substrate user")]
-    pub fn say_hello(&self) -> Result<CallToolResult, McpError> {
+    #[tool(description = "Get all documented changes for a given polkadot-sdk release")]
+    pub async fn get_polkadot_sdk_release_prdocs(
+        &self,
+        Parameters(GetPolkadotSdkReleasePrdocsRequest { release }): Parameters<
+            GetPolkadotSdkReleasePrdocsRequest,
+        >,
+    ) -> Result<CallToolResult, McpError> {
+        let response = polkadot_sdk_releases::query_prdocs(&release)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: e.to_string().into(),
+                data: None,
+            })?;
+
         Ok(CallToolResult {
             content: vec![Content {
                 annotations: None,
-                raw: RawContent::Text(RawTextContent {
-                    text: "Hello, World! From substrate MCP".to_string(),
-                }),
+                raw: RawContent::Text(RawTextContent { text: response }),
             }],
             is_error: None,
         })
