@@ -14,7 +14,7 @@ reqwest = { version = "0.12", features = ["json"] }
 =======
 
 # For RPC client functionality
-jsonrpsee = { version = "0.20", features = ["ws-client", "macros"] }
+jsonrpsee = { version = "0.20", features = ["http-client", "macros"] }
 codec = { package = "parity-scale-codec", version = "3.6", features = ["derive"] }
 futures = "0.3"
 hex = "0.4"

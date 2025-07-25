@@ -8,13 +8,15 @@ use std::future::Future;
 
 use crate::polkadot_sdk_releases;
 use serde::Deserialize;
+use std::future::Future;
 
-use crate::tools::{StorageBisectClient, StorageChange};
+use crate::substrate::client::SubstrateClient;
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct StorageChangesArgs {
+pub struct StorageBisectArgs {
     pub start_block: u32,
     pub end_block: u32,
+    pub key: String,
     pub rpc_url: Option<String>,
 }
 
@@ -61,23 +63,33 @@ impl SubstrateService {
         })
     }
 
-    #[tool(description = "Find all storage changes between two blocks on a Substrate chain")]
-    pub fn storage_changes(
+    #[tool(
+        description = "Find all storage changes between two blocks on a Substrate chain for a specific key"
+    )]
+    pub async fn chain_storage_bisect(
         &self,
-        Parameters(args): Parameters<StorageChangesArgs>,
+        Parameters(args): Parameters<StorageBisectArgs>,
     ) -> Result<CallToolResult, McpError> {
-        // Bridge sync tool to async implementation
-        let runtime = tokio::runtime::Handle::current();
-        let result = runtime.block_on(async {
-            self.storage_changes_async(args.start_block, args.end_block, args.rpc_url)
-                .await
-        });
+        let url = args
+            .rpc_url
+            .unwrap_or_else(|| "http://127.0.0.1:9944".to_string());
+
+        log::info!("Connecting to Substrate node at {url}...");
+        let client = SubstrateClient::connect(&url).await.map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: e.to_string().into(),
+            data: None,
+        })?;
+
+        let result = client
+            .find_all_storage_changes(args.start_block, args.end_block, args.key)
+            .await;
 
         match result {
             Ok(changes) => {
                 let json_result = serde_json::to_string_pretty(&changes).map_err(|e| McpError {
                     code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-                    message: format!("Serialization error: {}", e).into(),
+                    message: format!("Serialization error: {e}").into(),
                     data: None,
                 })?;
 
@@ -91,37 +103,10 @@ impl SubstrateService {
             }
             Err(e) => Err(McpError {
                 code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-                message: format!("Storage changes error: {}", e).into(),
+                message: format!("Storage changes error: {e}").into(),
                 data: None,
             }),
         }
-    }
-
-    async fn storage_changes_async(
-        &self,
-        start_block: u32,
-        end_block: u32,
-        rpc_url: Option<String>,
-    ) -> Result<Vec<StorageChange>, anyhow::Error> {
-        let url = rpc_url.unwrap_or_else(|| "ws://127.0.0.1:9944".to_string());
-
-        log::info!("Connecting to Substrate node at {}...", url);
-        let client = StorageBisectClient::new(&url).await?;
-
-        log::info!(
-            "Finding storage changes between blocks {} and {}...",
-            start_block,
-            end_block
-        );
-        let mut changes = client
-            .find_all_storage_changes(start_block, end_block)
-            .await?;
-
-        // Sort by block number as required
-        changes.sort_by_key(|c| c.block_number);
-
-        log::info!("Found {} storage changes", changes.len());
-        Ok(changes)
     }
 }
 

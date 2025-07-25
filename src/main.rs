@@ -5,7 +5,7 @@ use tokio::io::{stdin, stdout};
 mod client;
 mod polkadot_sdk_releases;
 mod server;
-mod tools;
+mod substrate;
 
 use server::SubstrateService;
 
@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
     let service = SubstrateService::new()
         .serve(transport)
         .await
-        .inspect_err(|e| log::error!("Service error: {}", e))?;
+        .inspect_err(|e| log::error!("Service error: {e}"))?;
 
     service.waiting().await?;
 
