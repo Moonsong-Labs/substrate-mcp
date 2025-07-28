@@ -7,6 +7,17 @@ use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData as McpError};
 use std::future::Future;
 
 use crate::polkadot_sdk_releases;
+use serde::Deserialize;
+
+use crate::substrate::client::SubstrateClient;
+
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct StorageBisectArgs {
+    pub start_block: u32,
+    pub end_block: u32,
+    pub key: String,
+    pub rpc_url: Option<String>,
+}
 
 #[derive(Clone)]
 pub struct SubstrateService {
@@ -49,6 +60,52 @@ impl SubstrateService {
             }],
             is_error: None,
         })
+    }
+
+    #[tool(
+        description = "Find all storage changes between two blocks on a Substrate chain for a specific key"
+    )]
+    pub async fn chain_storage_bisect(
+        &self,
+        Parameters(args): Parameters<StorageBisectArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let url = args
+            .rpc_url
+            .unwrap_or_else(|| "http://127.0.0.1:9944".to_string());
+
+        log::info!("Connecting to Substrate node at {url}...");
+        let client = SubstrateClient::connect(&url).await.map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: e.to_string().into(),
+            data: None,
+        })?;
+
+        let result = client
+            .find_all_storage_changes(args.start_block, args.end_block, args.key)
+            .await;
+
+        match result {
+            Ok(changes) => {
+                let json_result = serde_json::to_string_pretty(&changes).map_err(|e| McpError {
+                    code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+                    message: format!("Serialization error: {e}").into(),
+                    data: None,
+                })?;
+
+                Ok(CallToolResult {
+                    content: vec![Content {
+                        annotations: None,
+                        raw: RawContent::Text(RawTextContent { text: json_result }),
+                    }],
+                    is_error: None,
+                })
+            }
+            Err(e) => Err(McpError {
+                code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+                message: format!("Storage changes error: {e}").into(),
+                data: None,
+            }),
+        }
     }
 }
 
