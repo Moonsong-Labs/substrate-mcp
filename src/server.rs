@@ -8,7 +8,6 @@ use std::future::Future;
 
 use crate::polkadot_sdk_releases;
 use serde::Deserialize;
-use std::future::Future;
 
 use crate::substrate::client::SubstrateClient;
 
