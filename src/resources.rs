@@ -205,6 +205,7 @@ pub const ZOMBIENET_CONTENT: &str = r#"# Zombienet - Network Testing Framework
 
 GitHub: https://github.com/paritytech/zombienet
 Documentation: https://paritytech.github.io/zombienet/
+Guide: https://docs.polkadot.com/develop/toolkit/parachains/spawn-chains/zombienet/
 
 Testing framework for Substrate networks:
 - Spawn ephemeral test networks
