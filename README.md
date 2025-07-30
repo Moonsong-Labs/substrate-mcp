@@ -16,6 +16,19 @@ cargo build --release
 ```
 The binary will be available at `./target/release/substrate-mcp`
 
+## Prerequisites
+
+For the `subxt_execute` tool, install the subxt CLI:
+```bash
+cargo install subxt-cli
+```
+
+## Available Tools
+
+- **`get_polkadot_sdk_release_prdocs`** - Get documented changes for polkadot-sdk releases
+- **`chain_storage_bisect`** - Find storage changes between blocks for a specific key
+- **`subxt_execute`** - Decode metadata, generate type-safe code, and explore Substrate chains
+
 ## Usage with Claude Code
 
 To use this MCP server with Claude Code, add it to your Claude Code configuration.
