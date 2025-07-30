@@ -7,6 +7,8 @@ use rmcp::model::{Annotations, RawResource, Resource};
 /// Resource URI constants
 pub const RESOURCE_SUBSTRATE_DOCS: &str = "substrate:substrate-docs";
 pub const RESOURCE_POLKADOT_SDK: &str = "substrate:polkadot-sdk";
+pub const RESOURCE_SUBSTRATE_TEMPLATES: &str = "substrate:node-templates";
+pub const RESOURCE_SUBSTRATE_TUTORIALS: &str = "substrate:tutorials";
 pub const RESOURCE_XCM_DOCS: &str = "substrate:xcm-docs";
 pub const RESOURCE_CHAIN_SPEC: &str = "substrate:chain-spec";
 pub const RESOURCE_RUST_DOCS: &str = "substrate:rust-docs";
@@ -17,6 +19,7 @@ pub const RESOURCE_INK_DOCS: &str = "substrate:ink-docs";
 pub const RESOURCE_POLKADOT_WIKI: &str = "substrate:polkadot-wiki";
 pub const RESOURCE_FRAME_BENCHMARKING: &str = "substrate:benchmarking";
 pub const RESOURCE_SUBSTRATE_TELEMETRY: &str = "substrate:telemetry";
+pub const RESOURCE_ZOMBIENET: &str = "substrate:zombienet";
 
 /// Resource content definitions
 pub const SUBSTRATE_DOCS_CONTENT: &str = r#"# Substrate Documentation Hub
@@ -43,6 +46,35 @@ The Polkadot SDK (formerly Substrate) includes:
 - Cumulus for parachain development
 - XCM for cross-chain messaging
 - Comprehensive Rust documentation
+"#;
+
+pub const SUBSTRATE_TEMPLATES_CONTENT: &str = r#"# Substrate Node & Parachain Templates
+
+Node Template: https://github.com/paritytech/polkadot-sdk/tree/master/templates/solochain
+Parachain Template: https://github.com/paritytech/polkadot-sdk/tree/master/templates/parachain
+
+Official templates for starting new projects:
+- substrate-node-template: Standalone blockchain scaffold
+- substrate-parachain-template: Parachain development with Cumulus
+- Minimal runtime configuration
+- Example pallets and configurations
+- Production-ready project structure
+- Built-in benchmarking setup
+"#;
+
+pub const SUBSTRATE_TUTORIALS_CONTENT: &str = r#"# Substrate Tutorials
+
+Main Tutorial Hub: https://docs.polkadot.com/tutorials/
+Learn Substrate: https://docs.polkadot.com/tutorials/build-a-blockchain/
+
+Step-by-step learning paths:
+- Build your first Substrate blockchain
+- Add pallets to your runtime
+- Configure genesis state
+- Upgrade a running network
+- Create custom pallets
+- Implement runtime APIs
+- Testing strategies
 "#;
 
 pub const XCM_DOCS_CONTENT: &str = r#"# XCM (Cross-Consensus Messaging)
@@ -169,6 +201,20 @@ Network monitoring:
 - Node version tracking
 "#;
 
+pub const ZOMBIENET_CONTENT: &str = r#"# Zombienet - Network Testing Framework
+
+GitHub: https://github.com/paritytech/zombienet
+Documentation: https://paritytech.github.io/zombienet/
+
+Testing framework for Substrate networks:
+- Spawn ephemeral test networks
+- Declarative network configuration
+- Multi-parachain testing support
+- Integration test automation
+- Performance and stress testing
+- CI/CD integration
+"#;
+
 /// Get all available resources
 pub fn get_all_resources() -> Vec<Resource> {
     vec![
@@ -187,13 +233,28 @@ pub fn get_all_resources() -> Vec<Resource> {
             POLKADOT_SDK_CONTENT,
             0.9,
         ),
+        // Templates and Tutorials
+        create_resource(
+            RESOURCE_SUBSTRATE_TEMPLATES,
+            "Substrate Node & Parachain Templates",
+            "Official templates for starting new blockchain projects",
+            SUBSTRATE_TEMPLATES_CONTENT,
+            0.85,
+        ),
+        create_resource(
+            RESOURCE_SUBSTRATE_TUTORIALS,
+            "Substrate Tutorials",
+            "Step-by-step guides for learning Substrate development",
+            SUBSTRATE_TUTORIALS_CONTENT,
+            0.85,
+        ),
         // Development Tools
         create_resource(
             RESOURCE_RUST_DOCS,
             "Rust Documentation for Substrate",
             "API documentation for Substrate crates and modules",
             RUST_DOCS_CONTENT,
-            0.85,
+            0.8,
         ),
         create_resource(
             RESOURCE_POLKADOT_JS,
@@ -207,14 +268,14 @@ pub fn get_all_resources() -> Vec<Resource> {
             "Subxt Client Library",
             "Rust library for interacting with Substrate nodes",
             SUBXT_CONTENT,
-            0.75,
+            0.8,
         ),
         create_resource(
             RESOURCE_SUBSTRATE_FRONTEND,
             "Frontend Template",
             "React-based frontend template for Substrate dApps",
             SUBSTRATE_FRONTEND_CONTENT,
-            0.7,
+            0.8,
         ),
         // Specialized Topics
         create_resource(
@@ -222,14 +283,14 @@ pub fn get_all_resources() -> Vec<Resource> {
             "XCM Documentation",
             "Cross-Consensus Messaging documentation and format specification",
             XCM_DOCS_CONTENT,
-            0.8,
+            0.7,
         ),
         create_resource(
             RESOURCE_CHAIN_SPEC,
             "Chain Specifications Guide",
             "Documentation for Substrate chain specifications and configuration",
             CHAIN_SPEC_CONTENT,
-            0.75,
+            0.7,
         ),
         create_resource(
             RESOURCE_INK_DOCS,
@@ -243,6 +304,13 @@ pub fn get_all_resources() -> Vec<Resource> {
             "FRAME Benchmarking",
             "Performance testing and weight calculation",
             BENCHMARKING_CONTENT,
+            0.7,
+        ),
+        create_resource(
+            RESOURCE_ZOMBIENET,
+            "Zombienet Testing Framework",
+            "Tool for spawning and testing ephemeral Substrate networks",
+            ZOMBIENET_CONTENT,
             0.7,
         ),
         // Community and Learning
@@ -269,6 +337,8 @@ pub fn get_resource_content(uri: &str) -> Option<&'static str> {
     match uri {
         RESOURCE_SUBSTRATE_DOCS => Some(SUBSTRATE_DOCS_CONTENT),
         RESOURCE_POLKADOT_SDK => Some(POLKADOT_SDK_CONTENT),
+        RESOURCE_SUBSTRATE_TEMPLATES => Some(SUBSTRATE_TEMPLATES_CONTENT),
+        RESOURCE_SUBSTRATE_TUTORIALS => Some(SUBSTRATE_TUTORIALS_CONTENT),
         RESOURCE_XCM_DOCS => Some(XCM_DOCS_CONTENT),
         RESOURCE_CHAIN_SPEC => Some(CHAIN_SPEC_CONTENT),
         RESOURCE_RUST_DOCS => Some(RUST_DOCS_CONTENT),
@@ -278,6 +348,8 @@ pub fn get_resource_content(uri: &str) -> Option<&'static str> {
         RESOURCE_INK_DOCS => Some(INK_DOCS_CONTENT),
         RESOURCE_POLKADOT_WIKI => Some(POLKADOT_WIKI_CONTENT),
         RESOURCE_SUBSTRATE_TELEMETRY => Some(SUBSTRATE_TELEMETRY_CONTENT),
+        RESOURCE_FRAME_BENCHMARKING => Some(BENCHMARKING_CONTENT),
+        RESOURCE_ZOMBIENET => Some(ZOMBIENET_CONTENT),
         _ => None,
     }
 }
