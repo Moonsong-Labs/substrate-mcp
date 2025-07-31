@@ -34,14 +34,13 @@ impl From<SubstrateResource> for Resource {
 fn resources() -> Vec<SubstrateResource> {
     vec![
         SubstrateResource {
-            uri: "substrate:substrate-docs".to_string(),
-            name: "Substrate Documentation Hub".to_string(),
-            description: "Main documentation portal for Substrate blockchain framework".to_string(),
+            uri: "substrate:polkadot-docs".to_string(),
+            name: "Polkadot Documentation Hub".to_string(),
+            description: "Main documentation portal for Polkadot blockchain framework".to_string(),
             content: r#"# Substrate Documentation Hub
 
 Documentation: https://docs.polkadot.com/
 API Reference: https://paritytech.github.io/polkadot-sdk/master/sc_service/
-Guide: https://paritytech.github.io/polkadot-sdk/book/
 
 Core documentation sections:
 - Learn: Concepts, architecture, and theory
@@ -60,6 +59,7 @@ Core documentation sections:
 
 Documentation: https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/
 GitHub repository: https://github.com/paritytech/polkadot-sdk
+Guide: https://paritytech.github.io/polkadot-sdk/book/
 
 The Polkadot SDK (formerly Substrate) includes:
 - Substrate framework for custom blockchains
