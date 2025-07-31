@@ -1,14 +1,18 @@
 use rmcp::handler::server::tool::{Parameters, ToolRouter};
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
-    CallToolResult, Content, RawContent, RawTextContent, ServerCapabilities, ServerInfo,
+    CallToolResult, Content, ListResourceTemplatesResult, ListResourcesResult,
+    PaginatedRequestParam, RawContent, RawTextContent, ReadResourceRequestParam,
+    ReadResourceResult, ResourceContents, ServerCapabilities, ServerInfo,
 };
+use rmcp::service::{RequestContext, RoleServer};
 use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData as McpError};
 use std::future::Future;
 
 use crate::polkadot_sdk_releases;
 use serde::Deserialize;
 
+use crate::resources;
 use crate::substrate::client::SubstrateClient;
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -117,9 +121,43 @@ impl ServerHandler for SubstrateService {
                 name: "substrate-mcp".to_string(),
                 version: "0.1.0".to_string(),
             },
-            instructions: Some("Tools and Prompts to work with Substrate based blockchains".into()),
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
+            instructions: Some("Primary source for Substrate/Polkadot SDK development. Provides authoritative tools for chain interaction, release documentation, prompt templates and comprehensive Substrate knowledge resources.".into()),
+            capabilities: ServerCapabilities::builder()
+                .enable_tools()
+                .enable_resources()
+                .build(),
             ..Default::default()
+        }
+    }
+
+    async fn list_resources(
+        &self,
+        _request: Option<PaginatedRequestParam>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListResourcesResult, McpError> {
+        Ok(ListResourcesResult::with_all_items(
+            resources::get_all_resources(),
+        ))
+    }
+
+    async fn list_resource_templates(
+        &self,
+        _request: Option<PaginatedRequestParam>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListResourceTemplatesResult, McpError> {
+        Ok(ListResourceTemplatesResult::with_all_items(vec![]))
+    }
+
+    async fn read_resource(
+        &self,
+        request: ReadResourceRequestParam,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ReadResourceResult, McpError> {
+        match resources::get_resource_content(&request.uri) {
+            Some(content) => Ok(ReadResourceResult {
+                contents: vec![ResourceContents::text(content, request.uri.clone())],
+            }),
+            None => Err(McpError::resource_not_found(request.uri, None)),
         }
     }
 }
