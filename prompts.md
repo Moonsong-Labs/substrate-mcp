@@ -1,9 +1,5 @@
 # Substrate Prompts
 
-## Global Assumptions
-
-- Agent is being run on the directory of the target project and is intelligent enough to look for relevant files and get them its context.
-
 ## Prompts
 
 ## `release-comparison`
@@ -849,98 +845,6 @@ Additionally analyze:
 - Parachain economic attacks
 ```
 
-## Example Usage
-
-### Example 1: Analyzing a DEX Pallet
-```
-Perform a comprehensive economic security assessment of the following Substrate subsystem:
-
-**Subsystem**: pallets/dex/src/lib.rs
-**Context**: Automated market maker (AMM) implementation with constant product formula, 0.3% swap fees, and liquidity provider tokens.
-
-[Rest of base prompt...]
-```
-
-### Example 2: Analyzing Staking Economics
-```
-Perform a comprehensive economic security assessment of the following Substrate subsystem:
-
-**Subsystem**: pallets/staking/src/lib.rs
-**Context**: Nominated Proof-of-Stake system with 10% annual inflation, 28-day unbonding, and slashing for equivocation.
-
-[Rest of base prompt + staking-specific analysis...]
-```
-
-## Key Metrics to Calculate
-
-1. **Attack Profitability Threshold**
-   - Cost to execute attack
-   - Expected profit/loss
-   - Break-even points
-
-2. **Centralization Metrics**
-   - Gini coefficient
-   - Herfindahl index
-   - Top holder percentages
-
-3. **Liquidity Metrics**
-   - Available liquidity for attacks
-   - Slippage calculations
-   - Market depth analysis
-
-4. **Time-based Risks**
-   - Time-weighted attack opportunities
-   - Delayed effect vulnerabilities
-   - Front-running windows
-
-## Output Format Example
-
-The agent should provide output structured like:
-
-```markdown
-# Economic Security Assessment: [Subsystem Name]
-
-## Executive Summary
-- Critical economic risks: X
-- High severity findings: Y
-- Total value at risk: $Z
-
-## 1. Economic Model Overview
-### Value Flows
-- Input: [Sources of value]
-- Output: [Value destinations]
-- Fees: [Fee structure]
-
-### Actor Incentives
-- Actor Type 1: [Incentives and strategies]
-- Actor Type 2: [Incentives and strategies]
-
-## 2. Attack Scenarios
-
-### CRITICAL: Governance Buying Attack
-- Attack Cost: 1,000,000 tokens
-- Success Probability: 85%
-- Potential Profit: 5,000,000 tokens
-- Execution Steps:
-  1. Accumulate voting power
-  2. Submit malicious proposal
-  3. Vote with accumulated power
-- Mitigation: Implement conviction voting
-
-### HIGH: MEV via Transaction Ordering
-- Profit per block: ~500 tokens
-- Attack requirements: Validator control
-- Code location: `src/lib.rs:234`
-- Mitigation: Randomized ordering
-
-[Continue for all findings...]
-
-## 3. Recommendations
-1. Immediate: [Critical fixes]
-2. Short-term: [Important improvements]
-3. Long-term: [Strategic changes]
-```
-
 ## Analysis Tips
 
 1. **Follow the Money**: Trace every token flow path
@@ -1315,12 +1219,10 @@ Please analyze the codebase changes and provide a detailed security review cover
    - Deployment risks assessed
 
 Provide findings organized by severity (Critical/High/Medium/Low/Info) with specific code references and remediation steps.
-```
 
 ## Component-Specific Analysis
 
 ### For Runtime Changes
-```
 Additionally review:
 - Spec version and transaction version updates
 - Runtime API changes and compatibility
@@ -1329,10 +1231,8 @@ Additionally review:
 - Executive pallet ordering
 - Runtime constant changes
 - Feature flag impacts
-```
 
 ### For Pallet Development
-```
 Additionally review:
 - Storage item declarations and bounds
 - Dispatchable function signatures
@@ -1341,10 +1241,8 @@ Additionally review:
 - Config trait requirements
 - GenesisConfig implementation
 - Pallet hooks (on_initialize, on_finalize)
-```
 
 ### For Consensus Changes
-```
 Additionally review:
 - Block production modifications
 - Finality gadget changes
@@ -1353,10 +1251,8 @@ Additionally review:
 - Slashing logic modifications
 - Session key handling
 - Network protocol changes
-```
 
 ### For Client/Node Changes
-```
 Additionally review:
 - RPC interface modifications
 - Database schema changes
@@ -1365,7 +1261,6 @@ Additionally review:
 - Telemetry modifications
 - Import/export functionality
 - Pruning logic changes
-```
 
 ## Critical Checklist Items
 
