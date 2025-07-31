@@ -20,3 +20,8 @@ hex = "0.4"
 # Logging
 log = "0.4"
 env_logger = "0.11"
+
+# Subxt for advanced chain interaction
+subxt = { version = "0.37", features = ["substrate-compat"] }
+subxt-signer = { version = "0.37" }
+scale-value = "0.16"

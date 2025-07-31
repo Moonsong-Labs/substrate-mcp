@@ -12,6 +12,11 @@ use crate::polkadot_sdk_releases;
 use serde::Deserialize;
 
 use crate::substrate::client::SubstrateClient;
+use crate::substrate::metadata::MetadataFilter;
+use crate::substrate::events::EventFilter;
+use crate::substrate::storage::{StorageQuery, list_pallet_storage};
+use subxt::OnlineClient;
+use subxt::PolkadotConfig;
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct StorageBisectArgs {
@@ -36,6 +41,58 @@ pub struct GetPolkadotSdkReleasePrdocsRequest {
 pub struct SubxtExecuteArgs {
     /// The subxt command and arguments to execute (e.g., ["metadata", "-f", "json", "--url", "ws://localhost:9944"])
     pub args: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct MetadataFilterArgs {
+    /// The RPC URL to connect to (defaults to public Polkadot endpoint)
+    pub rpc_url: Option<String>,
+    /// Filter by item type (e.g., "pallet", "storage", "call", "event", "constant", "error")
+    pub item_type: Option<String>,
+    /// Filter by pallet name (supports partial matching)
+    pub pallet: Option<String>,
+    /// Filter by item name (supports partial matching)
+    pub name: Option<String>,
+    /// Include detailed type information
+    pub include_details: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct EventFilterArgs {
+    /// The RPC URL to connect to (defaults to public Polkadot endpoint)
+    pub rpc_url: Option<String>,
+    /// Filter by pallet name (supports partial matching)
+    pub pallet: Option<String>,
+    /// Filter by event variant name (supports partial matching)
+    pub variant: Option<String>,
+    /// Start block number (inclusive, defaults to 100 blocks ago)
+    pub from_block: Option<u32>,
+    /// End block number (inclusive, defaults to latest)
+    pub to_block: Option<u32>,
+    /// Maximum number of events to return
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct StorageQueryArgs {
+    /// The RPC URL to connect to (defaults to public Polkadot endpoint)
+    pub rpc_url: Option<String>,
+    /// The pallet name
+    pub pallet: String,
+    /// The storage entry name
+    pub entry: String,
+    /// Optional keys for map-type storage (as JSON array)
+    pub keys: Option<Vec<serde_json::Value>>,
+    /// Block number to query at (None for latest)
+    pub at_block: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct ListPalletStorageArgs {
+    /// The RPC URL to connect to (defaults to public Polkadot endpoint)
+    pub rpc_url: Option<String>,
+    /// The pallet name
+    pub pallet: String,
 }
 
 #[tool_router]
@@ -170,6 +227,208 @@ impl SubstrateService {
             content: vec![Content {
                 annotations: None,
                 raw: RawContent::Text(RawTextContent { text: result }),
+            }],
+            is_error: None,
+        })
+    }
+
+    #[tool(
+        description = "Filter and search chain metadata to discover available pallets, storage entries, calls, events, constants, and errors. Supports partial name matching for easy discovery. Use this to understand what functionality is available on a chain before making specific queries."
+    )]
+    pub async fn filter_metadata(
+        &self,
+        Parameters(args): Parameters<MetadataFilterArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let url = args
+            .rpc_url
+            .unwrap_or_else(|| crate::public_endpoints::endpoints::DEFAULT.to_string());
+
+        // Connect to the chain using subxt
+        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to connect to chain: {}", e).into(),
+                data: None,
+            })?;
+
+        // Get metadata
+        let metadata = client.metadata();
+
+        // Create filter
+        let filter = MetadataFilter {
+            item_type: args.item_type,
+            pallet: args.pallet,
+            name: args.name,
+            include_details: args.include_details.unwrap_or(false),
+        };
+
+        // Apply filter
+        let results = filter.apply(&metadata).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: format!("Failed to filter metadata: {}", e).into(),
+            data: None,
+        })?;
+
+        // Convert to JSON
+        let json_result = serde_json::to_string_pretty(&results).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+            message: format!("Serialization error: {}", e).into(),
+            data: None,
+        })?;
+
+        Ok(CallToolResult {
+            content: vec![Content {
+                annotations: None,
+                raw: RawContent::Text(RawTextContent { text: json_result }),
+            }],
+            is_error: None,
+        })
+    }
+
+    #[tool(
+        description = "Query and filter blockchain events within a specified block range. Supports filtering by pallet and event name with partial matching. Use this to find specific events like transfers, staking rewards, or governance actions."
+    )]
+    pub async fn query_events(
+        &self,
+        Parameters(args): Parameters<EventFilterArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let url = args
+            .rpc_url
+            .unwrap_or_else(|| crate::public_endpoints::endpoints::DEFAULT.to_string());
+
+        // Connect to the chain using subxt
+        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to connect to chain: {}", e).into(),
+                data: None,
+            })?;
+
+        // Create filter
+        let filter = EventFilter {
+            pallet: args.pallet,
+            variant: args.variant,
+            from_block: args.from_block,
+            to_block: args.to_block,
+            limit: args.limit,
+        };
+
+        // Query events
+        let results = filter.query_events(&client).await.map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: format!("Failed to query events: {}", e).into(),
+            data: None,
+        })?;
+
+        // Convert to JSON
+        let json_result = serde_json::to_string_pretty(&results).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+            message: format!("Serialization error: {}", e).into(),
+            data: None,
+        })?;
+
+        Ok(CallToolResult {
+            content: vec![Content {
+                annotations: None,
+                raw: RawContent::Text(RawTextContent { text: json_result }),
+            }],
+            is_error: None,
+        })
+    }
+
+    #[tool(
+        description = "Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys. Use this to read chain state like account balances, staking info, or governance proposals."
+    )]
+    pub async fn query_storage(
+        &self,
+        Parameters(args): Parameters<StorageQueryArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let url = args
+            .rpc_url
+            .unwrap_or_else(|| crate::public_endpoints::endpoints::DEFAULT.to_string());
+
+        // Connect to the chain using subxt
+        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to connect to chain: {}", e).into(),
+                data: None,
+            })?;
+
+        // Create query
+        let query = StorageQuery {
+            pallet: args.pallet,
+            entry: args.entry,
+            keys: args.keys,
+            at_block: args.at_block,
+        };
+
+        // Execute query
+        let result = query.execute(&client).await.map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: format!("Failed to query storage: {}", e).into(),
+            data: None,
+        })?;
+
+        // Convert to JSON
+        let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+            message: format!("Serialization error: {}", e).into(),
+            data: None,
+        })?;
+
+        Ok(CallToolResult {
+            content: vec![Content {
+                annotations: None,
+                raw: RawContent::Text(RawTextContent { text: json_result }),
+            }],
+            is_error: None,
+        })
+    }
+
+    #[tool(
+        description = "List all storage entries available in a specific pallet. Use this to discover what storage items are available before querying them."
+    )]
+    pub async fn list_pallet_storage(
+        &self,
+        Parameters(args): Parameters<ListPalletStorageArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let url = args
+            .rpc_url
+            .unwrap_or_else(|| crate::public_endpoints::endpoints::DEFAULT.to_string());
+
+        // Connect to the chain using subxt
+        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to connect to chain: {}", e).into(),
+                data: None,
+            })?;
+
+        // List storage entries
+        let entries = list_pallet_storage(&client, &args.pallet)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to list storage: {}", e).into(),
+                data: None,
+            })?;
+
+        // Convert to JSON
+        let json_result = serde_json::to_string_pretty(&entries).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+            message: format!("Serialization error: {}", e).into(),
+            data: None,
+        })?;
+
+        Ok(CallToolResult {
+            content: vec![Content {
+                annotations: None,
+                raw: RawContent::Text(RawTextContent { text: json_result }),
             }],
             is_error: None,
         })
