@@ -1,20 +1,19 @@
-# Release Comparison
+use rmcp::model::{
+    PromptArgument, PromptMessage, PromptMessageRole, PromptMessageContent,
+};
+use rmcp::ErrorData as McpError;
+use serde::{Deserialize, Serialize};
 
-## Description
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ReleaseComparisonArgs {
+    pub current_version: String,
+    pub target_version: String,
+    pub specific_changes: Option<String>,
+}
 
-List changes between two polkadot-sdk release versions
-
-## Arguments
-
-- current_version: version currently being used
-- target_version: version dev wants to compare with (must be greater than current)
-- specific_changes (Optional): What specific changes to look for (e.g: was there any change in `pallet_treasury` ?)
-
-## Prompt
-
-```
-Compare changes between Polkadot SDK versions <current_version> and 
-<target_version>.
+pub fn release_comparison_prompt(args: ReleaseComparisonArgs) -> Result<Vec<PromptMessage>, McpError> {
+    let mut prompt = format!(
+        r#"Compare changes between Polkadot SDK versions {} and {}.
 
 ## Tools and Resources
 - Use substrate_mcp's `get_polkadot_sdk_release_prdocs` tool to fetch release documentation
@@ -48,13 +47,23 @@ If comparing different releases (e.g., stable2502 → stable2503-2):
 3. Example: stable2502 → stable2503-2 requires:
    - stable2503 (base release)
    - stable2503-1
-   - stable2503-2
+   - stable2503-2"#,
+        args.current_version, args.target_version
+    );
 
-<% if specific_changes %>
+    if let Some(specific_changes) = &args.specific_changes {
+        prompt.push_str(&format!(
+            r#"
+
 ## Filtered Analysis
-Focus only on changes related to: <specific_changes>
-Filter PRDocs and code changes to match these criteria.
-<% end %>
+Focus only on changes related to: {}
+Filter PRDocs and code changes to match these criteria."#,
+            specific_changes
+        ));
+    }
+
+    prompt.push_str(
+        r#"
 
 ## Output Format
 
@@ -94,12 +103,41 @@ For each version in sequence:
 Based on the changes between versions:
 1. **High Priority**: [Critical updates needed]
 2. **Medium Priority**: [Recommended updates]
-3. **Low Priority**: [Optional improvements]
+3. **Low Priority**: [Optional improvements]"#,
+    );
 
-<% if not specific_changes %>
+    if args.specific_changes.is_none() {
+        prompt.push_str(
+            r#"
+
 ### Additional Notes
 - Changes not covered by PRDocs may exist in the codebase
-- Review CHANGELOG.md files for complete details
-<% end %>
+- Review CHANGELOG.md files for complete details"#,
+        );
+    }
 
-```
+    Ok(vec![PromptMessage {
+        role: PromptMessageRole::User,
+        content: PromptMessageContent::Text { text: prompt },
+    }])
+}
+
+pub fn get_release_comparison_prompt_arguments() -> Vec<PromptArgument> {
+    vec![
+        PromptArgument {
+            name: "current_version".to_string(),
+            description: Some("Version currently being used".to_string()),
+            required: Some(true),
+        },
+        PromptArgument {
+            name: "target_version".to_string(),
+            description: Some("Version dev wants to compare with (must be greater than current)".to_string()),
+            required: Some(true),
+        },
+        PromptArgument {
+            name: "specific_changes".to_string(),
+            description: Some("What specific changes to look for (e.g: was there any change in `pallet_treasury` ?)".to_string()),
+            required: Some(false),
+        },
+    ]
+}

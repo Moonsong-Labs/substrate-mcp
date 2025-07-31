@@ -3,6 +3,7 @@ use rmcp::service::ServiceExt;
 use tokio::io::{stdin, stdout};
 
 mod polkadot_sdk_releases;
+mod prompts;
 mod server;
 mod substrate;
 
