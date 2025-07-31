@@ -155,10 +155,7 @@ impl ServerHandler for SubstrateService {
     ) -> Result<ReadResourceResult, McpError> {
         match resources::get_resource_content(&request.uri) {
             Some(content) => Ok(ReadResourceResult {
-                contents: vec![ResourceContents::text(
-                    content.to_string(),
-                    request.uri.clone(),
-                )],
+                contents: vec![ResourceContents::text(content, request.uri.clone())],
             }),
             None => Err(McpError::resource_not_found(request.uri, None)),
         }
