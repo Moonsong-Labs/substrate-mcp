@@ -17,6 +17,29 @@ pub struct SubstratePrompt {
     >,
 }
 
+/// Helper to extract a required string argument from the args map
+fn get_required_arg(
+    args: &serde_json::Map<String, serde_json::Value>,
+    name: &str,
+) -> Result<String, McpError> {
+    args.get(name)
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| McpError {
+            code: rmcp::model::ErrorCode::INVALID_PARAMS,
+            message: format!("{} is required", name).into(),
+            data: None,
+        })
+        .map(|s| s.to_string())
+}
+
+/// Helper to extract an optional string argument from the args map
+fn get_optional_arg(
+    args: &serde_json::Map<String, serde_json::Value>,
+    name: &str,
+) -> Option<String> {
+    args.get(name).and_then(|v| v.as_str()).map(|s| s.to_string())
+}
+
 
 /// Create a new Prompts instance with all available prompts
 pub fn prompts() -> Vec<SubstratePrompt> {
@@ -42,30 +65,9 @@ pub fn prompts() -> Vec<SubstratePrompt> {
                 },
             ],
             handler: Box::new(|args| {
-                let current_version = args
-                    .get("current_version")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "current_version is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
-
-                let target_version = args
-                    .get("target_version")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "target_version is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
-
-                let specific_changes = args
-                    .get("specific_changes")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
+                let current_version = get_required_arg(args, "current_version")?;
+                let target_version = get_required_arg(args, "target_version")?;
+                let specific_changes = get_optional_arg(args, "specific_changes");
 
                 release_comparison_prompt(current_version, target_version, specific_changes)
             }),
@@ -81,16 +83,7 @@ pub fn prompts() -> Vec<SubstratePrompt> {
                 },
             ],
             handler: Box::new(|args| {
-                let change_description = args
-                    .get("change_description")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "change_description is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
-
+                let change_description = get_required_arg(args, "change_description")?;
                 automated_analysis_prompt(change_description)
             }),
         },
@@ -115,30 +108,9 @@ pub fn prompts() -> Vec<SubstratePrompt> {
                 },
             ],
             handler: Box::new(|args| {
-                let audit_type = args
-                    .get("audit_type")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "audit_type is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
-
-                let audit_target = args
-                    .get("audit_target")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "audit_target is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
-
-                let specific_checks = args
-                    .get("specific_checks")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
+                let audit_type = get_required_arg(args, "audit_type")?;
+                let audit_target = get_required_arg(args, "audit_target")?;
+                let specific_checks = get_optional_arg(args, "specific_checks");
 
                 code_security_audit_prompt(audit_type, audit_target, specific_checks)
             }),
@@ -159,25 +131,8 @@ pub fn prompts() -> Vec<SubstratePrompt> {
                 },
             ],
             handler: Box::new(|args| {
-                let system_description = args
-                    .get("system_description")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "system_description is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
-
-                let extra_context = args
-                    .get("extra_context")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "extra_context is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
+                let system_description = get_required_arg(args, "system_description")?;
+                let extra_context = get_required_arg(args, "extra_context")?;
 
                 economic_security_prompt(system_description, extra_context)
             }),
@@ -198,25 +153,8 @@ pub fn prompts() -> Vec<SubstratePrompt> {
                 },
             ],
             handler: Box::new(|args| {
-                let target_pallets = args
-                    .get("target_pallets")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "target_pallets is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
-
-                let analysis_specifications = args
-                    .get("analysis_specifications")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "analysis_specifications is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
+                let target_pallets = get_required_arg(args, "target_pallets")?;
+                let analysis_specifications = get_required_arg(args, "analysis_specifications")?;
 
                 pallet_incentive_analysis_prompt(target_pallets, analysis_specifications)
             }),
@@ -232,16 +170,7 @@ pub fn prompts() -> Vec<SubstratePrompt> {
                 },
             ],
             handler: Box::new(|args| {
-                let pallet_description = args
-                    .get("pallet_description")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "pallet_description is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
-
+                let pallet_description = get_required_arg(args, "pallet_description")?;
                 scaffold_pallet_prompt(pallet_description)
             }),
         },
@@ -261,25 +190,8 @@ pub fn prompts() -> Vec<SubstratePrompt> {
                 },
             ],
             handler: Box::new(|args| {
-                let system_description = args
-                    .get("system_description")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "system_description is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
-
-                let extra_context = args
-                    .get("extra_context")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "extra_context is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
+                let system_description = get_required_arg(args, "system_description")?;
+                let extra_context = get_required_arg(args, "extra_context")?;
 
                 threat_modeling_prompt(system_description, extra_context)
             }),
@@ -295,16 +207,7 @@ pub fn prompts() -> Vec<SubstratePrompt> {
                 },
             ],
             handler: Box::new(|args| {
-                let target_pallet = args
-                    .get("target_pallet")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "target_pallet is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
-
+                let target_pallet = get_required_arg(args, "target_pallet")?;
                 weight_analysis_prompt(target_pallet)
             }),
         },
