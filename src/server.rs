@@ -5,13 +5,12 @@ use rmcp::model::{
     CallToolResult, Content, RawContent, RawTextContent, ServerCapabilities, ServerInfo,
     // Prompt-related imports
     GetPromptRequestParam, GetPromptResult, ListPromptsResult, PaginatedRequestParam,
-    Prompt,
 };
 use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData as McpError};
 use std::future::Future;
 
 use crate::polkadot_sdk_releases;
-use crate::prompts::{self, ReleaseComparisonArgs};
+use crate::prompts;
 use serde::Deserialize;
 
 use crate::substrate::client::SubstrateClient;
@@ -133,72 +132,17 @@ impl ServerHandler for SubstrateService {
 
     async fn list_prompts(
         &self,
-        _cursor: Option<PaginatedRequestParam>,
-        _context: RequestContext<RoleServer>,
+        cursor: Option<PaginatedRequestParam>,
+        context: RequestContext<RoleServer>,
     ) -> Result<ListPromptsResult, McpError> {
-        let prompts = vec![
-            Prompt {
-                name: "release_comparison".to_string(),
-                description: Some("List changes between two polkadot-sdk release versions".to_string()),
-                arguments: Some(prompts::get_release_comparison_prompt_arguments()),
-            },
-        ];
-
-        Ok(ListPromptsResult {
-            prompts,
-            next_cursor: None,
-        })
+        prompts::handle_list_prompts(cursor, context).await
     }
 
     async fn get_prompt(
         &self,
         request: GetPromptRequestParam,
-        _context: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<GetPromptResult, McpError> {
-        match request.name.as_str() {
-            "release_comparison" => {
-                let args = request.arguments.as_ref();
-                let current_version = args
-                    .and_then(|a| a.get("current_version"))
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "current_version is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
-                    
-                let target_version = args
-                    .and_then(|a| a.get("target_version"))
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| McpError {
-                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: "target_version is required".to_string().into(),
-                        data: None,
-                    })?
-                    .to_string();
-                    
-                let specific_changes = args
-                    .and_then(|a| a.get("specific_changes"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-
-                let messages = prompts::release_comparison_prompt(ReleaseComparisonArgs {
-                    current_version,
-                    target_version,
-                    specific_changes,
-                })?;
-
-                Ok(GetPromptResult {
-                    messages,
-                    description: Some("List changes between two polkadot-sdk release versions".to_string()),
-                })
-            },
-            _ => Err(McpError {
-                code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                message: format!("Unknown prompt: {}", request.name).into(),
-                data: None,
-            }),
-        }
+        prompts::handle_get_prompt(request, context).await
     }
 }
