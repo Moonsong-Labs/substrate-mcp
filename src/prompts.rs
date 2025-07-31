@@ -5,6 +5,23 @@ use rmcp::model::{
 use rmcp::service::{RequestContext, RoleServer};
 use rmcp::ErrorData as McpError;
 
+/// Security disclaimer instruction for AI-generated analysis
+const SECURITY_DISCLAIMER: &str = r#"
+
+## Important: Security Disclaimer
+
+At the end of your analysis, you MUST include the following disclaimer:
+
+## ⚠️ AI ANALYSIS DISCLAIMER ⚠️
+
+**This is NOT a professional security audit.** This AI-generated analysis:
+- May miss critical vulnerabilities
+- May report false positives  
+- Cannot replace human security experts
+- Must be verified by professionals
+
+Use this ONLY as a supplementary tool for initial review. For production systems, always engage qualified security auditors."#;
+
 /// Metadata and handler for a single prompt
 pub struct SubstratePrompt {
     pub name: String,
@@ -374,7 +391,7 @@ Based on the changes between versions:
 }
 
 fn automated_analysis_prompt(change_description: String) -> Result<Vec<PromptMessage>, McpError> {
-    let prompt = format!(
+    let mut prompt = format!(
         r#"Perform a comprehensive security and quality analysis of the following Substrate project changes for pre-release/PR review:
 
 **Context**: {change_description}
@@ -523,6 +540,8 @@ Additionally review:
 - [ ] Security considerations noted"#
     );
 
+    prompt.push_str(SECURITY_DISCLAIMER);
+
     Ok(vec![PromptMessage {
         role: PromptMessageRole::User,
         content: PromptMessageContent::Text { text: prompt },
@@ -566,6 +585,8 @@ Perform comprehensive analysis with emphasis on:
         ));
     }
 
+    prompt.push_str(SECURITY_DISCLAIMER);
+
     Ok(vec![PromptMessage {
         role: PromptMessageRole::User,
         content: PromptMessageContent::Text { text: prompt },
@@ -573,7 +594,7 @@ Perform comprehensive analysis with emphasis on:
 }
 
 fn economic_security_prompt(system_description: String, extra_context: String) -> Result<Vec<PromptMessage>, McpError> {
-    let prompt = format!(
+    let mut prompt = format!(
         r#"Perform a comprehensive economic security assessment of the following Substrate subsystem:
 
 **Subsystem**: {system_description}
@@ -639,6 +660,8 @@ Please analyze the code and economic design to provide a detailed assessment cov
 Format your response as a structured economic security report with specific calculations, attack scenarios, and actionable recommendations. Include code references where economic logic is implemented."#
     );
 
+    prompt.push_str(SECURITY_DISCLAIMER);
+
     Ok(vec![PromptMessage {
         role: PromptMessageRole::User,
         content: PromptMessageContent::Text { text: prompt },
@@ -649,7 +672,7 @@ fn pallet_incentive_analysis_prompt(
     target_pallets: String,
     analysis_specifications: String,
 ) -> Result<Vec<PromptMessage>, McpError> {
-    let prompt = format!(
+    let mut prompt = format!(
         r#"You are an expert in Cryptoeconomics specializing in Substrate-based 
 blockchain systems. Analyze the incentive mechanisms in the specified pallets
 using game theory and mechanism design principles.
@@ -661,6 +684,8 @@ using game theory and mechanism design principles.
 
 {analysis_specifications}"#
     );
+
+    prompt.push_str(SECURITY_DISCLAIMER);
 
     Ok(vec![PromptMessage {
         role: PromptMessageRole::User,
@@ -974,7 +999,7 @@ runtime-benchmarks = [
 }
 
 fn threat_modeling_prompt(system_description: String, extra_context: String) -> Result<Vec<PromptMessage>, McpError> {
-    let prompt = format!(
+    let mut prompt = format!(
         r#"Perform a comprehensive security threat model analysis of the following Substrate subsystem:
 
 **Subsystem**: {system_description}
@@ -1030,6 +1055,8 @@ Please analyze the code and provide a detailed threat model covering:
 Format your response as a structured security report with clear sections and actionable findings. Include specific line numbers and code references where issues are found."#
     );
 
+    prompt.push_str(SECURITY_DISCLAIMER);
+
     Ok(vec![PromptMessage {
         role: PromptMessageRole::User,
         content: PromptMessageContent::Text { text: prompt },
@@ -1037,7 +1064,7 @@ Format your response as a structured security report with clear sections and act
 }
 
 fn weight_analysis_prompt(target_pallet: String) -> Result<Vec<PromptMessage>, McpError> {
-    let prompt = format!(
+    let mut prompt = format!(
         r#"Perform a comprehensive weight analysis of the following Substrate pallet under extreme and adversarial conditions:
 
 **Pallet**: {target_pallet}
@@ -1101,6 +1128,8 @@ Please analyze the pallet's weight calculations, benchmarks, and resource usage 
 
 Format your response as a detailed security audit with specific findings, severity ratings, and code examples demonstrating the issues."#
     );
+
+    prompt.push_str(SECURITY_DISCLAIMER);
 
     Ok(vec![PromptMessage {
         role: PromptMessageRole::User,
