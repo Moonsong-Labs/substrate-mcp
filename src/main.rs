@@ -4,6 +4,7 @@ use tokio::io::{stdin, stdout};
 
 mod polkadot_sdk_releases;
 mod public_endpoints;
+mod resources;
 mod server;
 mod substrate;
 
