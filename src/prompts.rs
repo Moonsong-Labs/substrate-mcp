@@ -26,16 +26,19 @@ Use this ONLY as a supplementary tool for initial review. For production systems
 
 **REMEMBER**: Include this disclaimer at the end of your response."#;
 
+/// Type alias for prompt handler function
+type PromptHandler = Box<
+    dyn Fn(&serde_json::Map<String, serde_json::Value>) -> Result<Vec<PromptMessage>, McpError>
+        + Send
+        + Sync,
+>;
+
 /// Metadata and handler for a single prompt
 pub struct SubstratePrompt {
     pub name: String,
     pub description: String,
     pub arguments: Vec<PromptArgument>,
-    pub handler: Box<
-        dyn Fn(&serde_json::Map<String, serde_json::Value>) -> Result<Vec<PromptMessage>, McpError>
-            + Send
-            + Sync,
-    >,
+    pub handler: PromptHandler,
 }
 
 /// Helper to extract a required string argument from the args map
@@ -47,7 +50,7 @@ fn get_required_arg(
         .and_then(|v| v.as_str())
         .ok_or_else(|| McpError {
             code: rmcp::model::ErrorCode::INVALID_PARAMS,
-            message: format!("{} is required", name).into(),
+            message: format!("{name} is required").into(),
             data: None,
         })
         .map(|s| s.to_string())
@@ -334,7 +337,7 @@ If comparing different releases (e.g., stable2502 → stable2503-2):
 
 ## Filtered Analysis
 Focus only on changes related to: {specific_changes}
-Filter PRDocs and code changes to match these criteria."#,
+Filter PRDocs and code changes to match these criteria."#
         ));
     }
 
@@ -400,14 +403,13 @@ Based on the changes between versions:
 
 fn automated_analysis_prompt(change_description: String) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
-        r#"{}
+        r#"{SECURITY_DISCLAIMER}
 
 Perform a comprehensive security and quality analysis of the following Substrate project changes for pre-release/PR review:
 
-**Context**: {}
+**Context**: {change_description}
 
-Please analyze the codebase changes and provide a detailed security review covering:"#,
-        SECURITY_DISCLAIMER, change_description
+Please analyze the codebase changes and provide a detailed security review covering:"#
     );
 
     prompt.push_str(
@@ -573,13 +575,12 @@ fn code_security_audit_prompt(
 security. Perform a comprehensive security audit following industry-standard
 practices and Substrate-specific considerations.
 
-{}
+{SECURITY_DISCLAIMER}
 
 ## Audit Target
 {audit_target}
 
-## Audit Scope"#,
-        SECURITY_DISCLAIMER
+## Audit Scope"#
     );
 
     if let Some(checks) = specific_checks {
@@ -589,12 +590,7 @@ practices and Substrate-specific considerations.
 Prioritize analysis of: {checks}"#
         ));
     } else {
-        prompt.push_str(&format!(
-            r#"
-### Audit Type: {audit_type}
-Perform comprehensive analysis with emphasis on:
-{}"#,
-            match audit_type.as_str() {
+        let audit_emphasis = match audit_type.as_str() {
                 "pallet" => "- Storage security and bounds checking\n- Dispatchable function authorization\n- Input validation and sanitization\n- Weight calculations and DoS prevention\n- Cross-pallet dependencies",
                 "runtime" => "- Pallet configuration security\n- Runtime upgrade paths\n- Executive ordering implications\n- System pallet usage\n- Feature flag security",
                 "node" => "- RPC endpoint security\n- Network protocol vulnerabilities\n- Database access patterns\n- CLI injection risks\n- Resource exhaustion vectors",
@@ -602,11 +598,16 @@ Perform comprehensive analysis with emphasis on:
                 _ => {
                     return Err(McpError {
                         code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                        message: format!("Invalid audit_type '{}'. Must be one of: pallet, runtime, node, general", audit_type).into(),
+                        message: format!("Invalid audit_type '{audit_type}'. Must be one of: pallet, runtime, node, general").into(),
                         data: None,
                     });
                 }
-            }
+            };
+        prompt.push_str(&format!(
+            r#"
+### Audit Type: {audit_type}
+Perform comprehensive analysis with emphasis on:
+{audit_emphasis}"#
         ));
     }
 
@@ -623,15 +624,14 @@ fn economic_security_prompt(
     extra_context: String,
 ) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
-        r#"{}
+        r#"{SECURITY_DISCLAIMER}
 
 Perform a comprehensive economic security assessment of the following Substrate subsystem:
 
-**Subsystem**: {}
-**Context**: {}
+**Subsystem**: {system_description}
+**Context**: {extra_context}
 
-Please analyze the code and economic design to provide a detailed assessment covering:"#,
-        SECURITY_DISCLAIMER, system_description, extra_context
+Please analyze the code and economic design to provide a detailed assessment covering:"#
     );
 
     prompt.push_str(
@@ -708,19 +708,18 @@ fn pallet_incentive_analysis_prompt(
     analysis_specifications: String,
 ) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
-        r#"{}
+        r#"{SECURITY_DISCLAIMER}
 
 You are an expert in Cryptoeconomics specializing in Substrate-based 
 blockchain systems. Analyze the incentive mechanisms in the specified pallets
 using game theory and mechanism design principles.
 
 ## Target Pallets
-{}
+{target_pallets}
 
 ## Analysis Framework
 
-{}"#,
-        SECURITY_DISCLAIMER, target_pallets, analysis_specifications
+{analysis_specifications}"#
     );
 
     prompt.push_str(SECURITY_DISCLAIMER);
@@ -1041,15 +1040,14 @@ fn threat_modeling_prompt(
     extra_context: String,
 ) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
-        r#"{}
+        r#"{SECURITY_DISCLAIMER}
 
 Perform a comprehensive security threat model analysis of the following Substrate subsystem:
 
-**Subsystem**: {}
-**Context**: {}
+**Subsystem**: {system_description}
+**Context**: {extra_context}
 
-Please analyze the code and provide a detailed threat model covering:"#,
-        SECURITY_DISCLAIMER, system_description, extra_context
+Please analyze the code and provide a detailed threat model covering:"#
     );
 
     prompt.push_str(
@@ -1113,14 +1111,13 @@ Format your response as a structured security report with clear sections and act
 
 fn weight_analysis_prompt(target_pallet: String) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
-        r#"{}
+        r#"{SECURITY_DISCLAIMER}
 
 Perform a comprehensive weight analysis of the following Substrate pallet under extreme and adversarial conditions:
 
-**Pallet**: {}
+**Pallet**: {target_pallet}
 
-Please analyze the pallet's weight calculations, benchmarks, and resource usage to identify:"#,
-        SECURITY_DISCLAIMER, target_pallet
+Please analyze the pallet's weight calculations, benchmarks, and resource usage to identify:"#
     );
 
     prompt.push_str(
