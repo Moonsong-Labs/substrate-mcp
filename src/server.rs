@@ -16,10 +16,10 @@ use serde::Deserialize;
 
 use crate::resources;
 use crate::substrate::client::SubstrateClient;
-use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::events::EventFilter;
-use crate::substrate::storage::{StorageQuery, list_pallet_storage};
 use crate::substrate::historical::{query_historical_events, HistoricalEventsQuery};
+use crate::substrate::metadata::MetadataFilter;
+use crate::substrate::storage::{list_pallet_storage, StorageQuery};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -112,6 +112,12 @@ pub struct QueryHistoricalEventsArgs {
     pub pallet: Option<String>,
     /// Filter by event name (optional)
     pub event: Option<String>,
+}
+
+impl Default for SubstrateService {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[tool_router]
@@ -218,7 +224,8 @@ impl SubstrateService {
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to execute subxt: {e}. Make sure subxt is installed.").into(),
+                message: format!("Failed to execute subxt: {e}. Make sure subxt is installed.")
+                    .into(),
                 data: None,
             })?;
 
@@ -460,7 +467,6 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<QueryHistoricalEventsArgs>,
     ) -> Result<CallToolResult, McpError> {
-        
         // Handle endpoint parameter - if it's a known network name, use the full URL
         // Otherwise, prepend wss:// to the endpoint
         let url = match args.endpoint.as_deref() {
@@ -478,16 +484,15 @@ impl SubstrateService {
                     // Convert HTTP to WSS
                     endpoint.replace("http://", "wss://")
                 } else if endpoint.starts_with("https://") {
-                    // Convert HTTPS to WSS  
+                    // Convert HTTPS to WSS
                     endpoint.replace("https://", "wss://")
                 } else {
                     // Assume it's a hostname and prepend wss://
                     format!("wss://{}", endpoint)
                 }
-            },
+            }
             None => crate::public_endpoints::endpoints::DEFAULT.to_string(),
         };
-
 
         // Connect to the chain using subxt for metadata
         let client = OnlineClient::<PolkadotConfig>::from_url(&url)

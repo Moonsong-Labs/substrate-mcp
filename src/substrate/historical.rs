@@ -48,63 +48,59 @@ pub async fn query_historical_events(
     subxt_client: &subxt::OnlineClient<subxt::PolkadotConfig>,
     rpc_url: &str,
 ) -> Result<HistoricalEventsResult> {
-    use jsonrpsee::ws_client::WsClientBuilder;
     use jsonrpsee::core::client::ClientT;
-    
+    use jsonrpsee::ws_client::WsClientBuilder;
+
     // Create WebSocket RPC client for historical queries
-    let rpc_client = WsClientBuilder::default()
-        .build(rpc_url)
-        .await?;
-    
+    let rpc_client = WsClientBuilder::default().build(rpc_url).await?;
+
     // Get current block number
     let current_block: u32 = {
         let params: Vec<serde_json::Value> = vec![];
-        let header: serde_json::Value = rpc_client
-            .request("chain_getHeader", params)
-            .await?;
-        
+        let header: serde_json::Value = rpc_client.request("chain_getHeader", params).await?;
+
         let number_hex = header["number"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("No block number in header"))?;
-        
+
         // Parse hex number (remove 0x prefix)
         u32::from_str_radix(&number_hex[2..], 16)?
     };
-    
+
     // Calculate actual block range
     let from = if query.from_block < 0 {
         (current_block as i32 + query.from_block) as u32
     } else {
         query.from_block as u32
     };
-    
+
     let to = match query.to_block {
         Some(b) if b < 0 => (current_block as i32 + b) as u32,
         Some(b) => b as u32,
         None => current_block, // Default to current block if not specified
     };
-    
+
     let mut all_events = Vec::new();
     let blocks_queried = (to - from + 1) as u32;
-    
+
     // Query each block
     for block_num in from..=to {
         // Get block hash
         let block_hash: Option<String> = rpc_client
             .request("chain_getBlockHash", vec![block_num])
             .await?;
-        
-        let block_hash = block_hash
-            .ok_or_else(|| anyhow::anyhow!("Block {} not found", block_num))?;
-        
+
+        let block_hash =
+            block_hash.ok_or_else(|| anyhow::anyhow!("Block {} not found", block_num))?;
+
         // Get storage key for System.Events
         let storage_key = get_events_storage_key();
-        
+
         // Get events at this block
         let events_data: Option<String> = rpc_client
             .request("state_getStorage", (storage_key, &block_hash))
             .await?;
-        
+
         if let Some(events_hex) = events_data {
             // Decode events using subxt metadata
             let events = decode_events_with_subxt(
@@ -114,12 +110,13 @@ pub async fn query_historical_events(
                 subxt_client,
                 &query.pallet,
                 &query.event,
-            ).await?;
-            
+            )
+            .await?;
+
             all_events.extend(events);
         }
     }
-    
+
     Ok(HistoricalEventsResult {
         events: all_events,
         blocks_queried,
@@ -144,38 +141,35 @@ async fn decode_events_with_subxt(
     event_filter: &Option<String>,
 ) -> Result<Vec<HistoricalEvent>> {
     use subxt::events::Events;
-    
+
     // Remove 0x prefix and decode hex
     let bytes = hex::decode(&events_hex[2..])?;
-    
+
     // Get metadata from subxt client
     let metadata = client.metadata();
-    
+
     // Decode events using subxt
-    let events = Events::<subxt::PolkadotConfig>::decode_from(
-        bytes,
-        metadata.clone(),
-    );
-    
+    let events = Events::<subxt::PolkadotConfig>::decode_from(bytes, metadata.clone());
+
     let mut decoded_events = Vec::new();
-    
+
     // Process each event
     for (idx, event) in events.iter().enumerate() {
         let event = event?;
-        
+
         // Apply filters
         if let Some(ref pallet) = pallet_filter {
             if !event.pallet_name().eq_ignore_ascii_case(pallet) {
                 continue;
             }
         }
-        
+
         if let Some(ref event_name) = event_filter {
             if !event.variant_name().eq_ignore_ascii_case(event_name) {
                 continue;
             }
         }
-        
+
         // Decode event data
         let data = match event.field_values() {
             Ok(fields) => {
@@ -193,7 +187,7 @@ async fn decode_events_with_subxt(
                 })
             }
         };
-        
+
         decoded_events.push(HistoricalEvent {
             block_number,
             block_hash: block_hash.to_string(),
@@ -203,6 +197,6 @@ async fn decode_events_with_subxt(
             data,
         });
     }
-    
+
     Ok(decoded_events)
 }

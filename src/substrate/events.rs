@@ -43,50 +43,58 @@ impl EventFilter {
     ) -> Result<Vec<DecodedEvent>> {
         // For now, we'll use the historical events module for all event queries
         // This provides a workaround for the block hash retrieval issue
-        
+
         // Get latest block to determine range
         let latest_block = client.blocks().at_latest().await?;
         let latest_number = latest_block.number();
-        
+
         let from = self.from_block.unwrap_or(latest_number.saturating_sub(100));
         let to = self.to_block.unwrap_or(latest_number);
-        
+
         // Create a historical query
-        let query = crate::substrate::historical::HistoricalEventsQuery {
+        let _query = crate::substrate::historical::HistoricalEventsQuery {
             from_block: from as i32,
             to_block: Some(to as i32),
             pallet: self.pallet.clone(),
             event: self.variant.clone(),
         };
-        
+
         // Get the RPC URL from somewhere (this is a limitation - we need the URL)
         // For now, we'll return an error directing to use the historical events tool
-        return Err(anyhow::anyhow!(
+        Err(anyhow::anyhow!(
             "Historical block hash retrieval not yet implemented. Please use the query_historical_events tool instead."
-        ));
+        ))
     }
-    
+
     /// Check if an event matches the filter criteria
+    #[allow(dead_code)]
     fn matches_event(&self, pallet: &str, variant: &str) -> bool {
         // Check pallet filter
         if let Some(ref filter_pallet) = self.pallet {
-            if !pallet.to_lowercase().contains(&filter_pallet.to_lowercase()) {
+            if !pallet
+                .to_lowercase()
+                .contains(&filter_pallet.to_lowercase())
+            {
                 return false;
             }
         }
-        
+
         // Check variant filter
         if let Some(ref filter_variant) = self.variant {
-            if !variant.to_lowercase().contains(&filter_variant.to_lowercase()) {
+            if !variant
+                .to_lowercase()
+                .contains(&filter_variant.to_lowercase())
+            {
                 return false;
             }
         }
-        
+
         true
     }
-    
+
     /// Convert event data to JSON
-    fn event_to_json<T>(&self, event: &subxt::events::EventDetails<T>) -> serde_json::Value 
+    #[allow(dead_code)]
+    fn event_to_json<T>(&self, event: &subxt::events::EventDetails<T>) -> serde_json::Value
     where
         T: subxt::Config,
     {
@@ -114,6 +122,7 @@ impl EventFilter {
 }
 
 /// Query events from a specific block
+#[allow(dead_code)]
 pub async fn get_block_events(
     client: &OnlineClient<PolkadotConfig>,
     block_number: Option<u32>,
@@ -124,17 +133,17 @@ pub async fn get_block_events(
             "Historical block query not yet implemented. Please use the query_historical_events tool for historical data."
         ));
     }
-    
+
     let block = client.blocks().at_latest().await?;
-    
+
     let events = block.events().await?;
     let block_number = block.number();
     let block_hash = format!("0x{}", hex::encode(block.hash().as_ref()));
-    
+
     let mut results = Vec::new();
     for (idx, event) in events.iter().enumerate() {
         let event = event?;
-        
+
         let data = match event.field_values() {
             Ok(fields) => {
                 let json_fields = crate::substrate::scale_utils::composite_to_json(&fields);
@@ -152,7 +161,7 @@ pub async fn get_block_events(
                 })
             }
         };
-        
+
         results.push(DecodedEvent {
             pallet: event.pallet_name().to_string(),
             variant: event.variant_name().to_string(),
@@ -162,6 +171,6 @@ pub async fn get_block_events(
             data,
         });
     }
-    
+
     Ok(results)
 }

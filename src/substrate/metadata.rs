@@ -39,7 +39,10 @@ impl MetadataFilter {
 
             // Check if pallet matches filter
             if let Some(ref filter_pallet) = self.pallet {
-                if !pallet_name.to_lowercase().contains(&filter_pallet.to_lowercase()) {
+                if !pallet_name
+                    .to_lowercase()
+                    .contains(&filter_pallet.to_lowercase())
+                {
                     continue;
                 }
             }

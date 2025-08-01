@@ -1,8 +1,8 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use subxt::dynamic::{self, Value};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
-use subxt::dynamic::{self, Value};
 
 /// Represents a storage entry value
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,34 +34,31 @@ pub struct StorageQuery {
 
 impl StorageQuery {
     /// Execute the storage query
-    pub async fn execute(
-        &self,
-        client: &OnlineClient<PolkadotConfig>,
-    ) -> Result<StorageEntry> {
+    pub async fn execute(&self, client: &OnlineClient<PolkadotConfig>) -> Result<StorageEntry> {
         // Get metadata
         let metadata = client.metadata();
-        
+
         // Find the pallet
         let pallet = metadata
             .pallet_by_name(&self.pallet)
             .ok_or_else(|| anyhow::anyhow!("Pallet '{}' not found", self.pallet))?;
-        
+
         // Find the storage entry
         let storage = pallet
             .storage()
             .ok_or_else(|| anyhow::anyhow!("Pallet '{}' has no storage", self.pallet))?;
-        
-        let _entry = storage
-            .entry_by_name(&self.entry)
-            .ok_or_else(|| anyhow::anyhow!(
+
+        let _entry = storage.entry_by_name(&self.entry).ok_or_else(|| {
+            anyhow::anyhow!(
                 "Storage entry '{}' not found in pallet '{}'",
                 self.entry,
                 self.pallet
-            ))?;
-        
+            )
+        })?;
+
         // Build the storage address dynamically
         let storage_address = dynamic::storage(&self.pallet, &self.entry, self.build_keys()?);
-        
+
         // Get the block to query
         let block = if let Some(block_num) = self.at_block {
             // For specific block number, we need to get the hash
@@ -71,16 +68,19 @@ impl StorageQuery {
                 latest.hash()
             } else {
                 // For historical blocks, we'd need to use RPC methods
-                return Err(anyhow::anyhow!("Historical block query not yet implemented for block {}", block_num));
+                return Err(anyhow::anyhow!(
+                    "Historical block query not yet implemented for block {}",
+                    block_num
+                ));
             };
             client.blocks().at(hash).await?
         } else {
             client.blocks().at_latest().await?
         };
-        
+
         // Fetch the storage value
         let result = block.storage().fetch(&storage_address).await?;
-        
+
         // Format the result
         let value = match result {
             Some(storage_value) => {
@@ -92,7 +92,7 @@ impl StorageQuery {
                             "exists": true,
                             "decoded": format!("{:?}", decoded_value)
                         })
-                    },
+                    }
                     Err(e) => {
                         serde_json::json!({
                             "exists": true,
@@ -100,14 +100,14 @@ impl StorageQuery {
                         })
                     }
                 }
-            },
+            }
             None => serde_json::Value::Null,
         };
-        
+
         // Get the storage key - for now just indicate the query params
         // A full implementation would encode the actual storage key
         let key = format!("{}.{}", self.pallet, self.entry);
-        
+
         Ok(StorageEntry {
             pallet: self.pallet.clone(),
             entry: self.entry.clone(),
@@ -116,7 +116,7 @@ impl StorageQuery {
             at_block: self.at_block.or(Some(block.number())),
         })
     }
-    
+
     /// Build keys for the storage query
     fn build_keys(&self) -> Result<Vec<Value>> {
         match &self.keys {
@@ -125,26 +125,23 @@ impl StorageQuery {
                 // This is a simplified implementation
                 Ok(keys
                     .iter()
-                    .map(|k| {
-                        match k {
-                            serde_json::Value::String(s) => Value::string(s),
-                            serde_json::Value::Number(n) => {
-                                if let Some(u) = n.as_u64() {
-                                    Value::u128(u as u128)
-                                } else {
-                                    Value::i128(n.as_i64().unwrap_or(0) as i128)
-                                }
+                    .map(|k| match k {
+                        serde_json::Value::String(s) => Value::string(s),
+                        serde_json::Value::Number(n) => {
+                            if let Some(u) = n.as_u64() {
+                                Value::u128(u as u128)
+                            } else {
+                                Value::i128(n.as_i64().unwrap_or(0) as i128)
                             }
-                            serde_json::Value::Bool(b) => Value::bool(*b),
-                            _ => Value::string(&k.to_string()),
                         }
+                        serde_json::Value::Bool(b) => Value::bool(*b),
+                        _ => Value::string(k.to_string()),
                     })
                     .collect())
             }
             None => Ok(vec![]),
         }
     }
-    
 }
 
 /// Query multiple storage entries in a single batch
@@ -156,12 +153,13 @@ pub struct BatchStorageQuery {
 
 impl BatchStorageQuery {
     /// Execute all storage queries
+    #[allow(dead_code)]
     pub async fn execute(
         &self,
         client: &OnlineClient<PolkadotConfig>,
     ) -> Result<Vec<StorageEntry>> {
         let mut results = Vec::new();
-        
+
         for query in &self.queries {
             match query.execute(client).await {
                 Ok(entry) => results.push(entry),
@@ -179,7 +177,7 @@ impl BatchStorageQuery {
                 }
             }
         }
-        
+
         Ok(results)
     }
 }
@@ -190,15 +188,15 @@ pub async fn list_pallet_storage(
     pallet_name: &str,
 ) -> Result<Vec<String>> {
     let metadata = client.metadata();
-    
+
     let pallet = metadata
         .pallet_by_name(pallet_name)
         .ok_or_else(|| anyhow::anyhow!("Pallet '{}' not found", pallet_name))?;
-    
+
     let storage = pallet
         .storage()
         .ok_or_else(|| anyhow::anyhow!("Pallet '{}' has no storage", pallet_name))?;
-    
+
     Ok(storage
         .entries()
         .iter()
