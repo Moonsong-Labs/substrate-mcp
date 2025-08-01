@@ -54,9 +54,10 @@ fn get_optional_arg(
     args: &serde_json::Map<String, serde_json::Value>,
     name: &str,
 ) -> Option<String> {
-    args.get(name).and_then(|v| v.as_str()).map(|s| s.to_string())
+    args.get(name)
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
 }
-
 
 /// Create a new Prompts instance with all available prompts
 pub fn prompts() -> Vec<SubstratePrompt> {
@@ -231,7 +232,6 @@ pub fn prompts() -> Vec<SubstratePrompt> {
     ]
 }
 
-
 /// Get the list of all available prompts
 fn list_prompts() -> Vec<Prompt> {
     prompts()
@@ -246,7 +246,7 @@ fn list_prompts() -> Vec<Prompt> {
 
 /// Get a specific prompt by name
 fn get_prompt(name: &str) -> Option<SubstratePrompt> {
-   prompts().into_iter().find(|p| p.name == name)
+    prompts().into_iter().find(|p| p.name == name)
 }
 
 /// Handle list_prompts request
@@ -281,7 +281,11 @@ pub async fn handle_get_prompt(
     })
 }
 
-fn release_comparison_prompt(current_version: String, target_version: String, specific_changes: Option<String>) -> Result<Vec<PromptMessage>, McpError> {
+fn release_comparison_prompt(
+    current_version: String,
+    target_version: String,
+    specific_changes: Option<String>,
+) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
         r#"Compare changes between Polkadot SDK versions {current_version} and {target_version}.
 
@@ -593,7 +597,10 @@ Perform comprehensive analysis with emphasis on:
     }])
 }
 
-fn economic_security_prompt(system_description: String, extra_context: String) -> Result<Vec<PromptMessage>, McpError> {
+fn economic_security_prompt(
+    system_description: String,
+    extra_context: String,
+) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
         r#"Perform a comprehensive economic security assessment of the following Substrate subsystem:
 
@@ -998,7 +1005,10 @@ runtime-benchmarks = [
     }])
 }
 
-fn threat_modeling_prompt(system_description: String, extra_context: String) -> Result<Vec<PromptMessage>, McpError> {
+fn threat_modeling_prompt(
+    system_description: String,
+    extra_context: String,
+) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
         r#"Perform a comprehensive security threat model analysis of the following Substrate subsystem:
 
