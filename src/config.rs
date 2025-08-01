@@ -90,7 +90,7 @@ pub fn chain_name_from_endpoint(endpoint: &str, config: &Config) -> String {
     if let Some(rpc_endpoint) = config.endpoints.iter().find(|e| e.url == endpoint) {
         return rpc_endpoint.description.clone();
     }
-    
+
     match endpoint {
         e if e.contains("polkadot") && !e.contains("kusama") && !e.contains("westend") => {
             "Polkadot".to_string()
