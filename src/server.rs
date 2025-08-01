@@ -164,7 +164,7 @@ impl SubstrateService {
             .unwrap_or_else(|| crate::public_endpoints::endpoints::DEFAULT.to_string());
 
         let chain_name = crate::public_endpoints::chain_name_from_endpoint(&url);
-        log::info!("Connecting to {} at {}", chain_name, url);
+        log::info!("Connecting to {chain_name} at {url}");
         let client = SubstrateClient::connect(&url).await.map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
             message: e.to_string().into(),
@@ -235,7 +235,7 @@ impl SubstrateService {
         if !output.status.success() {
             return Err(McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("subxt command failed: {}", stderr).into(),
+                message: format!("subxt command failed: {stderr}").into(),
                 data: None,
             });
         }
@@ -274,7 +274,7 @@ impl SubstrateService {
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to connect to chain: {}", e).into(),
+                message: format!("Failed to connect to chain: {e}").into(),
                 data: None,
             })?;
 
@@ -292,14 +292,14 @@ impl SubstrateService {
         // Apply filter
         let results = filter.apply(&metadata).map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to filter metadata: {}", e).into(),
+            message: format!("Failed to filter metadata: {e}").into(),
             data: None,
         })?;
 
         // Convert to JSON
         let json_result = serde_json::to_string_pretty(&results).map_err(|e| McpError {
             code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-            message: format!("Serialization error: {}", e).into(),
+            message: format!("Serialization error: {e}").into(),
             data: None,
         })?;
 
@@ -328,7 +328,7 @@ impl SubstrateService {
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to connect to chain: {}", e).into(),
+                message: format!("Failed to connect to chain: {e}").into(),
                 data: None,
             })?;
 
@@ -344,14 +344,14 @@ impl SubstrateService {
         // Query events
         let results = filter.query_events(&client).await.map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to query events: {}", e).into(),
+            message: format!("Failed to query events: {e}").into(),
             data: None,
         })?;
 
         // Convert to JSON
         let json_result = serde_json::to_string_pretty(&results).map_err(|e| McpError {
             code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-            message: format!("Serialization error: {}", e).into(),
+            message: format!("Serialization error: {e}").into(),
             data: None,
         })?;
 
@@ -380,7 +380,7 @@ impl SubstrateService {
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to connect to chain: {}", e).into(),
+                message: format!("Failed to connect to chain: {e}").into(),
                 data: None,
             })?;
 
@@ -395,14 +395,14 @@ impl SubstrateService {
         // Execute query
         let result = query.execute(&client).await.map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to query storage: {}", e).into(),
+            message: format!("Failed to query storage: {e}").into(),
             data: None,
         })?;
 
         // Convert to JSON
         let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
             code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-            message: format!("Serialization error: {}", e).into(),
+            message: format!("Serialization error: {e}").into(),
             data: None,
         })?;
 
@@ -431,7 +431,7 @@ impl SubstrateService {
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to connect to chain: {}", e).into(),
+                message: format!("Failed to connect to chain: {e}").into(),
                 data: None,
             })?;
 
@@ -440,14 +440,14 @@ impl SubstrateService {
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to list storage: {}", e).into(),
+                message: format!("Failed to list storage: {e}").into(),
                 data: None,
             })?;
 
         // Convert to JSON
         let json_result = serde_json::to_string_pretty(&entries).map_err(|e| McpError {
             code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-            message: format!("Serialization error: {}", e).into(),
+            message: format!("Serialization error: {e}").into(),
             data: None,
         })?;
 
@@ -488,7 +488,7 @@ impl SubstrateService {
                     endpoint.replace("https://", "wss://")
                 } else {
                     // Assume it's a hostname and prepend wss://
-                    format!("wss://{}", endpoint)
+                    format!("wss://{endpoint}")
                 }
             }
             None => crate::public_endpoints::endpoints::DEFAULT.to_string(),
@@ -499,7 +499,7 @@ impl SubstrateService {
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to connect to chain with URL '{}': {}", url, e).into(),
+                message: format!("Failed to connect to chain with URL '{url}': {e}").into(),
                 data: None,
             })?;
 
@@ -516,14 +516,14 @@ impl SubstrateService {
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to query historical events: {}", e).into(),
+                message: format!("Failed to query historical events: {e}").into(),
                 data: None,
             })?;
 
         // Convert to JSON
         let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
             code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-            message: format!("Serialization error: {}", e).into(),
+            message: format!("Serialization error: {e}").into(),
             data: None,
         })?;
 
