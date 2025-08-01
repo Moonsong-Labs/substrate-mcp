@@ -25,9 +25,21 @@ cargo install subxt-cli
 
 ## Available Tools
 
-- **`get_polkadot_sdk_release_prdocs`** - Get documented changes for polkadot-sdk releases
-- **`chain_storage_bisect`** - Find storage changes between blocks for a specific key
-- **`subxt_execute`** - Decode metadata, generate type-safe code, and explore Substrate chains
+### Event Querying
+- **`query_events`** - Query and filter blockchain events within a specified block range. Supports filtering by pallet and event name with partial matching.
+- **`query_historical_events`** - Query events from historical blocks. Supports relative block numbers (e.g., -10 for 10 blocks ago).
+
+### Storage Querying
+- **`query_storage`** - Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys.
+- **`list_pallet_storage`** - List all storage entries available in a specific pallet.
+- **`chain_storage_bisect`** - Find all storage changes between two blocks for a specific key.
+
+### Metadata and Chain Exploration
+- **`filter_metadata`** - Filter and search chain metadata to discover available pallets, storage entries, calls, events, constants, and errors. Supports partial name matching.
+- **`subxt_execute`** - Use subxt CLI to decode and explore Substrate blockchain data. Useful for analyzing chain metadata, generating type-safe Rust code, and understanding runtime APIs.
+
+### Documentation
+- **`get_polkadot_sdk_release_prdocs`** - Get all documented changes for a given polkadot-sdk release.
 
 ## Usage with Claude Code
 
