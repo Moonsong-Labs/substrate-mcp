@@ -9,23 +9,27 @@ use rmcp::service::{RequestContext, RoleServer};
 use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData as McpError};
 use std::future::Future;
 
+use crate::config::RpcConfig;
 use crate::polkadot_sdk_releases;
 use serde::Deserialize;
 
 use crate::resources;
 use crate::substrate::client::SubstrateClient;
+use std::sync::Arc;
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct StorageBisectArgs {
     pub start_block: u32,
     pub end_block: u32,
     pub key: String,
+    /// RPC endpoint URL or name from config (e.g., "polkadot", "kusama", "local")
     pub rpc_url: Option<String>,
 }
 
 #[derive(Clone)]
 pub struct SubstrateService {
     tool_router: ToolRouter<Self>,
+    rpc_config: Arc<RpcConfig>,
 }
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
@@ -37,8 +41,17 @@ pub struct GetPolkadotSdkReleasePrdocsRequest {
 #[tool_router]
 impl SubstrateService {
     pub fn new() -> Self {
+        let rpc_config = match RpcConfig::load() {
+            Ok(config) => Arc::new(config),
+            Err(e) => {
+                log::warn!("Failed to load RPC config: {e}, using defaults");
+                Arc::new(RpcConfig::default())
+            }
+        };
+
         Self {
             tool_router: Self::tool_router(),
+            rpc_config,
         }
     }
 
@@ -73,9 +86,42 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<StorageBisectArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let url = args
-            .rpc_url
-            .unwrap_or_else(|| "http://127.0.0.1:9944".to_string());
+        let url = if let Some(url_or_name) = args.rpc_url {
+            // Check if it's a named endpoint from config
+            if let Some(endpoint_url) = self.rpc_config.get_url(&url_or_name) {
+                endpoint_url.to_string()
+            } else if url_or_name.starts_with("http://")
+                || url_or_name.starts_with("https://")
+                || url_or_name.starts_with("ws://")
+                || url_or_name.starts_with("wss://")
+            {
+                // It's a URL, use it directly
+                url_or_name
+            } else {
+                return Err(McpError {
+                    code: rmcp::model::ErrorCode(-32602),
+                    message: format!(
+                        "Unknown endpoint name '{}'. Available endpoints: {}",
+                        url_or_name,
+                        self.rpc_config
+                            .endpoints
+                            .iter()
+                            .map(|e| &e.name)
+                            .cloned()
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                    .into(),
+                    data: None,
+                });
+            }
+        } else {
+            // Default to local endpoint from config
+            self.rpc_config
+                .get_url("local")
+                .unwrap_or("http://127.0.0.1:9944")
+                .to_string()
+        };
 
         log::info!("Connecting to Substrate node at {url}...");
         let client = SubstrateClient::connect(&url).await.map_err(|e| McpError {
@@ -110,6 +156,23 @@ impl SubstrateService {
                 data: None,
             }),
         }
+    }
+
+    #[tool(
+        description = "List all configured RPC endpoints with their names, URLs, and descriptions"
+    )]
+    pub async fn list_rpc_endpoints(&self) -> Result<CallToolResult, McpError> {
+        let formatted_list = crate::config::format_endpoint_list(&self.rpc_config);
+
+        Ok(CallToolResult {
+            content: vec![Content {
+                annotations: None,
+                raw: RawContent::Text(RawTextContent {
+                    text: formatted_list,
+                }),
+            }],
+            is_error: None,
+        })
     }
 }
 
