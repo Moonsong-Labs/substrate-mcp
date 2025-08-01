@@ -557,6 +557,22 @@ fn code_security_audit_prompt(
     audit_target: String,
     specific_checks: Option<String>,
 ) -> Result<Vec<PromptMessage>, McpError> {
+    // Validate audit_type
+    match audit_type.as_str() {
+        "pallet" | "runtime" | "node" | "general" => {}
+        _ => {
+            return Err(McpError {
+                code: rmcp::model::ErrorCode::INVALID_PARAMS,
+                message: format!(
+                    "Invalid audit_type '{}'. Must be one of: pallet, runtime, node, general",
+                    audit_type
+                )
+                .into(),
+                data: None,
+            });
+        }
+    }
+
     let mut prompt = format!(
         r#"You are a Systems Security Expert specializing in Substrate-based blockchain
 security. Perform a comprehensive security audit following industry-standard
@@ -584,7 +600,14 @@ Perform comprehensive analysis with emphasis on:
                 "pallet" => "- Storage security and bounds checking\n- Dispatchable function authorization\n- Input validation and sanitization\n- Weight calculations and DoS prevention\n- Cross-pallet dependencies",
                 "runtime" => "- Pallet configuration security\n- Runtime upgrade paths\n- Executive ordering implications\n- System pallet usage\n- Feature flag security",
                 "node" => "- RPC endpoint security\n- Network protocol vulnerabilities\n- Database access patterns\n- CLI injection risks\n- Resource exhaustion vectors",
-                _ => "- General security best practices\n- Common vulnerability patterns\n- Substrate-specific risks",
+                "general" => "- General security best practices\n- Common vulnerability patterns\n- Substrate-specific risks",
+                _ => {
+                    return Err(McpError {
+                        code: rmcp::model::ErrorCode::INVALID_PARAMS,
+                        message: format!("Invalid audit_type '{}'. Must be one of: pallet, runtime, node, general", audit_type).into(),
+                        data: None,
+                    });
+                }
             }
         ));
     }
