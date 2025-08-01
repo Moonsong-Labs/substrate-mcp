@@ -1,0 +1,50 @@
+{
+  "endpoints": [
+    {
+      "name": "polkadot",
+      "url": "wss://rpc.polkadot.io",
+      "description": "Polkadot mainnet - The main Polkadot relay chain"
+    },
+    {
+      "name": "kusama",
+      "url": "wss://kusama-rpc.polkadot.io",
+      "description": "Kusama canary network - Polkadot's experimental network"
+    },
+    {
+      "name": "westend",
+      "url": "wss://westend-rpc.polkadot.io",
+      "description": "Westend testnet - Public test network for Polkadot"
+    },
+    {
+      "name": "rococo",
+      "url": "wss://rococo-rpc.polkadot.io",
+      "description": "Rococo testnet - Parachain test network"
+    },
+    {
+      "name": "paseo",
+      "url": "wss://paseo.rpc.amforc.com",
+      "description": "Paseo testnet - Community-run testnet (replaced Rococo for parachains)"
+    },
+    {
+      "name": "asset-hub-polkadot",
+      "url": "wss://polkadot-asset-hub-rpc.polkadot.io",
+      "description": "Asset Hub on Polkadot - System parachain for asset management"
+    },
+    {
+      "name": "asset-hub-kusama",
+      "url": "wss://kusama-asset-hub-rpc.polkadot.io",
+      "description": "Asset Hub on Kusama - System parachain for asset management on Kusama"
+    },
+    {
+      "name": "asset-hub-westend",
+      "url": "wss://westend-asset-hub-rpc.polkadot.io",
+      "description": "Asset Hub on Westend - Test system parachain for asset management"
+    },
+    {
+      "name": "local",
+      "url": "ws://localhost:9944",
+      "description": "Local development node - Substrate node running on your machine"
+    }
+  ],
+  "default_endpoint": "westend"
+}

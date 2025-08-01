@@ -28,20 +28,3 @@ pub mod endpoints {
     /// Default endpoint (Westend testnet is a good default for testing)
     pub const DEFAULT: &str = WESTEND;
 }
-
-/// Get a user-friendly name for a chain from its endpoint
-pub fn chain_name_from_endpoint(endpoint: &str) -> &'static str {
-    match endpoint {
-        e if e.contains("polkadot") && !e.contains("kusama") && !e.contains("westend") => {
-            "Polkadot"
-        }
-        e if e.contains("kusama") => "Kusama",
-        e if e.contains("westend") => "Westend",
-        e if e.contains("rococo") => "Rococo",
-        e if e.contains("paseo") => "Paseo",
-        e if e.contains("asset-hub") && e.contains("polkadot") => "Asset Hub Polkadot",
-        e if e.contains("asset-hub") && e.contains("kusama") => "Asset Hub Kusama",
-        e if e.contains("asset-hub") && e.contains("westend") => "Asset Hub Westend",
-        _ => "Custom Chain",
-    }
-}

@@ -14,6 +14,7 @@ use tokio::process::Command;
 use crate::polkadot_sdk_releases;
 use serde::Deserialize;
 
+use crate::config::Config;
 use crate::resources;
 use crate::substrate::client::SubstrateClient;
 use crate::substrate::events::EventFilter;
@@ -34,6 +35,7 @@ pub struct StorageBisectArgs {
 #[derive(Clone)]
 pub struct SubstrateService {
     tool_router: ToolRouter<Self>,
+    config: Config,
 }
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
@@ -123,9 +125,26 @@ impl Default for SubstrateService {
 #[tool_router]
 impl SubstrateService {
     pub fn new() -> Self {
+        let config = Config::load_from_file("rpc_endpoints.json").unwrap_or_else(|e| {
+            log::error!("Failed to load config file 'rpc_endpoints.json': {e}");
+            log::error!("Please ensure rpc_endpoints.json exists in the current directory");
+            log::error!("You can find an example configuration in the repository");
+            std::process::exit(1);
+        });
+
         Self {
             tool_router: Self::tool_router(),
+            config,
         }
+    }
+
+    fn get_rpc_url(&self, url_option: Option<String>) -> String {
+        url_option.unwrap_or_else(|| {
+            self.config
+                .get_default_url()
+                .unwrap_or("wss://westend-rpc.polkadot.io")
+                .to_string()
+        })
     }
 
     #[tool(description = "Get all documented changes for a given polkadot-sdk release")]
@@ -159,11 +178,8 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<StorageBisectArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let url = args
-            .rpc_url
-            .unwrap_or_else(|| crate::public_endpoints::endpoints::DEFAULT.to_string());
-
-        let chain_name = crate::public_endpoints::chain_name_from_endpoint(&url);
+        let url = self.get_rpc_url(args.rpc_url);
+        let chain_name = crate::config::chain_name_from_endpoint(&url, &self.config);
         log::info!("Connecting to {chain_name} at {url}");
         let client = SubstrateClient::connect(&url).await.map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
@@ -265,9 +281,7 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<MetadataFilterArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let url = args
-            .rpc_url
-            .unwrap_or_else(|| crate::public_endpoints::endpoints::DEFAULT.to_string());
+        let url = self.get_rpc_url(args.rpc_url);
 
         // Connect to the chain using subxt
         let client = OnlineClient::<PolkadotConfig>::from_url(&url)
@@ -319,9 +333,7 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<EventFilterArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let url = args
-            .rpc_url
-            .unwrap_or_else(|| crate::public_endpoints::endpoints::DEFAULT.to_string());
+        let url = self.get_rpc_url(args.rpc_url);
 
         // Connect to the chain using subxt
         let client = OnlineClient::<PolkadotConfig>::from_url(&url)
@@ -371,9 +383,7 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<StorageQueryArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let url = args
-            .rpc_url
-            .unwrap_or_else(|| crate::public_endpoints::endpoints::DEFAULT.to_string());
+        let url = self.get_rpc_url(args.rpc_url);
 
         // Connect to the chain using subxt
         let client = OnlineClient::<PolkadotConfig>::from_url(&url)
@@ -422,9 +432,7 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<ListPalletStorageArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let url = args
-            .rpc_url
-            .unwrap_or_else(|| crate::public_endpoints::endpoints::DEFAULT.to_string());
+        let url = self.get_rpc_url(args.rpc_url);
 
         // Connect to the chain using subxt
         let client = OnlineClient::<PolkadotConfig>::from_url(&url)
@@ -467,31 +475,31 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<QueryHistoricalEventsArgs>,
     ) -> Result<CallToolResult, McpError> {
-        // Handle endpoint parameter - if it's a known network name, use the full URL
+        // Handle endpoint parameter - if it's a known network name, use the full URL from config
         // Otherwise, prepend wss:// to the endpoint
         let url = match args.endpoint.as_deref() {
-            Some("polkadot") => crate::public_endpoints::endpoints::POLKADOT.to_string(),
-            Some("kusama") => crate::public_endpoints::endpoints::KUSAMA.to_string(),
-            Some("westend") => crate::public_endpoints::endpoints::WESTEND.to_string(),
-            Some("rococo") => crate::public_endpoints::endpoints::ROCOCO.to_string(),
-            Some("paseo") => crate::public_endpoints::endpoints::PASEO.to_string(),
-            Some(endpoint) => {
-                // Handle different protocol schemes
-                if endpoint.starts_with("ws://") || endpoint.starts_with("wss://") {
-                    // WebSocket URLs are used as-is
-                    endpoint.to_string()
-                } else if endpoint.starts_with("http://") {
-                    // Convert HTTP to WSS
-                    endpoint.replace("http://", "wss://")
-                } else if endpoint.starts_with("https://") {
-                    // Convert HTTPS to WSS
-                    endpoint.replace("https://", "wss://")
+            Some(name) => {
+                // Check if it's a known endpoint name in config
+                if let Some(endpoint_url) = self.config.get_endpoint_url(name) {
+                    endpoint_url.to_string()
                 } else {
-                    // Assume it's a hostname and prepend wss://
-                    format!("wss://{endpoint}")
+                    // Handle different protocol schemes for custom endpoints
+                    if name.starts_with("ws://") || name.starts_with("wss://") {
+                        // WebSocket URLs are used as-is
+                        name.to_string()
+                    } else if name.starts_with("http://") {
+                        // Convert HTTP to WSS
+                        name.replace("http://", "wss://")
+                    } else if name.starts_with("https://") {
+                        // Convert HTTPS to WSS
+                        name.replace("https://", "wss://")
+                    } else {
+                        // Assume it's a hostname and prepend wss://
+                        format!("wss://{name}")
+                    }
                 }
             }
-            None => crate::public_endpoints::endpoints::DEFAULT.to_string(),
+            None => self.get_rpc_url(None),
         };
 
         // Connect to the chain using subxt for metadata
