@@ -41,72 +41,29 @@ impl EventFilter {
         &self,
         client: &OnlineClient<PolkadotConfig>,
     ) -> Result<Vec<DecodedEvent>> {
-        let mut results = Vec::new();
+        // For now, we'll use the historical events module for all event queries
+        // This provides a workaround for the block hash retrieval issue
         
-        // Determine block range
+        // Get latest block to determine range
         let latest_block = client.blocks().at_latest().await?;
         let latest_number = latest_block.number();
         
         let from = self.from_block.unwrap_or(latest_number.saturating_sub(100));
         let to = self.to_block.unwrap_or(latest_number);
         
-        // Iterate through blocks
-        for block_num in from..=to {
-            // Get block hash
-            // Get block at height
-            let _block = client
-                .blocks()
-                .at_latest()
-                .await?;
-            
-            // Get the hash for the specific block number
-            let block_hash = {
-                // For now, we'll use a workaround to get historical blocks
-                // In a real implementation, you'd use the RPC client directly
-                let latest = client.blocks().at_latest().await?;
-                if block_num == latest.number() {
-                    latest.hash()
-                } else {
-                    // This is a limitation - we need to implement proper block hash retrieval
-                    return Err(anyhow::anyhow!("Historical block hash retrieval not yet implemented"));
-                }
-            };
-            
-            // Get block
-            let block = client.blocks().at(block_hash).await?;
-            
-            // Get events
-            let events = block.events().await?;
-            
-            // Process events
-            for (idx, event) in events.iter().enumerate() {
-                let event = event?;
-                
-                // Check if event matches filter
-                if self.matches_event(event.pallet_name(), event.variant_name()) {
-                    // Convert event data to JSON
-                    let data = self.event_to_json(&event);
-                    
-                    results.push(DecodedEvent {
-                        pallet: event.pallet_name().to_string(),
-                        variant: event.variant_name().to_string(),
-                        block_number: block_num,
-                        block_hash: format!("0x{}", hex::encode(block_hash.as_ref())),
-                        event_index: idx as u32,
-                        data,
-                    });
-                    
-                    // Check limit
-                    if let Some(limit) = self.limit {
-                        if results.len() >= limit {
-                            return Ok(results);
-                        }
-                    }
-                }
-            }
-        }
+        // Create a historical query
+        let query = crate::substrate::historical::HistoricalEventsQuery {
+            from_block: from as i32,
+            to_block: Some(to as i32),
+            pallet: self.pallet.clone(),
+            event: self.variant.clone(),
+        };
         
-        Ok(results)
+        // Get the RPC URL from somewhere (this is a limitation - we need the URL)
+        // For now, we'll return an error directing to use the historical events tool
+        return Err(anyhow::anyhow!(
+            "Historical block hash retrieval not yet implemented. Please use the query_historical_events tool instead."
+        ));
     }
     
     /// Check if an event matches the filter criteria
@@ -136,12 +93,12 @@ impl EventFilter {
         // Get the decoded field values
         match event.field_values() {
             Ok(fields) => {
-                // For now, just return the debug representation
-                // A full implementation would properly convert scale_value types
+                // Convert scale_value types to proper JSON
+                let json_fields = crate::substrate::scale_utils::composite_to_json(&fields);
                 serde_json::json!({
                     "pallet": event.pallet_name(),
                     "variant": event.variant_name(),
-                    "fields": format!("{:?}", fields)
+                    "fields": json_fields
                 })
             }
             Err(e) => {
@@ -161,20 +118,14 @@ pub async fn get_block_events(
     client: &OnlineClient<PolkadotConfig>,
     block_number: Option<u32>,
 ) -> Result<Vec<DecodedEvent>> {
-    let block = if let Some(num) = block_number {
-        // For specific block number, we need to get the hash
-        // This is a simplified approach - in production, use proper RPC methods
-        let latest = client.blocks().at_latest().await?;
-        let hash = if num == latest.number() {
-            latest.hash()
-        } else {
-            // For historical blocks, we'd need to use RPC methods
-            return Err(anyhow::anyhow!("Historical block query not yet implemented for block {}", num));
-        };
-        client.blocks().at(hash).await?
-    } else {
-        client.blocks().at_latest().await?
-    };
+    // For now, only support querying the latest block
+    if block_number.is_some() {
+        return Err(anyhow::anyhow!(
+            "Historical block query not yet implemented. Please use the query_historical_events tool for historical data."
+        ));
+    }
+    
+    let block = client.blocks().at_latest().await?;
     
     let events = block.events().await?;
     let block_number = block.number();
@@ -186,10 +137,11 @@ pub async fn get_block_events(
         
         let data = match event.field_values() {
             Ok(fields) => {
+                let json_fields = crate::substrate::scale_utils::composite_to_json(&fields);
                 serde_json::json!({
                     "pallet": event.pallet_name(),
                     "variant": event.variant_name(),
-                    "fields": format!("{:?}", fields)
+                    "fields": json_fields
                 })
             }
             Err(e) => {

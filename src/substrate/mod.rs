@@ -12,3 +12,9 @@ pub mod events;
 
 /// Storage module for querying chain storage
 pub mod storage;
+
+/// Historical module for querying past blocks
+pub mod historical;
+
+/// Utilities for converting scale values to JSON
+pub mod scale_utils;

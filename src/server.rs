@@ -15,6 +15,7 @@ use crate::substrate::client::SubstrateClient;
 use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::events::EventFilter;
 use crate::substrate::storage::{StorageQuery, list_pallet_storage};
+use crate::substrate::historical::{query_historical_events, HistoricalEventsQuery};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -93,6 +94,20 @@ pub struct ListPalletStorageArgs {
     pub rpc_url: Option<String>,
     /// The pallet name
     pub pallet: String,
+}
+
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct QueryHistoricalEventsArgs {
+    /// The RPC endpoint to connect to. Can be 'polkadot', 'kusama', 'westend', or a custom endpoint without protocol prefix
+    pub endpoint: Option<String>,
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
+    pub from_block: i32,
+    /// End block number (negative = relative to current, defaults to from_block)
+    pub to_block: Option<i32>,
+    /// Filter by pallet name (optional)
+    pub pallet: Option<String>,
+    /// Filter by event name (optional)
+    pub event: Option<String>,
 }
 
 #[tool_router]
@@ -420,6 +435,84 @@ impl SubstrateService {
 
         // Convert to JSON
         let json_result = serde_json::to_string_pretty(&entries).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+            message: format!("Serialization error: {}", e).into(),
+            data: None,
+        })?;
+
+        Ok(CallToolResult {
+            content: vec![Content {
+                annotations: None,
+                raw: RawContent::Text(RawTextContent { text: json_result }),
+            }],
+            is_error: None,
+        })
+    }
+
+    #[tool(
+        description = "Query events from historical blocks. Supports relative block numbers (e.g., -10 for 10 blocks ago). Uses hybrid approach: RPC for historical access, subxt for decoding."
+    )]
+    pub async fn query_historical_events(
+        &self,
+        Parameters(args): Parameters<QueryHistoricalEventsArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        
+        // Handle endpoint parameter - if it's a known network name, use the full URL
+        // Otherwise, prepend wss:// to the endpoint
+        let url = match args.endpoint.as_deref() {
+            Some("polkadot") => crate::public_endpoints::endpoints::POLKADOT.to_string(),
+            Some("kusama") => crate::public_endpoints::endpoints::KUSAMA.to_string(),
+            Some("westend") => crate::public_endpoints::endpoints::WESTEND.to_string(),
+            Some("rococo") => crate::public_endpoints::endpoints::ROCOCO.to_string(),
+            Some("paseo") => crate::public_endpoints::endpoints::PASEO.to_string(),
+            Some(endpoint) => {
+                // Handle different protocol schemes
+                if endpoint.starts_with("ws://") || endpoint.starts_with("wss://") {
+                    // WebSocket URLs are used as-is
+                    endpoint.to_string()
+                } else if endpoint.starts_with("http://") {
+                    // Convert HTTP to WSS
+                    endpoint.replace("http://", "wss://")
+                } else if endpoint.starts_with("https://") {
+                    // Convert HTTPS to WSS  
+                    endpoint.replace("https://", "wss://")
+                } else {
+                    // Assume it's a hostname and prepend wss://
+                    format!("wss://{}", endpoint)
+                }
+            },
+            None => crate::public_endpoints::endpoints::DEFAULT.to_string(),
+        };
+
+
+        // Connect to the chain using subxt for metadata
+        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to connect to chain with URL '{}': {}", url, e).into(),
+                data: None,
+            })?;
+
+        // Create query
+        let query = HistoricalEventsQuery {
+            from_block: args.from_block,
+            to_block: args.to_block,
+            pallet: args.pallet,
+            event: args.event,
+        };
+
+        // Query historical events
+        let result = query_historical_events(query, &client, &url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to query historical events: {}", e).into(),
+                data: None,
+            })?;
+
+        // Convert to JSON
+        let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
             code: rmcp::model::ErrorCode::INTERNAL_ERROR,
             message: format!("Serialization error: {}", e).into(),
             data: None,
