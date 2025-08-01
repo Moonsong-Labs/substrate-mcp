@@ -28,6 +28,16 @@ impl Config {
         Ok(config)
     }
 
+    #[cfg(test)]
+    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let content = serde_json::to_string_pretty(self).context("Failed to serialize config")?;
+
+        fs::write(path.as_ref(), content)
+            .with_context(|| format!("Failed to write config file: {}", path.as_ref().display()))?;
+
+        Ok(())
+    }
+
     pub fn get_endpoint(&self, name: &str) -> Option<&RpcEndpoint> {
         self.endpoints.iter().find(|e| e.name == name)
     }
