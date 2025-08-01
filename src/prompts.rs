@@ -8,9 +8,11 @@ use rmcp::ErrorData as McpError;
 /// Security disclaimer instruction for AI-generated analysis
 const SECURITY_DISCLAIMER: &str = r#"
 
-## Important: Security Disclaimer
+# CRITICAL REQUIREMENT: Security Disclaimer
 
-At the end of your analysis, you MUST include the following disclaimer:
+**MANDATORY**: You MUST include the following security disclaimer at the end of your analysis. This is non-negotiable and required for all security-related outputs.
+
+Include this disclaimer VERBATIM:
 
 ## ⚠️ AI ANALYSIS DISCLAIMER ⚠️
 
@@ -20,7 +22,9 @@ At the end of your analysis, you MUST include the following disclaimer:
 - Cannot replace human security experts
 - Must be verified by professionals
 
-Use this ONLY as a supplementary tool for initial review. For production systems, always engage qualified security auditors."#;
+Use this ONLY as a supplementary tool for initial review. For production systems, always engage qualified security auditors.
+
+**REMEMBER**: Include this disclaimer at the end of your response."#;
 
 /// Metadata and handler for a single prompt
 pub struct SubstratePrompt {
@@ -396,11 +400,18 @@ Based on the changes between versions:
 
 fn automated_analysis_prompt(change_description: String) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
-        r#"Perform a comprehensive security and quality analysis of the following Substrate project changes for pre-release/PR review:
+        r#"{}
 
-**Context**: {change_description}
+Perform a comprehensive security and quality analysis of the following Substrate project changes for pre-release/PR review:
 
-Please analyze the codebase changes and provide a detailed security review covering:
+**Context**: {}
+
+Please analyze the codebase changes and provide a detailed security review covering:"#,
+        SECURITY_DISCLAIMER, change_description
+    );
+
+    prompt.push_str(
+        r#"
 
 1. **Code Security Analysis**
    - Unsafe code usage and justification
@@ -557,31 +568,18 @@ fn code_security_audit_prompt(
     audit_target: String,
     specific_checks: Option<String>,
 ) -> Result<Vec<PromptMessage>, McpError> {
-    // Validate audit_type
-    match audit_type.as_str() {
-        "pallet" | "runtime" | "node" | "general" => {}
-        _ => {
-            return Err(McpError {
-                code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                message: format!(
-                    "Invalid audit_type '{}'. Must be one of: pallet, runtime, node, general",
-                    audit_type
-                )
-                .into(),
-                data: None,
-            });
-        }
-    }
-
     let mut prompt = format!(
         r#"You are a Systems Security Expert specializing in Substrate-based blockchain
 security. Perform a comprehensive security audit following industry-standard
 practices and Substrate-specific considerations.
 
+{}
+
 ## Audit Target
 {audit_target}
 
-## Audit Scope"#
+## Audit Scope"#,
+        SECURITY_DISCLAIMER
     );
 
     if let Some(checks) = specific_checks {
@@ -625,12 +623,19 @@ fn economic_security_prompt(
     extra_context: String,
 ) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
-        r#"Perform a comprehensive economic security assessment of the following Substrate subsystem:
+        r#"{}
 
-**Subsystem**: {system_description}
-**Context**: {extra_context}
+Perform a comprehensive economic security assessment of the following Substrate subsystem:
 
-Please analyze the code and economic design to provide a detailed assessment covering:
+**Subsystem**: {}
+**Context**: {}
+
+Please analyze the code and economic design to provide a detailed assessment covering:"#,
+        SECURITY_DISCLAIMER, system_description, extra_context
+    );
+
+    prompt.push_str(
+        r#"
 
 1. **Economic Model Analysis**
    - Map all value flows (tokens, fees, rewards, slashing)
@@ -703,16 +708,19 @@ fn pallet_incentive_analysis_prompt(
     analysis_specifications: String,
 ) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
-        r#"You are an expert in Cryptoeconomics specializing in Substrate-based 
+        r#"{}
+
+You are an expert in Cryptoeconomics specializing in Substrate-based 
 blockchain systems. Analyze the incentive mechanisms in the specified pallets
 using game theory and mechanism design principles.
 
 ## Target Pallets
-{target_pallets}
+{}
 
 ## Analysis Framework
 
-{analysis_specifications}"#
+{}"#,
+        SECURITY_DISCLAIMER, target_pallets, analysis_specifications
     );
 
     prompt.push_str(SECURITY_DISCLAIMER);
@@ -1033,12 +1041,19 @@ fn threat_modeling_prompt(
     extra_context: String,
 ) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
-        r#"Perform a comprehensive security threat model analysis of the following Substrate subsystem:
+        r#"{}
 
-**Subsystem**: {system_description}
-**Context**: {extra_context}
+Perform a comprehensive security threat model analysis of the following Substrate subsystem:
 
-Please analyze the code and provide a detailed threat model covering:
+**Subsystem**: {}
+**Context**: {}
+
+Please analyze the code and provide a detailed threat model covering:"#,
+        SECURITY_DISCLAIMER, system_description, extra_context
+    );
+
+    prompt.push_str(
+        r#"
 
 1. **Asset Analysis**
    - Identify all assets this subsystem controls (tokens, permissions, critical state)
@@ -1098,11 +1113,18 @@ Format your response as a structured security report with clear sections and act
 
 fn weight_analysis_prompt(target_pallet: String) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
-        r#"Perform a comprehensive weight analysis of the following Substrate pallet under extreme and adversarial conditions:
+        r#"{}
 
-**Pallet**: {target_pallet}
+Perform a comprehensive weight analysis of the following Substrate pallet under extreme and adversarial conditions:
 
-Please analyze the pallet's weight calculations, benchmarks, and resource usage to identify:
+**Pallet**: {}
+
+Please analyze the pallet's weight calculations, benchmarks, and resource usage to identify:"#,
+        SECURITY_DISCLAIMER, target_pallet
+    );
+
+    prompt.push_str(
+        r#"
 
 1. **Weight Function Analysis**
    - Review all weight calculations in the pallet
