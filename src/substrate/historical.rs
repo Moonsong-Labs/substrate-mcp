@@ -81,7 +81,7 @@ pub async fn query_historical_events(
     };
 
     let mut all_events = Vec::new();
-    let blocks_queried = (to - from + 1) as u32;
+    let blocks_queried = to - from + 1;
 
     // Query each block
     for block_num in from..=to {
