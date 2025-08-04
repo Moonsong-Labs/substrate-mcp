@@ -376,6 +376,7 @@ Filter PRDocs and code changes to match these criteria."#
 
 ## Output Format
 
+```markdown
 ### Changes by Category
 
 #### 🚨 Breaking Changes
@@ -424,6 +425,8 @@ Based on the changes between versions:
 - Review CHANGELOG.md files for complete details"#,
         );
     }
+
+    prompt.push_str("\n```");
 
     Ok(vec![PromptMessage {
         role: PromptMessageRole::User,
