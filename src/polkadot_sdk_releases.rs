@@ -31,8 +31,15 @@ struct PrDoc {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum AudienceField {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+#[derive(Debug, Deserialize)]
 struct DocEntry {
-    audience: String,
+    audience: AudienceField,
     #[allow(dead_code)]
     description: String,
 }
@@ -205,9 +212,17 @@ pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
                     if let Ok(prdoc) = serde_yaml::from_str::<PrDoc>(&content) {
                         // Process audiences
                         for doc_entry in &prdoc.doc {
-                            if let Some(audience_info) = audience_counts.get_mut(&doc_entry.audience) {
-                                audience_info.count += 1;
-                                audience_info.pr_numbers.push(pr_num);
+                            // Handle both single and multiple audiences
+                            let audiences: Vec<&str> = match &doc_entry.audience {
+                                AudienceField::Single(s) => vec![s.as_str()],
+                                AudienceField::Multiple(v) => v.iter().map(|s| s.as_str()).collect(),
+                            };
+                            
+                            for audience in audiences {
+                                if let Some(audience_info) = audience_counts.get_mut(audience) {
+                                    audience_info.count += 1;
+                                    audience_info.pr_numbers.push(pr_num);
+                                }
                             }
                         }
                         
