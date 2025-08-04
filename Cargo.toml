@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+rmcp = { version = "0.3.2", features = ["transport-io"] }
 indoc = "2.0.6"
-rmcp = { version = "0.3.0", features = ["transport-io"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -13,7 +13,7 @@ anyhow = "1"
 reqwest = { version = "0.12", features = ["json"] }
 
 # For RPC client functionality
-jsonrpsee = { version = "0.20", features = ["http-client", "macros"] }
+jsonrpsee = { version = "0.20", features = ["http-client", "ws-client", "macros"] }
 codec = { package = "parity-scale-codec", version = "3.6", features = ["derive"] }
 futures = "0.3"
 hex = "0.4"
@@ -21,3 +21,9 @@ hex = "0.4"
 # Logging
 log = "0.4"
 env_logger = "0.11"
+
+# Subxt for advanced chain interaction
+subxt = { version = "0.37", features = ["substrate-compat"] }
+subxt-signer = { version = "0.37" }
+scale-value = "0.16"
+

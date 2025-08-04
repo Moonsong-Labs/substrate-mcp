@@ -2,8 +2,10 @@ use anyhow::Result;
 use rmcp::service::ServiceExt;
 use tokio::io::{stdin, stdout};
 
+mod config;
 mod polkadot_sdk_releases;
 mod prompts;
+mod public_endpoints;
 mod resources;
 mod server;
 mod substrate;
