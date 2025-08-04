@@ -149,14 +149,14 @@ impl SubstrateService {
         })
     }
 
-    #[tool(description = "Get all documented changes for a given polkadot-sdk release")]
+    #[tool(description = "Get all documented changes for a given polkadot-sdk release. Downloads prdoc files to a local directory and returns the path.")]
     pub async fn get_polkadot_sdk_release_prdocs(
         &self,
         Parameters(GetPolkadotSdkReleasePrdocsRequest { release }): Parameters<
             GetPolkadotSdkReleasePrdocsRequest,
         >,
     ) -> Result<CallToolResult, McpError> {
-        let response = polkadot_sdk_releases::query_prdocs(&release)
+        let result = polkadot_sdk_releases::query_prdocs(&release)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
@@ -164,10 +164,26 @@ impl SubstrateService {
                 data: None,
             })?;
 
+        let response_text = if result.success {
+            format!(
+                "Successfully downloaded {} PRDoc files for release '{}' to:\n{}\n\nTotal size: {} bytes\n\nYou can now use standard file operations (LS, Read, Glob, Grep) to explore the PRDocs.",
+                result.file_count,
+                result.release,
+                result.output_dir.display(),
+                result.total_size
+            )
+        } else {
+            format!(
+                "No PRDoc files found for release '{}'. The directory {} was created but is empty.",
+                result.release,
+                result.output_dir.display()
+            )
+        };
+
         Ok(CallToolResult {
             content: vec![Content {
                 annotations: None,
-                raw: RawContent::Text(RawTextContent { text: response }),
+                raw: RawContent::Text(RawTextContent { text: response_text }),
             }],
             is_error: None,
         })

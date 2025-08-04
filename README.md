@@ -75,7 +75,7 @@ You can customize this file to add your own endpoints or modify existing ones.
 - **`subxt_execute`** - Use subxt CLI to decode and explore Substrate blockchain data. Useful for analyzing chain metadata, generating type-safe Rust code, and understanding runtime APIs.
 
 ### Documentation
-- **`get_polkadot_sdk_release_prdocs`** - Get all documented changes for a given polkadot-sdk release.
+- **`get_polkadot_sdk_release_prdocs`** - Downloads all PRDoc files for a given polkadot-sdk release to a local directory. Files are saved to `~/.substrate-mcp/prdocs/prdocs-{release}/` and the tool returns the path for further exploration with file operations.
 
 ## Usage with Claude Code
 
