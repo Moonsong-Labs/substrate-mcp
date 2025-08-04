@@ -1,15 +1,17 @@
 use rmcp::handler::server::tool::{Parameters, ToolRouter};
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
-    CallToolResult, Content, ListResourceTemplatesResult, ListResourcesResult,
-    PaginatedRequestParam, RawContent, RawTextContent, ReadResourceRequestParam,
-    ReadResourceResult, ResourceContents, ServerCapabilities, ServerInfo,
+    CallToolResult, Content, GetPromptRequestParam, GetPromptResult, ListPromptsResult,
+    ListResourceTemplatesResult, ListResourcesResult, PaginatedRequestParam, RawContent,
+    RawTextContent, ReadResourceRequestParam, ReadResourceResult, ResourceContents,
+    ServerCapabilities, ServerInfo,
 };
 use rmcp::service::{RequestContext, RoleServer};
 use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData as McpError};
 use std::future::Future;
 
 use crate::polkadot_sdk_releases;
+use crate::prompts;
 use serde::Deserialize;
 
 use crate::resources;
@@ -124,10 +126,27 @@ impl ServerHandler for SubstrateService {
             instructions: Some("Primary source for Substrate/Polkadot SDK development. Provides authoritative tools for chain interaction, release documentation, prompt templates and comprehensive Substrate knowledge resources.".into()),
             capabilities: ServerCapabilities::builder()
                 .enable_tools()
+                .enable_prompts()
                 .enable_resources()
                 .build(),
             ..Default::default()
         }
+    }
+
+    async fn list_prompts(
+        &self,
+        cursor: Option<PaginatedRequestParam>,
+        context: RequestContext<RoleServer>,
+    ) -> Result<ListPromptsResult, McpError> {
+        prompts::handle_list_prompts(cursor, context).await
+    }
+
+    async fn get_prompt(
+        &self,
+        request: GetPromptRequestParam,
+        context: RequestContext<RoleServer>,
+    ) -> Result<GetPromptResult, McpError> {
+        prompts::handle_get_prompt(request, context).await
     }
 
     async fn list_resources(
