@@ -96,9 +96,12 @@ fn get_optional_arg(
         .map(|s| s.to_string())
 }
 
+/// Import release prompts
+use crate::release_prompts;
+
 /// Create a new Prompts instance with all available prompts
 pub fn prompts() -> Vec<SubstratePrompt> {
-    vec![
+    let mut all_prompts = vec![
         SubstratePrompt {
             name: "release_comparison".to_string(),
             description: "List changes between two polkadot-sdk release versions".to_string(),
@@ -266,7 +269,35 @@ pub fn prompts() -> Vec<SubstratePrompt> {
                 weight_analysis_prompt(target_pallet)
             }),
         },
-    ]
+    ];
+    
+    // Add release-specific prompts
+    for prompt in release_prompts::get_release_prompts() {
+        let instructions = prompt.instructions.clone();
+        all_prompts.push(SubstratePrompt {
+            name: prompt.name,
+            description: prompt.description,
+            arguments: prompt.arguments,
+            handler: Box::new(move |args| {
+                // Convert the prompt instructions into messages
+                let mut processed_instructions = instructions.clone();
+                
+                // Replace template variables
+                for (key, value) in args {
+                    if let Some(str_value) = value.as_str() {
+                        processed_instructions = processed_instructions.replace(&format!("{{{{{}}}}}", key), str_value);
+                    }
+                }
+                
+                Ok(vec![PromptMessage {
+                    role: PromptMessageRole::User,
+                    content: PromptMessageContent::Text { text: processed_instructions },
+                }])
+            }),
+        });
+    }
+    
+    all_prompts
 }
 
 /// Get the list of all available prompts

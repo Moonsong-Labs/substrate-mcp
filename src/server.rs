@@ -46,6 +46,12 @@ pub struct GetPolkadotSdkReleasePrdocsRequest {
     pub release: String,
 }
 
+#[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
+pub struct AnalyzeReleaseRequest {
+    /// polkadot-sdk release to analyze (must have scout data available)
+    pub release: String,
+}
+
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct SubxtExecuteArgs {
     /// The subxt command and arguments to execute (e.g., ["metadata", "-f", "json", "--url", "ws://localhost:9944"])
@@ -149,7 +155,14 @@ impl SubstrateService {
         })
     }
 
-    #[tool(description = "Get all documented changes for a given polkadot-sdk release. Downloads prdoc files to a local directory and returns the path.")]
+    #[tool(description = "Get all documented changes for a given polkadot-sdk release. Downloads prdoc files to a local directory and returns the path.
+
+The tool creates the following manifest files alongside the PRDocs:
+- manifest.json: Basic metadata (release, total PRDocs, PR numbers from filenames, download date)
+- crate_summary.json: Changes grouped by crate with bump levels (major/minor/patch/none) and counts
+- audience_summary.json: Changes grouped by target audience (Runtime Dev, Node Dev, Runtime User, Node Operator)
+
+These manifests enable efficient analysis without parsing all PRDocs individually.")]
     pub async fn get_polkadot_sdk_release_prdocs(
         &self,
         Parameters(GetPolkadotSdkReleasePrdocsRequest { release }): Parameters<
@@ -179,6 +192,40 @@ impl SubstrateService {
                 result.output_dir.display()
             )
         };
+
+        Ok(CallToolResult {
+            content: vec![Content {
+                annotations: None,
+                raw: RawContent::Text(RawTextContent { text: response_text }),
+            }],
+            is_error: None,
+        })
+    }
+
+    #[tool(description = "Analyze a Polkadot SDK release comprehensively, going beyond PRDocs to analyze all PR metadata, patches, and relationships. Creates structured index, impact analysis, and categorization. Requires scout data to be available in test_scout_output directory.")]
+    pub async fn analyze_release(
+        &self,
+        Parameters(AnalyzeReleaseRequest { release }): Parameters<AnalyzeReleaseRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        let base_path = std::env::current_dir().map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: format!("Failed to get current directory: {e}").into(),
+            data: None,
+        })?;
+
+        let analysis_path = crate::release_analysis::analyze_polkadot_release(&release, base_path)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: e.to_string().into(),
+                data: None,
+            })?;
+
+        let response_text = format!(
+            "Successfully analyzed release '{}'. Analysis saved to:\n{}\n\nThe analysis includes:\n- Release summary with PR counts by category\n- Comprehensive index of all PRs\n- Impact analysis for breaking changes and migrations\n- Categorization by subsystem and audience\n- Change relationships and dependencies\n\nUse Read to view the full analysis JSON.",
+            release,
+            analysis_path
+        );
 
         Ok(CallToolResult {
             content: vec![Content {

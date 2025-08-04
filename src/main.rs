@@ -6,6 +6,8 @@ mod config;
 mod polkadot_sdk_releases;
 mod prompts;
 mod public_endpoints;
+mod release_analysis;
+mod release_prompts;
 mod resources;
 mod server;
 mod substrate;
