@@ -18,3 +18,9 @@ pub mod historical;
 
 /// Utilities for converting scale values to JSON
 pub mod scale_utils;
+
+/// Transactions module for querying chain transactions
+pub mod transactions;
+
+/// Runtime upgrades module for tracking and analyzing runtime upgrades
+pub mod runtime_upgrades;

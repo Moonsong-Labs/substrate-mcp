@@ -22,6 +22,8 @@ use crate::substrate::events::EventFilter;
 use crate::substrate::historical::{query_historical_events, HistoricalEventsQuery};
 use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::storage::{list_pallet_storage, StorageQuery};
+use crate::substrate::transactions::{query_historical_transactions, HistoricalTransactionsQuery};
+use crate::substrate::runtime_upgrades::{query_runtime_upgrades, search_runtime_upgrade, RuntimeUpgradeQuery};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -157,6 +159,44 @@ pub struct QueryHistoricalEventsArgs {
     pub pallet: Option<String>,
     /// Filter by event name (optional)
     pub event: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct QueryHistoricalTransactionsArgs {
+    /// The RPC endpoint to connect to. Can be 'polkadot', 'kusama', 'westend', or a custom endpoint without protocol prefix
+    pub endpoint: Option<String>,
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
+    pub from_block: i32,
+    /// End block number (negative = relative to current, defaults to from_block)
+    pub to_block: Option<i32>,
+    /// Filter by pallet name (optional)
+    pub pallet: Option<String>,
+    /// Filter by call name (optional)
+    pub call: Option<String>,
+    /// Filter by signer address (optional)
+    pub signer: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct QueryRuntimeUpgradesArgs {
+    /// The RPC endpoint to connect to. Can be 'polkadot', 'kusama', 'westend', or a custom endpoint without protocol prefix
+    pub endpoint: Option<String>,
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
+    pub from_block: i32,
+    /// End block number (negative = relative to current, defaults to from_block)
+    pub to_block: Option<i32>,
+}
+
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct SearchRuntimeUpgradeArgs {
+    /// The RPC endpoint to connect to. Can be 'polkadot', 'kusama', 'westend', or a custom endpoint without protocol prefix
+    pub endpoint: Option<String>,
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
+    pub from_block: i32,
+    /// End block number (negative = relative to current, defaults to from_block)
+    pub to_block: Option<i32>,
+    /// Target spec version to search for (optional, returns first upgrade if not specified)
+    pub target_spec_version: Option<u32>,
 }
 
 impl Default for SubstrateService {
@@ -591,6 +631,244 @@ impl SubstrateService {
             }],
             is_error: None,
         })
+    }
+
+    #[tool(
+        description = "Query transactions (extrinsics) from historical blocks. Supports filtering by pallet, call name, and signer address. Returns decoded transaction data including signer, call info, and arguments."
+    )]
+    pub async fn query_historical_transactions(
+        &self,
+        Parameters(args): Parameters<QueryHistoricalTransactionsArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        // Handle endpoint parameter - if it's a known network name, use the full URL from config
+        // Otherwise, prepend wss:// to the endpoint
+        let url = match args.endpoint.as_deref() {
+            Some(name) => {
+                // Check if it's a known endpoint name in config
+                if let Some(endpoint_url) = self.config.get_endpoint_url(name) {
+                    endpoint_url.to_string()
+                } else {
+                    // Handle different protocol schemes for custom endpoints
+                    if name.starts_with("ws://") || name.starts_with("wss://") {
+                        // WebSocket URLs are used as-is
+                        name.to_string()
+                    } else if name.starts_with("http://") {
+                        // Convert HTTP to WSS
+                        name.replace("http://", "wss://")
+                    } else if name.starts_with("https://") {
+                        // Convert HTTPS to WSS
+                        name.replace("https://", "wss://")
+                    } else {
+                        // Assume it's a hostname and prepend wss://
+                        format!("wss://{name}")
+                    }
+                }
+            }
+            None => self.get_rpc_url(None),
+        };
+
+        // Connect to the chain using subxt for metadata
+        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to connect to chain with URL '{url}': {e}").into(),
+                data: None,
+            })?;
+
+        // Create query
+        let query = HistoricalTransactionsQuery {
+            from_block: args.from_block,
+            to_block: args.to_block,
+            pallet: args.pallet,
+            call: args.call,
+            signer: args.signer,
+        };
+
+        // Query historical transactions
+        let result = query_historical_transactions(query, &client, &url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to query historical transactions: {e}").into(),
+                data: None,
+            })?;
+
+        // Convert to JSON
+        let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+            message: format!("Serialization error: {e}").into(),
+            data: None,
+        })?;
+
+        Ok(CallToolResult {
+            content: vec![Content {
+                annotations: None,
+                raw: RawContent::Text(RawTextContent { text: json_result }),
+            }],
+            is_error: None,
+        })
+    }
+
+    #[tool(
+        description = "Query runtime upgrades within a block range. Detects spec version changes and returns information about each upgrade including block number, version changes, and code hash."
+    )]
+    pub async fn query_runtime_upgrades(
+        &self,
+        Parameters(args): Parameters<QueryRuntimeUpgradesArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        // Handle endpoint parameter - if it's a known network name, use the full URL from config
+        // Otherwise, prepend wss:// to the endpoint
+        let url = match args.endpoint.as_deref() {
+            Some(name) => {
+                // Check if it's a known endpoint name in config
+                if let Some(endpoint_url) = self.config.get_endpoint_url(name) {
+                    endpoint_url.to_string()
+                } else {
+                    // Handle different protocol schemes for custom endpoints
+                    if name.starts_with("ws://") || name.starts_with("wss://") {
+                        // WebSocket URLs are used as-is
+                        name.to_string()
+                    } else if name.starts_with("http://") {
+                        // Convert HTTP to WSS
+                        name.replace("http://", "wss://")
+                    } else if name.starts_with("https://") {
+                        // Convert HTTPS to WSS
+                        name.replace("https://", "wss://")
+                    } else {
+                        // Assume it's a hostname and prepend wss://
+                        format!("wss://{name}")
+                    }
+                }
+            }
+            None => self.get_rpc_url(None),
+        };
+
+        // Connect to the chain using subxt for metadata
+        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to connect to chain with URL '{url}': {e}").into(),
+                data: None,
+            })?;
+
+        // Create query
+        let query = RuntimeUpgradeQuery {
+            from_block: args.from_block,
+            to_block: args.to_block,
+        };
+
+        // Query runtime upgrades
+        let result = query_runtime_upgrades(query, &client, &url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to query runtime upgrades: {e}").into(),
+                data: None,
+            })?;
+
+        // Convert to JSON
+        let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+            message: format!("Serialization error: {e}").into(),
+            data: None,
+        })?;
+
+        Ok(CallToolResult {
+            content: vec![Content {
+                annotations: None,
+                raw: RawContent::Text(RawTextContent { text: json_result }),
+            }],
+            is_error: None,
+        })
+    }
+
+    #[tool(
+        description = "Search for a specific runtime upgrade and return detailed information including all events, storage changes, and transactions in the upgrade block. Optionally specify a target spec version to find a specific upgrade."
+    )]
+    pub async fn search_runtime_upgrade(
+        &self,
+        Parameters(args): Parameters<SearchRuntimeUpgradeArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        // Handle endpoint parameter - if it's a known network name, use the full URL from config
+        // Otherwise, prepend wss:// to the endpoint
+        let url = match args.endpoint.as_deref() {
+            Some(name) => {
+                // Check if it's a known endpoint name in config
+                if let Some(endpoint_url) = self.config.get_endpoint_url(name) {
+                    endpoint_url.to_string()
+                } else {
+                    // Handle different protocol schemes for custom endpoints
+                    if name.starts_with("ws://") || name.starts_with("wss://") {
+                        // WebSocket URLs are used as-is
+                        name.to_string()
+                    } else if name.starts_with("http://") {
+                        // Convert HTTP to WSS
+                        name.replace("http://", "wss://")
+                    } else if name.starts_with("https://") {
+                        // Convert HTTPS to WSS
+                        name.replace("https://", "wss://")
+                    } else {
+                        // Assume it's a hostname and prepend wss://
+                        format!("wss://{name}")
+                    }
+                }
+            }
+            None => self.get_rpc_url(None),
+        };
+
+        // Connect to the chain using subxt for metadata
+        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to connect to chain with URL '{url}': {e}").into(),
+                data: None,
+            })?;
+
+        // Search for runtime upgrade
+        let result = search_runtime_upgrade(
+            args.from_block,
+            args.to_block,
+            args.target_spec_version,
+            &client,
+            &url,
+        )
+        .await
+        .map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: format!("Failed to search for runtime upgrade: {e}").into(),
+            data: None,
+        })?;
+
+        match result {
+            Some(details) => {
+                // Convert to JSON
+                let json_result = serde_json::to_string_pretty(&details).map_err(|e| McpError {
+                    code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+                    message: format!("Serialization error: {e}").into(),
+                    data: None,
+                })?;
+
+                Ok(CallToolResult {
+                    content: vec![Content {
+                        annotations: None,
+                        raw: RawContent::Text(RawTextContent { text: json_result }),
+                    }],
+                    is_error: None,
+                })
+            }
+            None => Ok(CallToolResult {
+                content: vec![Content {
+                    annotations: None,
+                    raw: RawContent::Text(RawTextContent {
+                        text: "No runtime upgrade found in the specified block range".to_string(),
+                    }),
+                }],
+                is_error: None,
+            }),
+        }
     }
 }
 
