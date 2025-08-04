@@ -350,12 +350,14 @@ If comparing patches of the same release (e.g., stable2503 → stable2503-4):
   - stable2503-2
   - stable2503-3
   - stable2503-4
+- Note that the current release (stable2503) is NOT included.
 
 ### Different Base Versions
 If comparing different releases (e.g., stable2502 → stable2503-2):
-1. Include ALL patches from the newer base version up to target
-2. Include the base release notes for intermediate versions
-3. Example: stable2502 → stable2503-2 requires:
+1. Include ALL patches from the newer base version up to target.
+2. Include the base release notes for intermediate versions.
+3. Do NOT include the current release as this is supposed to be the starting point.
+4. Example: stable2502 → stable2503-2 requires:
    - stable2503 (base release)
    - stable2503-1
    - stable2503-2"#,
