@@ -17,7 +17,6 @@ use crate::prompts;
 use serde::Deserialize;
 
 use crate::resources;
-use crate::substrate::client::SubstrateClient;
 use crate::substrate::events::EventFilter;
 use crate::substrate::historical::{query_historical_events, HistoricalEventsQuery};
 use crate::substrate::metadata::MetadataFilter;
@@ -28,14 +27,6 @@ use crate::substrate::storage::{list_pallet_storage, StorageQuery};
 use crate::substrate::transactions::{query_historical_transactions, HistoricalTransactionsQuery};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct StorageBisectArgs {
-    pub start_block: u32,
-    pub end_block: u32,
-    pub key: String,
-    pub rpc_url: String,
-}
 
 #[derive(Clone)]
 pub struct SubstrateService {
@@ -237,59 +228,6 @@ impl SubstrateService {
             }],
             is_error: None,
         })
-    }
-
-    #[tool(
-        description = "Find all storage changes between two blocks on a Substrate chain for a specific key"
-    )]
-    pub async fn chain_storage_bisect(
-        &self,
-        Parameters(args): Parameters<StorageBisectArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        // Validate URL if provided
-        if let Err(e) = validate_rpc_url(&args.rpc_url) {
-            return Err(McpError {
-                code: rmcp::model::ErrorCode(-32602),
-                message: format!("Invalid RPC URL: {e}").into(),
-                data: None,
-            });
-        }
-
-        log::info!("Connecting to {}", args.rpc_url);
-        let client = SubstrateClient::connect(&args.rpc_url)
-            .await
-            .map_err(|e| McpError {
-                code: rmcp::model::ErrorCode(-32603),
-                message: e.to_string().into(),
-                data: None,
-            })?;
-
-        let result = client
-            .find_all_storage_changes(args.start_block, args.end_block, args.key)
-            .await;
-
-        match result {
-            Ok(changes) => {
-                let json_result = serde_json::to_string_pretty(&changes).map_err(|e| McpError {
-                    code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-                    message: format!("Serialization error: {e}").into(),
-                    data: None,
-                })?;
-
-                Ok(CallToolResult {
-                    content: vec![Content {
-                        annotations: None,
-                        raw: RawContent::Text(RawTextContent { text: json_result }),
-                    }],
-                    is_error: None,
-                })
-            }
-            Err(e) => Err(McpError {
-                code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-                message: format!("Storage changes error: {e}").into(),
-                data: None,
-            }),
-        }
     }
 
     #[tool(
