@@ -1,4 +1,3 @@
-pub mod config;
 pub mod polkadot_sdk_releases;
 pub mod prompts;
 pub mod public_endpoints;
