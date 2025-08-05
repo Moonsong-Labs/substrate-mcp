@@ -82,23 +82,14 @@ struct CrateChangeInfo {
     pr_numbers: Vec<u32>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct AudienceInfo {
     count: usize,
     pr_numbers: Vec<u32>,
 }
 
-#[derive(Debug, Serialize)]
-struct AudienceSummary {
-    #[serde(rename = "Runtime Dev")]
-    runtime_dev: AudienceInfo,
-    #[serde(rename = "Node Dev")]
-    node_dev: AudienceInfo,
-    #[serde(rename = "Runtime User")]
-    runtime_user: AudienceInfo,
-    #[serde(rename = "Node Operator")]
-    node_operator: AudienceInfo,
-}
+// Note: audience_summary.json now directly uses HashMap<String, AudienceInfo>
+// instead of a fixed struct, allowing dynamic audience types
 
 // Helper function to extract PR number from filename
 fn extract_pr_number(filename: &str) -> Option<u32> {
@@ -169,12 +160,6 @@ pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
     let mut pr_numbers: Vec<u32> = Vec::new();
     let mut crate_changes: HashMap<String, CrateChangeInfo> = HashMap::new();
     let mut audience_counts: HashMap<String, AudienceInfo> = HashMap::new();
-    
-    // Initialize audience counts
-    audience_counts.insert("Runtime Dev".to_string(), AudienceInfo { count: 0, pr_numbers: vec![] });
-    audience_counts.insert("Node Dev".to_string(), AudienceInfo { count: 0, pr_numbers: vec![] });
-    audience_counts.insert("Runtime User".to_string(), AudienceInfo { count: 0, pr_numbers: vec![] });
-    audience_counts.insert("Node Operator".to_string(), AudienceInfo { count: 0, pr_numbers: vec![] });
 
     // Fetch content of each prdoc file and save to disk
     let mut total_size = 0;
@@ -219,10 +204,10 @@ pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
                             };
                             
                             for audience in audiences {
-                                if let Some(audience_info) = audience_counts.get_mut(audience) {
-                                    audience_info.count += 1;
-                                    audience_info.pr_numbers.push(pr_num);
-                                }
+                                let audience_info = audience_counts.entry(audience.to_string())
+                                    .or_insert_with(|| AudienceInfo { count: 0, pr_numbers: vec![] });
+                                audience_info.count += 1;
+                                audience_info.pr_numbers.push(pr_num);
                             }
                         }
                         
@@ -249,8 +234,8 @@ pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
                                 _ => {} // Unknown bump type
                             }
                         }
-                    } else {
-                        eprintln!("Failed to parse PRDoc {}: invalid YAML format", file.name);
+                    } else if let Err(e) = serde_yaml::from_str::<PrDoc>(&content) {
+                        eprintln!("Failed to parse PRDoc {}: {}", file.name, e);
                     }
                 }
             } else {
@@ -261,10 +246,6 @@ pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
 
     // Sort PR numbers
     pr_numbers.sort_unstable();
-    
-    eprintln!("DEBUG: Creating manifest files for {} PRDocs", saved_count);
-    eprintln!("DEBUG: PR numbers: {:?}", pr_numbers);
-    eprintln!("DEBUG: Crate changes: {} crates affected", crate_changes.len());
     
     // Create manifest.json
     let manifest = Manifest {
@@ -299,16 +280,9 @@ pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
         .await
         .map_err(|e| anyhow!("Failed to write crate_summary.json: {}", e))?;
     
-    // Create audience_summary.json
-    let audience_summary = AudienceSummary {
-        runtime_dev: audience_counts.remove("Runtime Dev").unwrap_or(AudienceInfo { count: 0, pr_numbers: vec![] }),
-        node_dev: audience_counts.remove("Node Dev").unwrap_or(AudienceInfo { count: 0, pr_numbers: vec![] }),
-        runtime_user: audience_counts.remove("Runtime User").unwrap_or(AudienceInfo { count: 0, pr_numbers: vec![] }),
-        node_operator: audience_counts.remove("Node Operator").unwrap_or(AudienceInfo { count: 0, pr_numbers: vec![] }),
-    };
-    
+    // Create audience_summary.json - now dynamic, includes all found audiences
     let audience_summary_path = output_dir.join("audience_summary.json");
-    let audience_summary_json = serde_json::to_string_pretty(&audience_summary)?;
+    let audience_summary_json = serde_json::to_string_pretty(&audience_counts)?;
     fs::write(&audience_summary_path, audience_summary_json)
         .await
         .map_err(|e| anyhow!("Failed to write audience_summary.json: {}", e))?;
@@ -395,11 +369,6 @@ mod tests {
         let crate_summary_file = prdocs_result.output_dir.join("crate_summary.json");
         let audience_summary_file = prdocs_result.output_dir.join("audience_summary.json");
         
-        eprintln!("Checking for manifest at: {:?}", manifest_file);
-        eprintln!("Manifest exists: {}", manifest_file.exists());
-        eprintln!("Crate summary exists: {}", crate_summary_file.exists());
-        eprintln!("Audience summary exists: {}", audience_summary_file.exists());
-        
         assert!(manifest_file.exists(), "manifest.json should exist");
         assert!(crate_summary_file.exists(), "crate_summary.json should exist");
         assert!(audience_summary_file.exists(), "audience_summary.json should exist");
@@ -412,6 +381,187 @@ mod tests {
         match result {
             Ok(prdocs_result) => assert!(!prdocs_result.success),
             Err(_) => {} // Also acceptable
+        }
+    }
+
+    #[test]
+    fn test_audience_parsing_string_format() {
+        // Test case for PR #6825 format (audience as string)
+        let yaml_content = r#"
+title: Test string audience
+doc:
+  - audience: Runtime Dev
+    description: Test description
+crates:
+  - name: test-crate
+    bump: patch
+"#;
+        
+        let prdoc: Result<PrDoc, _> = serde_yaml::from_str(yaml_content);
+        assert!(prdoc.is_ok(), "Failed to parse string audience format");
+        
+        let prdoc = prdoc.unwrap();
+        assert_eq!(prdoc.doc.len(), 1);
+        
+        match &prdoc.doc[0].audience {
+            AudienceField::Single(s) => assert_eq!(s, "Runtime Dev"),
+            AudienceField::Multiple(_) => panic!("Expected single audience, got multiple"),
+        }
+    }
+
+    #[test]
+    fn test_audience_parsing_array_format() {
+        // Test case for PR #7028 format (audience as array)
+        let yaml_content = r#"
+title: Test array audience
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: Test description
+crates:
+- name: test-crate
+  bump: major
+"#;
+        
+        let prdoc: Result<PrDoc, _> = serde_yaml::from_str(yaml_content);
+        assert!(prdoc.is_ok(), "Failed to parse array audience format: {:?}", prdoc.err());
+        
+        let prdoc = prdoc.unwrap();
+        assert_eq!(prdoc.doc.len(), 1);
+        
+        match &prdoc.doc[0].audience {
+            AudienceField::Single(_) => panic!("Expected multiple audiences, got single"),
+            AudienceField::Multiple(v) => {
+                assert_eq!(v.len(), 2);
+                assert_eq!(v[0], "Runtime Dev");
+                assert_eq!(v[1], "Runtime User");
+            }
+        }
+    }
+
+    #[test]
+    fn test_audience_parsing_inline_array_format() {
+        // Test case for PR #7074 format (audience as inline array)
+        let yaml_content = r#"
+title: Test inline array audience
+doc:
+  - audience: [ Node Dev, Runtime Dev]
+    description: Test description
+crates: [ ]
+"#;
+        
+        let prdoc: Result<PrDoc, _> = serde_yaml::from_str(yaml_content);
+        assert!(prdoc.is_ok(), "Failed to parse inline array audience format: {:?}", prdoc.err());
+        
+        let prdoc = prdoc.unwrap();
+        assert_eq!(prdoc.doc.len(), 1);
+        
+        match &prdoc.doc[0].audience {
+            AudienceField::Single(_) => panic!("Expected multiple audiences, got single"),
+            AudienceField::Multiple(v) => {
+                assert_eq!(v.len(), 2);
+                assert_eq!(v[0], "Node Dev");
+                assert_eq!(v[1], "Runtime Dev");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_stable2503_7_specific() {
+        // Test downloading stable2503-7 specifically
+        let result = query_prdocs("stable2503-7").await;
+        assert!(result.is_ok(), "Failed to download stable2503-7: {:?}", result.err());
+        
+        let prdocs_result = result.unwrap();
+        assert!(prdocs_result.success);
+        assert_eq!(prdocs_result.file_count, 14); // We know there are 14 files
+        
+        // Check manifest files
+        let manifest_file = prdocs_result.output_dir.join("manifest.json");
+        let crate_summary_file = prdocs_result.output_dir.join("crate_summary.json");
+        let audience_summary_file = prdocs_result.output_dir.join("audience_summary.json");
+        
+        assert!(manifest_file.exists(), "manifest.json should exist for stable2503-7");
+        assert!(crate_summary_file.exists(), "crate_summary.json should exist for stable2503-7");
+        assert!(audience_summary_file.exists(), "audience_summary.json should exist for stable2503-7");
+        
+        // Load and verify audience summary
+        let audience_json = std::fs::read_to_string(&audience_summary_file)
+            .expect("Failed to read audience_summary.json");
+        let audience_counts: HashMap<String, AudienceInfo> = serde_json::from_str(&audience_json)
+            .expect("Failed to parse audience_summary.json");
+        
+        // Ensure we have at least some audiences indexed
+        assert!(!audience_counts.is_empty(), "No audiences were indexed");
+        
+        // Load and verify crate summary
+        let crate_json = std::fs::read_to_string(&crate_summary_file)
+            .expect("Failed to read crate_summary.json");
+        let crate_data: serde_json::Value = serde_json::from_str(&crate_json)
+            .expect("Failed to parse crate_summary.json");
+        
+        assert!(crate_data.get("summary").is_some(), "Crate summary should have a summary field");
+        assert!(crate_data.get("crates").is_some(), "Crate summary should have a crates field");
+    }
+
+    #[tokio::test]
+    async fn test_audience_indexing_regression() {
+        // Regression test for missing audiences in indexing
+        // This test checks that all PRDocs in stable2412-1 are properly indexed
+        
+        let result = query_prdocs("stable2412-1").await;
+        assert!(result.is_ok());
+        let prdocs_result = result.unwrap();
+        
+        if prdocs_result.success && prdocs_result.file_count > 0 {
+            // Load the audience summary
+            let audience_summary_path = prdocs_result.output_dir.join("audience_summary.json");
+            let audience_json = tokio::fs::read_to_string(&audience_summary_path).await
+                .expect("Failed to read audience_summary.json");
+            let audience_counts: HashMap<String, AudienceInfo> = serde_json::from_str(&audience_json)
+                .expect("Failed to parse audience_summary.json");
+            
+            // PRs that should have audiences (from our analysis)
+            let expected_prs_with_audience = vec![
+                6463, 6807, 6825, 6855, 6971, 6973, 7013, 7028, 7050, 
+                7067, 7074, 7090, 7099, 7116, 7133, 7158, 7205, 7222, 
+                7322, 7344
+            ];
+            
+            // Collect all unique PRs that have been indexed
+            let mut all_indexed_prs = std::collections::HashSet::new();
+            for info in audience_counts.values() {
+                for pr_num in &info.pr_numbers {
+                    all_indexed_prs.insert(*pr_num);
+                }
+            }
+            
+            // Check that all expected PRs are indexed
+            for pr_num in &expected_prs_with_audience {
+                assert!(
+                    all_indexed_prs.contains(pr_num), 
+                    "PR {} is missing from audience index", 
+                    pr_num
+                );
+            }
+            
+            // Verify specific multi-audience PRs
+            // PR 7074 should be in both Node Dev and Runtime Dev
+            assert!(audience_counts["Node Dev"].pr_numbers.contains(&7074));
+            assert!(audience_counts["Runtime Dev"].pr_numbers.contains(&7074));
+            
+            // PR 7133 should be in both Node Dev and Node Operator
+            assert!(audience_counts["Node Dev"].pr_numbers.contains(&7133));
+            assert!(audience_counts["Node Operator"].pr_numbers.contains(&7133));
+            
+            // PR 7028 should be in both Runtime Dev and Runtime User
+            assert!(audience_counts["Runtime Dev"].pr_numbers.contains(&7028));
+            assert!(audience_counts["Runtime User"].pr_numbers.contains(&7028));
+            
+            // PR 7067 should be in both Runtime Dev and Runtime User
+            assert!(audience_counts["Runtime Dev"].pr_numbers.contains(&7067));
+            assert!(audience_counts["Runtime User"].pr_numbers.contains(&7067));
         }
     }
 }
