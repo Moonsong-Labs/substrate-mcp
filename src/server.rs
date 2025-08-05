@@ -21,9 +21,11 @@ use crate::substrate::client::SubstrateClient;
 use crate::substrate::events::EventFilter;
 use crate::substrate::historical::{query_historical_events, HistoricalEventsQuery};
 use crate::substrate::metadata::MetadataFilter;
+use crate::substrate::runtime_upgrades::{
+    query_runtime_upgrades, search_runtime_upgrade, RuntimeUpgradeQuery,
+};
 use crate::substrate::storage::{list_pallet_storage, StorageQuery};
 use crate::substrate::transactions::{query_historical_transactions, HistoricalTransactionsQuery};
-use crate::substrate::runtime_upgrades::{query_runtime_upgrades, search_runtime_upgrade, RuntimeUpgradeQuery};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -163,8 +165,8 @@ pub struct QueryHistoricalEventsArgs {
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct QueryHistoricalTransactionsArgs {
-    /// The RPC endpoint to connect to. Can be 'polkadot', 'kusama', 'westend', or a custom endpoint without protocol prefix
-    pub endpoint: Option<String>,
+    /// The RPC endpoint to connect to
+    pub rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
     pub from_block: i32,
     /// End block number (negative = relative to current, defaults to from_block)
@@ -179,8 +181,8 @@ pub struct QueryHistoricalTransactionsArgs {
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct QueryRuntimeUpgradesArgs {
-    /// The RPC endpoint to connect to. Can be 'polkadot', 'kusama', 'westend', or a custom endpoint without protocol prefix
-    pub endpoint: Option<String>,
+    /// The RPC endpoint to connect to
+    pub rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
     pub from_block: i32,
     /// End block number (negative = relative to current, defaults to from_block)
@@ -189,8 +191,8 @@ pub struct QueryRuntimeUpgradesArgs {
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct SearchRuntimeUpgradeArgs {
-    /// The RPC endpoint to connect to. Can be 'polkadot', 'kusama', 'westend', or a custom endpoint without protocol prefix
-    pub endpoint: Option<String>,
+    /// The RPC endpoint to connect to
+    pub rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
     pub from_block: i32,
     /// End block number (negative = relative to current, defaults to from_block)
@@ -640,39 +642,25 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<QueryHistoricalTransactionsArgs>,
     ) -> Result<CallToolResult, McpError> {
-        // Handle endpoint parameter - if it's a known network name, use the full URL from config
-        // Otherwise, prepend wss:// to the endpoint
-        let url = match args.endpoint.as_deref() {
-            Some(name) => {
-                // Check if it's a known endpoint name in config
-                if let Some(endpoint_url) = self.config.get_endpoint_url(name) {
-                    endpoint_url.to_string()
-                } else {
-                    // Handle different protocol schemes for custom endpoints
-                    if name.starts_with("ws://") || name.starts_with("wss://") {
-                        // WebSocket URLs are used as-is
-                        name.to_string()
-                    } else if name.starts_with("http://") {
-                        // Convert HTTP to WSS
-                        name.replace("http://", "wss://")
-                    } else if name.starts_with("https://") {
-                        // Convert HTTPS to WSS
-                        name.replace("https://", "wss://")
-                    } else {
-                        // Assume it's a hostname and prepend wss://
-                        format!("wss://{name}")
-                    }
-                }
-            }
-            None => self.get_rpc_url(None),
-        };
+        // Validate URL if provided
+        if let Err(e) = validate_rpc_url(&args.rpc_url) {
+            return Err(McpError {
+                code: rmcp::model::ErrorCode(-32602),
+                message: format!("Invalid RPC URL: {e}").into(),
+                data: None,
+            });
+        }
 
-        // Connect to the chain using subxt for metadata
-        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+        // Connect to the chain using subxt
+        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to connect to chain with URL '{url}': {e}").into(),
+                message: format!(
+                    "Failed to connect to chain with URL '{}': {e}",
+                    args.rpc_url
+                )
+                .into(),
                 data: None,
             })?;
 
@@ -686,7 +674,7 @@ impl SubstrateService {
         };
 
         // Query historical transactions
-        let result = query_historical_transactions(query, &client, &url)
+        let result = query_historical_transactions(query, &client, &args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
@@ -717,39 +705,25 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<QueryRuntimeUpgradesArgs>,
     ) -> Result<CallToolResult, McpError> {
-        // Handle endpoint parameter - if it's a known network name, use the full URL from config
-        // Otherwise, prepend wss:// to the endpoint
-        let url = match args.endpoint.as_deref() {
-            Some(name) => {
-                // Check if it's a known endpoint name in config
-                if let Some(endpoint_url) = self.config.get_endpoint_url(name) {
-                    endpoint_url.to_string()
-                } else {
-                    // Handle different protocol schemes for custom endpoints
-                    if name.starts_with("ws://") || name.starts_with("wss://") {
-                        // WebSocket URLs are used as-is
-                        name.to_string()
-                    } else if name.starts_with("http://") {
-                        // Convert HTTP to WSS
-                        name.replace("http://", "wss://")
-                    } else if name.starts_with("https://") {
-                        // Convert HTTPS to WSS
-                        name.replace("https://", "wss://")
-                    } else {
-                        // Assume it's a hostname and prepend wss://
-                        format!("wss://{name}")
-                    }
-                }
-            }
-            None => self.get_rpc_url(None),
-        };
+        // Validate URL if provided
+        if let Err(e) = validate_rpc_url(&args.rpc_url) {
+            return Err(McpError {
+                code: rmcp::model::ErrorCode(-32602),
+                message: format!("Invalid RPC URL: {e}").into(),
+                data: None,
+            });
+        }
 
-        // Connect to the chain using subxt for metadata
-        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+        // Connect to the chain using subxt
+        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to connect to chain with URL '{url}': {e}").into(),
+                message: format!(
+                    "Failed to connect to chain with URL '{}': {e}",
+                    args.rpc_url
+                )
+                .into(),
                 data: None,
             })?;
 
@@ -760,7 +734,7 @@ impl SubstrateService {
         };
 
         // Query runtime upgrades
-        let result = query_runtime_upgrades(query, &client, &url)
+        let result = query_runtime_upgrades(query, &client, &args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
@@ -791,39 +765,25 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<SearchRuntimeUpgradeArgs>,
     ) -> Result<CallToolResult, McpError> {
-        // Handle endpoint parameter - if it's a known network name, use the full URL from config
-        // Otherwise, prepend wss:// to the endpoint
-        let url = match args.endpoint.as_deref() {
-            Some(name) => {
-                // Check if it's a known endpoint name in config
-                if let Some(endpoint_url) = self.config.get_endpoint_url(name) {
-                    endpoint_url.to_string()
-                } else {
-                    // Handle different protocol schemes for custom endpoints
-                    if name.starts_with("ws://") || name.starts_with("wss://") {
-                        // WebSocket URLs are used as-is
-                        name.to_string()
-                    } else if name.starts_with("http://") {
-                        // Convert HTTP to WSS
-                        name.replace("http://", "wss://")
-                    } else if name.starts_with("https://") {
-                        // Convert HTTPS to WSS
-                        name.replace("https://", "wss://")
-                    } else {
-                        // Assume it's a hostname and prepend wss://
-                        format!("wss://{name}")
-                    }
-                }
-            }
-            None => self.get_rpc_url(None),
-        };
+        // Validate URL if provided
+        if let Err(e) = validate_rpc_url(&args.rpc_url) {
+            return Err(McpError {
+                code: rmcp::model::ErrorCode(-32602),
+                message: format!("Invalid RPC URL: {e}").into(),
+                data: None,
+            });
+        }
 
-        // Connect to the chain using subxt for metadata
-        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+        // Connect to the chain using subxt
+        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to connect to chain with URL '{url}': {e}").into(),
+                message: format!(
+                    "Failed to connect to chain with URL '{}': {e}",
+                    args.rpc_url
+                )
+                .into(),
                 data: None,
             })?;
 
@@ -833,7 +793,7 @@ impl SubstrateService {
             args.to_block,
             args.target_spec_version,
             &client,
-            &url,
+            &args.rpc_url,
         )
         .await
         .map_err(|e| McpError {
