@@ -33,6 +33,11 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                     name: "batch_size".to_string(),
                     description: Some("Number of PRs to process in parallel (2-4 recommended, default: 3)".to_string()),
                     required: Some(false),
+                },
+                PromptArgument {
+                    name: "project_context".to_string(),
+                    description: Some("Optional: Describe your project context to get targeted analysis. Examples: 'Moonbeam parachain using Frontier EVM, cumulus, XCM v3' or 'Asset Hub runtimes (Polkadot and Kusama) using assets, uniques pallets' or 'Solo substrate chain with contracts pallet'. For multi-runtime projects, specify which runtime(s) you're analyzing.".to_string()),
+                    required: Some(false),
                 }
             ],
             requires_parallel_agents: true,
@@ -41,6 +46,42 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 # Parallel Release Analysis Framework
                 
                 You MUST analyze EVERY PRDoc in release {{release}} using parallel processing for efficiency.
+                
+                ## Project Context Assessment
+                
+                {{#if project_context}}
+                Project context provided: {{project_context}}
+                
+                Before analyzing, identify:
+                - Key dependencies and components used in this project
+                - Relevant audiences (e.g., parachain teams need Runtime Dev + Node Dev changes)
+                - Specific subsystems of interest (e.g., EVM pallets, XCM, consensus)
+                
+                For maximum accuracy, consider examining your runtime's construct_runtime! macro(s)
+                (typically in runtime/*/src/lib.rs or runtimes/*/src/lib.rs) which show:
+                - All pallets actually included in each runtime
+                - Which pallets have Storage (on-chain state that needs migrations)
+                - The exact configuration of each pallet
+                
+                Example:
+                ```rust
+                construct_runtime!(
+                    pub enum Runtime {
+                        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+                        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+                        // Note: Storage component shows this pallet has on-chain state
+                    }
+                );
+                ```
+                
+                Note: If you have multiple runtimes (e.g., production/canary/testnet), check each one
+                as they may use different pallets or configurations.
+                
+                Use this context to score relevance throughout the analysis.
+                {{else}}
+                No project context provided. Performing comprehensive analysis of all changes.
+                💡 Tip: Provide project_context parameter for targeted, project-specific insights.
+                {{/if}}
                 
                 ## Analysis Strategy Selection
                 
@@ -107,7 +148,15 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                    - Pass 1: [discovery instructions]
                    - Pass 2: [deep analysis using Pass 1 data]
                    - Pass 3: [synthesis using all previous data]
+                {{#if project_context}}
+                3. For each finding, assess relevance to the project:
+                   - **Directly Affects**: Changes to components used by the project
+                   - **Indirect Impact**: Ecosystem changes that may affect the project
+                   - **Not Applicable**: Changes to components not used by the project
+                4. Return structured findings with relevance scores
+                {{else}}
                 3. Return structured findings
+                {{/if}}
                 ```
                 
                 ## Decision Transparency
@@ -132,6 +181,13 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 3. Include summary statistics
                 4. For multi-pass: Show how insights evolved across passes
                 5. Deliver actionable conclusions
+                {{#if project_context}}
+                6. Organize findings by relevance score:
+                   - **Directly Affects Your Project**: Detailed analysis of high-impact changes
+                   - **Indirect/Ecosystem Impact**: Summary of relevant ecosystem changes
+                   - **Not Applicable**: Brief listing of changes that don't affect your project
+                7. Provide project-specific recommendations
+                {{/if}}
                 
                 ## CRITICAL REQUIREMENTS
                 

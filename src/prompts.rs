@@ -317,6 +317,29 @@ pub fn prompts() -> Vec<SubstratePrompt> {
                     .and_then(|s| s.parse::<usize>().ok())
                     .unwrap_or(default_batch_size);
                 
+                // Handle conditional blocks for project_context
+                let has_project_context = args.get("project_context").is_some();
+                
+                // Process {{#if project_context}} ... {{else}} ... {{/if}} blocks
+                let if_regex = regex::Regex::new(r"\{\{#if project_context\}\}([\s\S]*?)\{\{else\}\}([\s\S]*?)\{\{/if\}\}").unwrap();
+                processed_instructions = if_regex.replace_all(&processed_instructions, |caps: &regex::Captures| {
+                    if has_project_context {
+                        caps.get(1).map_or("", |m| m.as_str()).to_string()
+                    } else {
+                        caps.get(2).map_or("", |m| m.as_str()).to_string()
+                    }
+                }).to_string();
+                
+                // Handle {{#if project_context}} ... {{/if}} blocks (without else)
+                let if_only_regex = regex::Regex::new(r"\{\{#if project_context\}\}([\s\S]*?)\{\{/if\}\}").unwrap();
+                processed_instructions = if_only_regex.replace_all(&processed_instructions, |caps: &regex::Captures| {
+                    if has_project_context {
+                        caps.get(1).map_or("", |m| m.as_str()).to_string()
+                    } else {
+                        "".to_string()
+                    }
+                }).to_string();
+                
                 // Replace template variables
                 for (key, value) in args {
                     if let Some(str_value) = value.as_str() {

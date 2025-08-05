@@ -5112,6 +5112,7 @@ dependencies = [
  "jsonrpsee 0.20.4",
  "log",
  "parity-scale-codec",
+ "regex",
  "reqwest",
  "rmcp",
  "scale-value",
