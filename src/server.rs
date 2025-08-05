@@ -23,7 +23,7 @@ use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::runtime_upgrades::{
     query_runtime_upgrades, search_runtime_upgrade, RuntimeUpgradeQuery,
 };
-use crate::substrate::storage::{list_pallet_storage, StorageQuery};
+use crate::substrate::storage::{list_pallet_storage, BatchStorageQuery, StorageQuery};
 use crate::substrate::transactions::{query_historical_transactions, HistoricalTransactionsQuery};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
@@ -128,8 +128,10 @@ pub struct StorageQueryArgs {
     pub entry: String,
     /// Optional keys for map-type storage (as JSON array)
     pub keys: Option<Vec<serde_json::Value>>,
-    /// Block number to query at (None for latest)
-    pub at_block: Option<u32>,
+    /// Start block number for range query (None defaults to latest if end_block is also None)
+    pub start_block: Option<u32>,
+    /// End block number for range query (None defaults to latest if start_block is also None)
+    pub end_block: Option<u32>,
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -406,7 +408,7 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys. Use this to read chain state like account balances, staking info, or governance proposals."
+        description = "Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys. Use this to read chain state like account balances, staking info, or governance proposals. Can query at specific blocks or ranges."
     )]
     pub async fn query_storage(
         &self,
@@ -430,23 +432,113 @@ impl SubstrateService {
                 data: None,
             })?;
 
-        // Create query
-        let query = StorageQuery {
-            pallet: args.pallet,
-            entry: args.entry,
-            keys: args.keys,
-            at_block: args.at_block,
+        // Get the latest block number for validation
+        let latest_block = client.blocks().at_latest().await.map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: format!("Failed to get latest block: {e}").into(),
+            data: None,
+        })?;
+        let latest_block_num = latest_block.number();
+
+        // Maximum number of blocks that can be queried in a single request
+        const MAX_BLOCK_RANGE: u32 = 100;
+
+        // Validate and determine query range
+        let (start_block, end_block) = match (args.start_block, args.end_block) {
+            (None, None) => {
+                // No blocks specified: query latest only
+                (latest_block_num, latest_block_num)
+            }
+            (None, Some(end)) => {
+                // Only end block specified: single query at that block
+                if end > latest_block_num {
+                    return Err(McpError {
+                        code: rmcp::model::ErrorCode(-32602),
+                        message: format!(
+                            "End block {} is beyond latest block {}",
+                            end, latest_block_num
+                        )
+                        .into(),
+                        data: None,
+                    });
+                }
+                (end, end)
+            }
+            (Some(start), None) => {
+                // Only start block specified: query from start to latest
+                if start > latest_block_num {
+                    return Err(McpError {
+                        code: rmcp::model::ErrorCode(-32602),
+                        message: format!(
+                            "Start block {} is beyond latest block {}",
+                            start, latest_block_num
+                        )
+                        .into(),
+                        data: None,
+                    });
+                }
+                (start, latest_block_num)
+            }
+            (Some(start), Some(end)) => {
+                // Both blocks specified: validate range
+                if start > end {
+                    return Err(McpError {
+                        code: rmcp::model::ErrorCode(-32602),
+                        message: format!("Start block {} must be <= end block {}", start, end)
+                            .into(),
+                        data: None,
+                    });
+                }
+                if end > latest_block_num {
+                    return Err(McpError {
+                        code: rmcp::model::ErrorCode(-32602),
+                        message: format!(
+                            "End block {} is beyond latest block {}",
+                            end, latest_block_num
+                        )
+                        .into(),
+                        data: None,
+                    });
+                }
+                (start, end)
+            }
         };
 
-        // Execute query
-        let result = query.execute(&client).await.map_err(|e| McpError {
+        // Check if the range is within limits
+        if end_block - start_block + 1 > MAX_BLOCK_RANGE {
+            return Err(McpError {
+                code: rmcp::model::ErrorCode(-32602),
+                message: format!(
+                    "Block range {} exceeds maximum limit of {} blocks",
+                    end_block - start_block + 1,
+                    MAX_BLOCK_RANGE
+                )
+                .into(),
+                data: None,
+            });
+        }
+
+        // Create queries for each block in range
+        let queries: Vec<StorageQuery> = (start_block..=end_block)
+            .map(|block_num| StorageQuery {
+                pallet: args.pallet.clone(),
+                entry: args.entry.clone(),
+                keys: args.keys.clone(),
+                at_block: block_num,
+                rpc_url: args.rpc_url.clone(),
+            })
+            .collect();
+
+        // Execute batch query
+        let batch_query = BatchStorageQuery { queries };
+        let results = batch_query.execute(&client).await.map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
             message: format!("Failed to query storage: {e}").into(),
             data: None,
         })?;
 
         // Convert to JSON
-        let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
+        let json_result = serde_json::to_string_pretty(&results).map_err(|e| McpError {
             code: rmcp::model::ErrorCode::INTERNAL_ERROR,
             message: format!("Serialization error: {e}").into(),
             data: None,
