@@ -98,6 +98,7 @@ fn get_optional_arg(
 
 /// Import release prompts
 use crate::release_prompts;
+use crate::prdoc_analysis_prompts;
 
 /// Create a new Prompts instance with all available prompts
 pub fn prompts() -> Vec<SubstratePrompt> {
@@ -287,6 +288,53 @@ pub fn prompts() -> Vec<SubstratePrompt> {
                     if let Some(str_value) = value.as_str() {
                         processed_instructions = processed_instructions.replace(&format!("{{{{{}}}}}", key), str_value);
                     }
+                }
+                
+                Ok(vec![PromptMessage {
+                    role: PromptMessageRole::User,
+                    content: PromptMessageContent::Text { text: processed_instructions },
+                }])
+            }),
+        });
+    }
+    
+    // Add analysis prompts that use parallel agents
+    for prompt in prdoc_analysis_prompts::get_analysis_prompts() {
+        let instructions = prompt.instructions.clone();
+        let requires_parallel = prompt.requires_parallel_agents;
+        let default_batch_size = prompt.agent_batch_size.unwrap_or(3);
+        
+        all_prompts.push(SubstratePrompt {
+            name: prompt.name.clone(),
+            description: prompt.description,
+            arguments: prompt.arguments,
+            handler: Box::new(move |args| {
+                let mut processed_instructions = instructions.clone();
+                
+                // Get user-specified batch size or use default
+                let batch_size = args.get("batch_size")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .unwrap_or(default_batch_size);
+                
+                // Replace template variables
+                for (key, value) in args {
+                    if let Some(str_value) = value.as_str() {
+                        processed_instructions = processed_instructions.replace(&format!("{{{{{}}}}}", key), str_value);
+                    }
+                }
+                
+                // Add batch size to instructions
+                processed_instructions = processed_instructions.replace("{{batch_size}}", &batch_size.to_string());
+                processed_instructions = processed_instructions.replace("{{agent_batch_size}}", &batch_size.to_string());
+                
+                // Add parallel processing note if applicable
+                if requires_parallel {
+                    processed_instructions = format!(
+                        "**IMPORTANT**: This analysis REQUIRES parallel sub-agent processing with batch size {}.\n\n{}",
+                        batch_size,
+                        processed_instructions
+                    );
                 }
                 
                 Ok(vec![PromptMessage {

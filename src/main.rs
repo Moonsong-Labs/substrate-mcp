@@ -5,6 +5,7 @@ use tokio::io::{stdin, stdout};
 mod config;
 mod polkadot_sdk_releases;
 mod prompts;
+mod prdoc_analysis_prompts;
 mod public_endpoints;
 mod release_analysis;
 mod release_prompts;
