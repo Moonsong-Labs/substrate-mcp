@@ -158,7 +158,7 @@ pub struct QueryHistoricalEventsArgs {
 pub struct QueryHistoricalExtrinsicsProperties {
     /// The RPC endpoint to connect to
     pub rpc_url: String,
-    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
     pub from_block: i32,
     /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
     pub to_block: Option<i32>,
@@ -174,7 +174,7 @@ pub struct QueryHistoricalExtrinsicsProperties {
 pub struct QueryRuntimeStateProperties {
     /// The RPC endpoint to connect to
     pub rpc_url: String,
-    /// Block number (negative = relative to current, e.g. -10 = 10 blocks ago)
+    /// Block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
     pub block: i32,
 }
 
@@ -719,7 +719,7 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Get runtime state (version and metadata) at a specific block. Supports relative block numbers (e.g., -10 for 10 blocks ago). If the number is positive or 0, uses absolute block. Returns runtime version information and raw metadata bytes."
+        description = "Get runtime state (version and metadata) at a specific block. Supports relative block numbers (e.g., -10 for 10 blocks ago). If the number is positive, uses absolute block; if it's 0, returns current block. Returns runtime version information and raw metadata bytes."
     )]
     pub async fn query_runtime_state(
         &self,

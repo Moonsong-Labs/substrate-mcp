@@ -129,6 +129,8 @@ pub async fn get_runtime_state(
     // Calculate actual block number
     let block_number = if block_identifier < 0 {
         (current_block as i32 + block_identifier) as u32
+    } else if block_identifier == 0 {
+        current_block
     } else {
         block_identifier as u32
     };

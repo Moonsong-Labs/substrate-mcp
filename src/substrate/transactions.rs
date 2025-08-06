@@ -84,6 +84,8 @@ pub async fn query_historical_extrinsics(
     // Calculate actual block range
     let from = if query.from_block < 0 {
         (current_block as i32 + query.from_block) as u32
+    } else if query.from_block == 0 {
+        current_block
     } else {
         query.from_block as u32
     };
