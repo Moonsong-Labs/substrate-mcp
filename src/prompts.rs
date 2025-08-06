@@ -775,15 +775,25 @@ fn scaffold_pallet_prompt(pallet_description: String) -> Result<Vec<PromptMessag
 
 ## Implementation Requirements
 
-1. If the pallet is part of a runtime/workspace, make sure it is compatible
-with it and that it uses the correct dependencies.
-2. For pallet structure, check existing pallets in the workspace and follow
-that structure. Else, you can take inspiration from frame pallets, for example
-pallet_treasury: https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/treasury.
-3. Add benchmarks for the pallet. If this repository has a runtime with
-generated weights and a way to run benchmarks, adapt them to the benchmark 
-flow or give instructions on how get proper pallet weights and integrate them 
-into the runtime.
+### Workspace Integration
+If the pallet is part of a workspace make sure it is compatible with its
+dependencies. If it uses some dependency that's already in the worspace,
+use the workspace dependeny (setting `\{workspace = true\}`)
+
+### Runtime Integration
+
+If the repository is for a substrate chain/s, add the pallet to its runtimes
+unless specified otherwise in the PALLET_DESCRIPTION.
+If the runtime hash generated weights and a way to run benchmarks, 
+adapt this pallet to that flow and give instructions on how get proper pallet
+ weights and integrate them into the runtime.
+
+### Pallet Structure 
+Check existing pallets in the workspace and and do a best effort to 
+follo that structure. 
+If there are no other pallets, you can take inspiration from frame pallets, for example
+pallet_treasury: https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/treasury. 
+
 
 ## Implementation Guidelines
 
@@ -812,6 +822,7 @@ into the runtime.
    - Test all error conditions
    - Test edge cases and boundaries
    - Test event emissions
+   - Make sure tests compile and pass
 
 ## References
 - Basic pallet structure: https://docs.polkadot.com/develop/parachains/customize-parachain/make-custom-pallet/
