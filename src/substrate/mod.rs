@@ -1,5 +1,4 @@
 /// Client module for Substrate MCP server
-
 /// Metadata module for filtering and querying chain metadata
 pub mod metadata;
 

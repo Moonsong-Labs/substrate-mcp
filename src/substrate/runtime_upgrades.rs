@@ -111,7 +111,8 @@ pub async fn query_runtime_upgrades(
     let blocks_queried = to - from + 1;
 
     // Storage key for System.LastRuntimeUpgrade
-    let _last_runtime_upgrade_key = "0x26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8";
+    let _last_runtime_upgrade_key =
+        "0x26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8";
 
     let mut prev_runtime_info: Option<(u32, String)> = None;
 
@@ -122,7 +123,8 @@ pub async fn query_runtime_upgrades(
             .request("chain_getBlockHash", vec![block_num])
             .await?;
 
-        let block_hash = block_hash.ok_or_else(|| anyhow::anyhow!("Block {} not found", block_num))?;
+        let block_hash =
+            block_hash.ok_or_else(|| anyhow::anyhow!("Block {} not found", block_num))?;
 
         // Get runtime version at this block
         let runtime_version: serde_json::Value = rpc_client
@@ -243,12 +245,8 @@ pub async fn search_runtime_upgrade(
         .await?;
 
         // Get storage changes (focusing on important system storage)
-        let storage_changes = get_upgrade_storage_changes(
-            &upgrade.block_hash,
-            upgrade.block_number,
-            rpc_url,
-        )
-        .await?;
+        let storage_changes =
+            get_upgrade_storage_changes(&upgrade.block_hash, upgrade.block_number, rpc_url).await?;
 
         Ok(Some(RuntimeUpgradeDetails {
             upgrade,
@@ -283,10 +281,22 @@ async fn get_upgrade_storage_changes(
 
     // Important storage keys to check
     let important_keys = vec![
-        ("0x26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8", "System", "LastRuntimeUpgrade"),
+        (
+            "0x26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8",
+            "System",
+            "LastRuntimeUpgrade",
+        ),
         ("0x3a636f6465", "System", ":code"),
-        ("0x26aa394eea5630e07c48ae0c9558cef79a5f0fe3a994afd1160bf61dd10b857e66", "System", "UpgradedToU32RefCount"),
-        ("0x26aa394eea5630e07c48ae0c9558cef7682a096bba730d67f8488aa00d6bcea6", "System", "UpgradedToTripleRefCount"),
+        (
+            "0x26aa394eea5630e07c48ae0c9558cef79a5f0fe3a994afd1160bf61dd10b857e66",
+            "System",
+            "UpgradedToU32RefCount",
+        ),
+        (
+            "0x26aa394eea5630e07c48ae0c9558cef7682a096bba730d67f8488aa00d6bcea6",
+            "System",
+            "UpgradedToTripleRefCount",
+        ),
     ];
 
     for (key, pallet, item) in important_keys {

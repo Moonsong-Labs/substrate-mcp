@@ -455,8 +455,7 @@ impl SubstrateService {
                     return Err(McpError {
                         code: rmcp::model::ErrorCode(-32602),
                         message: format!(
-                            "End block {} is beyond latest block {}",
-                            end, latest_block_num
+                            "End block {end} is beyond latest block {latest_block_num}"
                         )
                         .into(),
                         data: None,
@@ -470,8 +469,7 @@ impl SubstrateService {
                     return Err(McpError {
                         code: rmcp::model::ErrorCode(-32602),
                         message: format!(
-                            "Start block {} is beyond latest block {}",
-                            start, latest_block_num
+                            "Start block {start} is beyond latest block {latest_block_num}"
                         )
                         .into(),
                         data: None,
@@ -484,8 +482,7 @@ impl SubstrateService {
                 if start > end {
                     return Err(McpError {
                         code: rmcp::model::ErrorCode(-32602),
-                        message: format!("Start block {} must be <= end block {}", start, end)
-                            .into(),
+                        message: format!("Start block {start} must be <= end block {end}").into(),
                         data: None,
                     });
                 }
@@ -493,8 +490,7 @@ impl SubstrateService {
                     return Err(McpError {
                         code: rmcp::model::ErrorCode(-32602),
                         message: format!(
-                            "End block {} is beyond latest block {}",
-                            end, latest_block_num
+                            "End block {end} is beyond latest block {latest_block_num}"
                         )
                         .into(),
                         data: None,

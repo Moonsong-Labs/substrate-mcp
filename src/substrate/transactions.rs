@@ -116,12 +116,7 @@ pub async fn query_historical_transactions(
             let extrinsic = match extrinsic_result {
                 Ok(ext) => ext,
                 Err(e) => {
-                    log::warn!(
-                        "Failed to decode extrinsic at block {} index {}: {}",
-                        block_num,
-                        idx,
-                        e
-                    );
+                    log::warn!("Failed to decode extrinsic at block {block_num} index {idx}: {e}");
                     continue;
                 }
             };
@@ -141,12 +136,7 @@ pub async fn query_historical_transactions(
                 Ok(Some(tx)) => all_transactions.push(tx),
                 Ok(None) => {} // Filtered out
                 Err(e) => {
-                    log::warn!(
-                        "Failed to process extrinsic at block {} index {}: {}",
-                        block_num,
-                        idx,
-                        e
-                    );
+                    log::warn!("Failed to process extrinsic at block {block_num} index {idx}: {e}");
                 }
             }
         }
@@ -197,12 +187,12 @@ async fn process_extrinsic(
                 .iter()
                 .find(|v| v.index == call_index)
                 .map(|v| v.name.to_string())
-                .unwrap_or_else(|| format!("Call{}", call_index))
+                .unwrap_or_else(|| format!("Call{call_index}"))
         } else {
-            format!("Call{}", call_index)
+            format!("Call{call_index}")
         }
     } else {
-        format!("Call{}", call_index)
+        format!("Call{call_index}")
     };
 
     // Apply pallet filter
@@ -226,10 +216,10 @@ async fn process_extrinsic(
             use sp_core::crypto::Ss58Codec;
             if bytes.len() == 32 {
                 let mut account_bytes = [0u8; 32];
-                account_bytes.copy_from_slice(&bytes);
+                account_bytes.copy_from_slice(bytes);
                 sp_core::crypto::AccountId32::new(account_bytes).to_ss58check()
             } else {
-                format!("0x{}", hex::encode(&bytes))
+                format!("0x{}", hex::encode(bytes))
             }
         })
     } else {
@@ -251,7 +241,7 @@ async fn process_extrinsic(
     let extrinsic_bytes = extrinsic.bytes();
     let hash = format!(
         "0x{}",
-        hex::encode(sp_core::hashing::blake2_256(&extrinsic_bytes))
+        hex::encode(sp_core::hashing::blake2_256(extrinsic_bytes))
     );
 
     // Get block info
@@ -290,10 +280,10 @@ fn decode_call_args(
         }
         Err(e) => {
             // If decoding fails, return the raw hex
-            log::debug!("Failed to decode call arguments: {}", e);
+            log::debug!("Failed to decode call arguments: {e}");
             let extrinsic_bytes = extrinsic.bytes();
             Ok(serde_json::json!({
-                "raw": format!("0x{}", hex::encode(&extrinsic_bytes))
+                "raw": format!("0x{}", hex::encode(extrinsic_bytes))
             }))
         }
     }
@@ -341,7 +331,7 @@ async fn check_extrinsic_events(
                         }
                     }
                     Err(e) => {
-                        log::debug!("Failed to decode fee event: {}", e);
+                        log::debug!("Failed to decode fee event: {e}");
                     }
                 }
             }
