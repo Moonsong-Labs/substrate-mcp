@@ -430,8 +430,21 @@ fn release_comparison_prompt(
 
 ## Tools and Resources
 - Use substrate_mcp's `get_polkadot_sdk_release_prdocs` tool to fetch release documentation
+  - NEW: The tool now supports version ranges! Use: `{current_version}>{target_version}` to fetch all releases between them automatically
+  - Example: `stable2502>stable2503-2` will download PRDocs for stable2503, stable2503-1, and stable2503-2
 - Reference the polkadot-sdk repository: https://github.com/paritytech/polkadot-sdk
 - PRDocs contain release notes with breaking changes, new features, and important updates
+
+## Fetching PRDocs
+First, fetch all relevant PRDocs using the version range feature:
+```
+Use get_polkadot_sdk_release_prdocs with release: "{current_version}>{target_version}"
+```
+
+This will automatically:
+1. Determine all releases between {current_version} (exclusive) and {target_version} (inclusive)
+2. Download PRDocs for each intermediate release
+3. Organize them by release in ~/.substrate-mcp/prdocs/
 
 ## Version Naming Conventions
 1. **Semantic versions**: Follow standard semver (e.g., 1.2.3)
@@ -440,29 +453,7 @@ fn release_comparison_prompt(
    - Optional -X suffix for patches (e.g., stable2503-1)
 
 Stable releases were implemented later than semantic versions so oldest stable
-release comes after newer semantic versioned release.
-
-## Version Range Logic
-
-### Same Base Version (Different Patches)
-If comparing patches of the same release (e.g., stable2503 → stable2503-4):
-- Include ALL intermediate patches in sequence
-- Example: stable2503 → stable2503-4 requires:
-  - stable2503-1
-  - stable2503-2
-  - stable2503-3
-  - stable2503-4
-- Note that the current release (stable2503) is NOT included.
-
-### Different Base Versions
-If comparing different releases (e.g., stable2502 → stable2503-2):
-1. Include ALL patches from the newer base version up to target.
-2. Include the base release notes for intermediate versions.
-3. Do NOT include the current release as this is supposed to be the starting point.
-4. Example: stable2502 → stable2503-2 requires:
-   - stable2503 (base release)
-   - stable2503-1
-   - stable2503-2"#,
+release comes after newer semantic versioned release."#,
     );
 
     if let Some(specific_changes) = &specific_changes {

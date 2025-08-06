@@ -3,6 +3,18 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tokio::fs;
+use std::cmp::Ordering;
+
+// GitHub API structures
+#[derive(Debug, Deserialize)]
+struct GitHubRelease {
+    tag_name: String,
+    #[allow(dead_code)]
+    name: Option<String>,
+    #[allow(dead_code)]
+    created_at: String,
+    prerelease: bool,
+}
 
 #[derive(Debug, Deserialize)]
 struct GitHubContent {
@@ -10,6 +22,224 @@ struct GitHubContent {
     #[serde(rename = "type")]
     content_type: String,
     download_url: Option<String>,
+}
+
+// Version parsing structures
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ReleaseVersion {
+    Semantic { major: u32, minor: u32, patch: u32 },
+    Stable { year: u32, month: u32, patch: Option<u32> },
+}
+
+impl ReleaseVersion {
+    /// Parse a version string into ReleaseVersion
+    fn parse(version: &str) -> Option<Self> {
+        // Try semantic version first (e.g., "1.9.0" or "v1.9.0")
+        let version = version.trim_start_matches('v');
+        
+        if let Some((major, rest)) = version.split_once('.') {
+            if let Some((minor, patch)) = rest.split_once('.') {
+                if let (Ok(major), Ok(minor), Ok(patch)) = 
+                    (major.parse::<u32>(), minor.parse::<u32>(), patch.parse::<u32>()) {
+                    return Some(ReleaseVersion::Semantic { major, minor, patch });
+                }
+            }
+        }
+        
+        // Try stable version (e.g., "stable2503" or "stable2503-7")
+        if let Some(version) = version.strip_prefix("stable") {
+            if let Some((yymm, patch_str)) = version.split_once('-') {
+                // Has patch suffix
+                if yymm.len() == 4 {
+                    if let (Ok(year), Ok(month), Ok(patch)) = (
+                        yymm[0..2].parse::<u32>(),
+                        yymm[2..4].parse::<u32>(),
+                        patch_str.parse::<u32>()
+                    ) {
+                        return Some(ReleaseVersion::Stable { 
+                            year: 2000 + year, 
+                            month, 
+                            patch: Some(patch) 
+                        });
+                    }
+                }
+            } else if version.len() == 4 {
+                // No patch suffix
+                if let (Ok(year), Ok(month)) = (
+                    version[0..2].parse::<u32>(),
+                    version[2..4].parse::<u32>()
+                ) {
+                    return Some(ReleaseVersion::Stable { 
+                        year: 2000 + year, 
+                        month, 
+                        patch: None 
+                    });
+                }
+            }
+        }
+        
+        None
+    }
+    
+    /// Convert back to string format
+    fn to_string(&self) -> String {
+        match self {
+            ReleaseVersion::Semantic { major, minor, patch } => 
+                format!("{}.{}.{}", major, minor, patch),
+            ReleaseVersion::Stable { year, month, patch } => {
+                let base = format!("stable{:02}{:02}", year % 100, month);
+                match patch {
+                    Some(p) => format!("{}-{}", base, p),
+                    None => base,
+                }
+            }
+        }
+    }
+}
+
+impl Ord for ReleaseVersion {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            // Semantic versions comparison
+            (ReleaseVersion::Semantic { major: m1, minor: n1, patch: p1 },
+             ReleaseVersion::Semantic { major: m2, minor: n2, patch: p2 }) => {
+                (m1, n1, p1).cmp(&(m2, n2, p2))
+            }
+            // Stable versions comparison
+            (ReleaseVersion::Stable { year: y1, month: m1, patch: p1 },
+             ReleaseVersion::Stable { year: y2, month: m2, patch: p2 }) => {
+                match (y1, m1).cmp(&(y2, m2)) {
+                    Ordering::Equal => p1.cmp(p2),
+                    other => other,
+                }
+            }
+            // Stable releases came after semantic versions
+            (ReleaseVersion::Semantic { .. }, ReleaseVersion::Stable { .. }) => Ordering::Less,
+            (ReleaseVersion::Stable { .. }, ReleaseVersion::Semantic { .. }) => Ordering::Greater,
+        }
+    }
+}
+
+impl PartialOrd for ReleaseVersion {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+// In-memory cache for releases
+static mut RELEASE_CACHE: Option<Vec<String>> = None;
+
+/// Fetch releases from GitHub, stopping when we reach the current version
+async fn fetch_releases_until(current_version: &str) -> Result<Vec<String>> {
+    // Check cache first
+    unsafe {
+        if let Some(ref cache) = RELEASE_CACHE {
+            return Ok(cache.clone());
+        }
+    }
+    
+    let client = reqwest::Client::new();
+    let mut all_releases = Vec::new();
+    let mut page = 1;
+    let current = ReleaseVersion::parse(current_version)
+        .ok_or_else(|| anyhow!("Invalid current version format: {}", current_version))?;
+    
+    'pages: loop {
+        let url = format!(
+            "https://api.github.com/repos/paritytech/polkadot-sdk/releases?per_page=100&page={}",
+            page
+        );
+        
+        let response = client
+            .get(&url)
+            .header("Accept", "application/vnd.github.v3+json")
+            .header("User-Agent", "substrate-mcp")
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to fetch releases: {}", e))?;
+        
+        if !response.status().is_success() {
+            return Err(anyhow!(
+                "GitHub API returned status {}: {}",
+                response.status(),
+                response.text().await.unwrap_or_default()
+            ));
+        }
+        
+        let releases: Vec<GitHubRelease> = response
+            .json()
+            .await
+            .map_err(|e| anyhow!("Failed to parse releases: {}", e))?;
+        
+        if releases.is_empty() {
+            break;
+        }
+        
+        for release in releases {
+            // Skip pre-releases
+            if release.prerelease {
+                continue;
+            }
+            
+            // Try to parse the version
+            if let Some(version) = ReleaseVersion::parse(&release.tag_name) {
+                // Check if we've reached the current version
+                if version <= current {
+                    break 'pages;
+                }
+                
+                all_releases.push(release.tag_name.clone());
+            }
+        }
+        
+        page += 1;
+    }
+    
+    // Cache the results
+    unsafe {
+        RELEASE_CACHE = Some(all_releases.clone());
+    }
+    
+    Ok(all_releases)
+}
+
+/// Get all releases between two versions (inclusive of target, exclusive of current)
+pub async fn get_releases_between(current_version: &str, target_version: &str) -> Result<Vec<String>> {
+    let current = ReleaseVersion::parse(current_version)
+        .ok_or_else(|| anyhow!("Invalid current version format: {}", current_version))?;
+    let target = ReleaseVersion::parse(target_version)
+        .ok_or_else(|| anyhow!("Invalid target version format: {}", target_version))?;
+    
+    if current >= target {
+        return Err(anyhow!("Current version {} must be less than target version {}", 
+            current_version, target_version));
+    }
+    
+    // Fetch all releases up to (but not including) current version
+    let all_releases = fetch_releases_until(current_version).await?;
+    
+    // Filter releases between current (exclusive) and target (inclusive)
+    let mut releases_in_range = Vec::new();
+    
+    for release_tag in all_releases {
+        if let Some(version) = ReleaseVersion::parse(&release_tag) {
+            if version > current && version <= target {
+                releases_in_range.push(release_tag);
+            }
+        }
+    }
+    
+    // Sort releases in ascending order
+    releases_in_range.sort_by(|a, b| {
+        let v1 = ReleaseVersion::parse(a);
+        let v2 = ReleaseVersion::parse(b);
+        match (v1, v2) {
+            (Some(v1), Some(v2)) => v1.cmp(&v2),
+            _ => Ordering::Equal,
+        }
+    });
+    
+    Ok(releases_in_range)
 }
 
 #[derive(Debug, Serialize)]
@@ -563,5 +793,82 @@ crates: [ ]
             assert!(audience_counts["Runtime Dev"].pr_numbers.contains(&7067));
             assert!(audience_counts["Runtime User"].pr_numbers.contains(&7067));
         }
+    }
+
+    #[test]
+    fn test_version_parsing() {
+        // Semantic versions
+        assert_eq!(
+            ReleaseVersion::parse("1.9.0"),
+            Some(ReleaseVersion::Semantic { major: 1, minor: 9, patch: 0 })
+        );
+        assert_eq!(
+            ReleaseVersion::parse("v1.9.0"),
+            Some(ReleaseVersion::Semantic { major: 1, minor: 9, patch: 0 })
+        );
+        
+        // Stable versions without patch
+        assert_eq!(
+            ReleaseVersion::parse("stable2502"),
+            Some(ReleaseVersion::Stable { year: 2025, month: 2, patch: None })
+        );
+        
+        // Stable versions with patch
+        assert_eq!(
+            ReleaseVersion::parse("stable2503-7"),
+            Some(ReleaseVersion::Stable { year: 2025, month: 3, patch: Some(7) })
+        );
+        
+        // Invalid formats
+        assert_eq!(ReleaseVersion::parse("invalid"), None);
+        assert_eq!(ReleaseVersion::parse("1.9"), None);
+        assert_eq!(ReleaseVersion::parse("stable25"), None);
+    }
+
+    #[test]
+    fn test_version_to_string() {
+        let semantic = ReleaseVersion::Semantic { major: 1, minor: 9, patch: 0 };
+        assert_eq!(semantic.to_string(), "1.9.0");
+        
+        let stable_no_patch = ReleaseVersion::Stable { year: 2025, month: 2, patch: None };
+        assert_eq!(stable_no_patch.to_string(), "stable2502");
+        
+        let stable_with_patch = ReleaseVersion::Stable { year: 2025, month: 3, patch: Some(7) };
+        assert_eq!(stable_with_patch.to_string(), "stable2503-7");
+    }
+
+    #[test]
+    fn test_version_ordering() {
+        let v1_8_0 = ReleaseVersion::parse("1.8.0").unwrap();
+        let v1_9_0 = ReleaseVersion::parse("1.9.0").unwrap();
+        let v1_10_0 = ReleaseVersion::parse("1.10.0").unwrap();
+        let stable2502 = ReleaseVersion::parse("stable2502").unwrap();
+        let stable2503 = ReleaseVersion::parse("stable2503").unwrap();
+        let stable2503_1 = ReleaseVersion::parse("stable2503-1").unwrap();
+        let stable2503_7 = ReleaseVersion::parse("stable2503-7").unwrap();
+        
+        // Semantic version ordering
+        assert!(v1_8_0 < v1_9_0);
+        assert!(v1_9_0 < v1_10_0);
+        
+        // Stable version ordering
+        assert!(stable2502 < stable2503);
+        assert!(stable2503 < stable2503_1);
+        assert!(stable2503_1 < stable2503_7);
+        
+        // Cross-type ordering (stable came after semantic)
+        assert!(v1_10_0 < stable2502);
+    }
+
+    #[test]
+    fn test_patch_version_ordering() {
+        // Test that base version comes before patched versions
+        let base = ReleaseVersion::parse("stable2503").unwrap();
+        let patch1 = ReleaseVersion::parse("stable2503-1").unwrap();
+        let patch7 = ReleaseVersion::parse("stable2503-7").unwrap();
+        
+        assert!(base < patch1);
+        assert!(patch1 < patch7);
+        assert!(base < patch7);
     }
 }

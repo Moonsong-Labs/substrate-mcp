@@ -42,7 +42,8 @@ pub struct SubstrateService {
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
 pub struct GetPolkadotSdkReleasePrdocsRequest {
-    /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412')
+    /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412'). 
+    /// Can also be a range using '>': 'stable2502>stable2503-2' to get all releases between them.
     pub release: String,
 }
 
@@ -169,37 +170,113 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
             GetPolkadotSdkReleasePrdocsRequest,
         >,
     ) -> Result<CallToolResult, McpError> {
-        let result = polkadot_sdk_releases::query_prdocs(&release)
-            .await
-            .map_err(|e| McpError {
-                code: rmcp::model::ErrorCode(-32603),
-                message: e.to_string().into(),
-                data: None,
-            })?;
-
-        let response_text = if result.success {
-            format!(
-                "Successfully downloaded {} PRDoc files for release '{}' to:\n{}\n\nTotal size: {} bytes\n\nYou can now use standard file operations (LS, Read, Glob, Grep) to explore the PRDocs.",
-                result.file_count,
-                result.release,
-                result.output_dir.display(),
-                result.total_size
-            )
+        // Check if this is a version range
+        if release.contains('>') {
+            // Handle version range: current>target
+            let parts: Vec<&str> = release.split('>').collect();
+            if parts.len() != 2 {
+                return Err(McpError {
+                    code: rmcp::model::ErrorCode::INVALID_PARAMS,
+                    message: "Invalid version range format. Use: 'current>target' (e.g., 'stable2502>stable2503-2')".into(),
+                    data: None,
+                });
+            }
+            
+            let current_version = parts[0].trim();
+            let target_version = parts[1].trim();
+            
+            // Get all releases in the range
+            let releases = polkadot_sdk_releases::get_releases_between(current_version, target_version)
+                .await
+                .map_err(|e| McpError {
+                    code: rmcp::model::ErrorCode(-32603),
+                    message: e.to_string().into(),
+                    data: None,
+                })?;
+            
+            if releases.is_empty() {
+                return Ok(CallToolResult {
+                    content: vec![Content {
+                        annotations: None,
+                        raw: RawContent::Text(RawTextContent { 
+                            text: format!("No releases found between {} and {}", current_version, target_version) 
+                        }),
+                    }],
+                    is_error: None,
+                });
+            }
+            
+            // Download PRDocs for each release
+            let mut total_files = 0;
+            let mut total_size = 0;
+            let mut downloaded_releases = Vec::new();
+            
+            for release_version in &releases {
+                match polkadot_sdk_releases::query_prdocs(release_version).await {
+                    Ok(result) => {
+                        if result.success {
+                            total_files += result.file_count;
+                            total_size += result.total_size;
+                            downloaded_releases.push(release_version.clone());
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to download PRDocs for {}: {}", release_version, e);
+                    }
+                }
+            }
+            
+            let response_text = format!(
+                "Downloaded PRDocs for {} releases between {} and {}:\n\nReleases processed: {}\n\nTotal files: {}\nTotal size: {} bytes\n\nPRDocs are organized by release in ~/.substrate-mcp/prdocs/\n\nYou can now use standard file operations (LS, Read, Glob, Grep) to explore the PRDocs.",
+                downloaded_releases.len(),
+                current_version,
+                target_version,
+                downloaded_releases.join(", "),
+                total_files,
+                total_size
+            );
+            
+            Ok(CallToolResult {
+                content: vec![Content {
+                    annotations: None,
+                    raw: RawContent::Text(RawTextContent { text: response_text }),
+                }],
+                is_error: None,
+            })
         } else {
-            format!(
-                "No PRDoc files found for release '{}'. The directory {} was created but is empty.",
-                result.release,
-                result.output_dir.display()
-            )
-        };
+            // Single release
+            let result = polkadot_sdk_releases::query_prdocs(&release)
+                .await
+                .map_err(|e| McpError {
+                    code: rmcp::model::ErrorCode(-32603),
+                    message: e.to_string().into(),
+                    data: None,
+                })?;
 
-        Ok(CallToolResult {
-            content: vec![Content {
-                annotations: None,
-                raw: RawContent::Text(RawTextContent { text: response_text }),
-            }],
-            is_error: None,
-        })
+            let response_text = if result.success {
+                format!(
+                    "Successfully downloaded {} PRDoc files for release '{}' to:\n{}\n\nTotal size: {} bytes\n\nYou can now use standard file operations (LS, Read, Glob, Grep) to explore the PRDocs.",
+                    result.file_count,
+                    result.release,
+                    result.output_dir.display(),
+                    result.total_size
+                )
+            } else {
+                format!(
+                    "No PRDoc files found for release '{}'. The directory {} was created but is empty.",
+                    result.release,
+                    result.output_dir.display()
+                )
+            };
+
+            Ok(CallToolResult {
+                content: vec![Content {
+                    annotations: None,
+                    raw: RawContent::Text(RawTextContent { text: response_text }),
+                }],
+                is_error: None,
+            })
+        }
     }
 
     #[tool(description = "Analyze a Polkadot SDK release comprehensively, going beyond PRDocs to analyze all PR metadata, patches, and relationships. Creates structured index, impact analysis, and categorization. Requires scout data to be available in test_scout_output directory.")]
