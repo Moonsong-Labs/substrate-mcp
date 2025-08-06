@@ -778,7 +778,7 @@ fn scaffold_pallet_prompt(pallet_description: String) -> Result<Vec<PromptMessag
 ### Workspace Integration
 If the pallet is part of a workspace make sure it is compatible with its
 dependencies. If it uses some dependency that's already in the worspace,
-use the workspace dependeny (setting `\{workspace = true\}`)
+use the workspace dependeny (setting `{{workspace = true}}`)
 
 ### Runtime Integration
 
