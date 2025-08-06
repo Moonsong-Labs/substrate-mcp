@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
-use crate::substrate::metadata::{decode_metadata_from_hex, extract_metadata_summary, MetadataSummary};
+use crate::substrate::metadata::{
+    decode_metadata_from_hex, extract_metadata_summary, MetadataSummary,
+};
 
 /// Query runtime upgrades from historical blocks
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,7 +179,7 @@ pub async fn get_runtime_state(
     let metadata_hex: String = rpc_client
         .request("state_getMetadata", vec![&block_hash])
         .await?;
-    
+
     // Decode the metadata and extract summary
     let metadata = decode_metadata_from_hex(&metadata_hex)?;
     let metadata_summary = extract_metadata_summary(&metadata);
