@@ -168,6 +168,43 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 Example: "This migration planning task requires 3 passes: First, I'll inventory all changes. Second, I'll analyze dependencies between them. Finally, I'll create an ordered migration plan."
                 
+                ## Fetching PR Diffs for Deeper Analysis
+                
+                PRDocs provide high-level summaries, but sometimes deeper analysis requires examining the actual code changes.
+                Consider fetching PR diffs when:
+                
+                ### When to Fetch PR Diffs:
+                - **Security Analysis**: When the PRDoc mentions security fixes but lacks detail about the vulnerability
+                - **Breaking Changes**: When you need to understand the exact API changes or migration path
+                - **Complex Technical Changes**: When the PRDoc describes architectural changes that need code review
+                - **Dependency Analysis**: When you need to trace how changes affect other components
+                - **Migration Planning**: When you need to write specific migration code based on the changes
+                - **Performance Impact**: When benchmarks or algorithmic changes need verification
+                
+                ### When NOT to Fetch PR Diffs:
+                - **Irrelevant to your runtime/project**: PRs affecting pallets or components not used in your runtime
+                - **Different subsystems**: Changes to relay chain logic when analyzing a parachain (or vice versa)
+                - **Unrelated tooling**: Changes to tools/utilities your project doesn't use
+                - **Clear non-impact**: When the PRDoc clearly indicates no impact on your use case
+                - **Sufficient detail provided**: When the PRDoc already contains the technical details you need
+                
+                {{#if project_context}}
+                Focus diff analysis on PRs that directly affect your project's components: {{project_context}}
+                Skip fetching diffs for changes to unused pallets or subsystems.
+                {{/if}}
+                
+                ### How to Fetch PR Diffs:
+                Use GitHub API or web tools to fetch the PR diff. The PR number is typically in the PRDoc filename.
+                Example: For `pr_1234.prdoc`, fetch diff from `https://github.com/paritytech/polkadot-sdk/pull/1234.diff`
+                
+                ### Efficient Diff Analysis Strategy:
+                1. First pass: Analyze all PRDocs to identify which need deeper investigation
+                2. Batch fetch: Get diffs for all identified PRs that need deeper analysis
+                3. Targeted analysis: Focus on specific files/changes relevant to the analysis goal
+                4. Synthesize: Combine PRDoc metadata with code-level insights
+                
+                Note: Be selective - not every PR needs diff analysis. Focus on high-impact or unclear changes.
+                
                 ## User-Specified Analysis
                 
                 The user has requested: {{analysis_instructions}}
