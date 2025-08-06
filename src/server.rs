@@ -20,9 +20,7 @@ use crate::resources;
 use crate::substrate::events::EventFilter;
 use crate::substrate::historical::{query_historical_events, HistoricalEventsQuery};
 use crate::substrate::metadata::MetadataFilter;
-use crate::substrate::runtime_upgrades::{
-    query_runtime_upgrades, search_runtime_upgrade, RuntimeUpgradeQuery,
-};
+use crate::substrate::runtime_upgrades::{get_runtime_state, list_runtime_changes};
 use crate::substrate::storage::{list_pallet_storage, BatchStorageQuery, StorageQuery};
 use crate::substrate::transactions::{query_historical_transactions, HistoricalTransactionsQuery};
 use subxt::OnlineClient;
@@ -173,25 +171,21 @@ pub struct QueryHistoricalTransactionsArgs {
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct QueryRuntimeUpgradesArgs {
+pub struct QueryRuntimeStateArgs {
     /// The RPC endpoint to connect to
     pub rpc_url: String,
-    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
-    pub from_block: i32,
-    /// End block number (negative = relative to current, defaults to from_block)
-    pub to_block: Option<i32>,
+    /// Block number (negative = relative to current, e.g. -10 = 10 blocks ago)
+    pub block: i32,
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct SearchRuntimeUpgradeArgs {
+pub struct ListRuntimeChangesArgs {
     /// The RPC endpoint to connect to
     pub rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
     pub from_block: i32,
-    /// End block number (negative = relative to current, defaults to from_block)
+    /// End block number (negative = relative to current, defaults to current block)
     pub to_block: Option<i32>,
-    /// Target spec version to search for (optional, returns first upgrade if not specified)
-    pub target_spec_version: Option<u32>,
 }
 
 impl Default for SubstrateService {
@@ -725,11 +719,11 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query runtime upgrades within a block range. Detects spec version changes and returns information about each upgrade including block number, version changes, and code hash."
+        description = "Get runtime state (version and metadata) at a specific block. Returns runtime version information and raw metadata bytes."
     )]
-    pub async fn query_runtime_upgrades(
+    pub async fn query_runtime_state(
         &self,
-        Parameters(args): Parameters<QueryRuntimeUpgradesArgs>,
+        Parameters(args): Parameters<QueryRuntimeStateArgs>,
     ) -> Result<CallToolResult, McpError> {
         // Validate URL if provided
         if let Err(e) = validate_rpc_url(&args.rpc_url) {
@@ -753,18 +747,12 @@ impl SubstrateService {
                 data: None,
             })?;
 
-        // Create query
-        let query = RuntimeUpgradeQuery {
-            from_block: args.from_block,
-            to_block: args.to_block,
-        };
-
-        // Query runtime upgrades
-        let result = query_runtime_upgrades(query, &client, &args.rpc_url)
+        // Get runtime state
+        let result = get_runtime_state(args.block, &client, &args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to query runtime upgrades: {e}").into(),
+                message: format!("Failed to get runtime state: {e}").into(),
                 data: None,
             })?;
 
@@ -785,11 +773,11 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Search for a specific runtime upgrade and return detailed information including all events, storage changes, and transactions in the upgrade block. Optionally specify a target spec version to find a specific upgrade."
+        description = "List all runtime changes (upgrades) in a block range with detailed information including events, storage changes, and transactions for each upgrade block."
     )]
-    pub async fn search_runtime_upgrade(
+    pub async fn list_runtime_changes(
         &self,
-        Parameters(args): Parameters<SearchRuntimeUpgradeArgs>,
+        Parameters(args): Parameters<ListRuntimeChangesArgs>,
     ) -> Result<CallToolResult, McpError> {
         // Validate URL if provided
         if let Err(e) = validate_rpc_url(&args.rpc_url) {
@@ -813,48 +801,29 @@ impl SubstrateService {
                 data: None,
             })?;
 
-        // Search for runtime upgrade
-        let result = search_runtime_upgrade(
-            args.from_block,
-            args.to_block,
-            args.target_spec_version,
-            &client,
-            &args.rpc_url,
-        )
-        .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to search for runtime upgrade: {e}").into(),
+        // List runtime changes
+        let result = list_runtime_changes(args.from_block, args.to_block, &client, &args.rpc_url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to list runtime changes: {e}").into(),
+                data: None,
+            })?;
+
+        // Convert to JSON
+        let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+            message: format!("Serialization error: {e}").into(),
             data: None,
         })?;
 
-        match result {
-            Some(details) => {
-                // Convert to JSON
-                let json_result = serde_json::to_string_pretty(&details).map_err(|e| McpError {
-                    code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-                    message: format!("Serialization error: {e}").into(),
-                    data: None,
-                })?;
-
-                Ok(CallToolResult {
-                    content: vec![Content {
-                        annotations: None,
-                        raw: RawContent::Text(RawTextContent { text: json_result }),
-                    }],
-                    is_error: None,
-                })
-            }
-            None => Ok(CallToolResult {
-                content: vec![Content {
-                    annotations: None,
-                    raw: RawContent::Text(RawTextContent {
-                        text: "No runtime upgrade found in the specified block range".to_string(),
-                    }),
-                }],
-                is_error: None,
-            }),
-        }
+        Ok(CallToolResult {
+            content: vec![Content {
+                annotations: None,
+                raw: RawContent::Text(RawTextContent { text: json_result }),
+            }],
+            is_error: None,
+        })
     }
 }
 

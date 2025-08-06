@@ -70,6 +70,118 @@ pub struct StorageChange {
     pub storage_item: Option<String>,
 }
 
+/// Runtime state at a specific block
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeState {
+    /// Runtime version information
+    pub version: RuntimeVersion,
+    /// Raw metadata bytes (hex encoded)
+    pub metadata: String,
+    /// Block number
+    pub block_number: u32,
+    /// Block hash
+    pub block_hash: String,
+}
+
+/// Runtime version information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeVersion {
+    /// Spec version
+    pub spec_version: u32,
+    /// Spec name
+    pub spec_name: String,
+    /// Implementation name
+    pub impl_name: String,
+    /// Implementation version
+    pub impl_version: u32,
+    /// Authoring version
+    pub authoring_version: u32,
+    /// Transaction version
+    pub transaction_version: u32,
+    /// State version
+    pub state_version: u32,
+}
+
+/// Get runtime state (version and metadata) at a specific block
+pub async fn get_runtime_state(
+    block_identifier: i32, // Negative for relative, positive for absolute
+    _subxt_client: &OnlineClient<PolkadotConfig>,
+    rpc_url: &str,
+) -> Result<RuntimeState> {
+    use jsonrpsee::core::client::ClientT;
+    use jsonrpsee::ws_client::WsClientBuilder;
+
+    // Create WebSocket RPC client
+    let rpc_client = WsClientBuilder::default().build(rpc_url).await?;
+
+    // Get current block number if needed for relative positioning
+    let current_block: u32 = {
+        let params: Vec<serde_json::Value> = vec![];
+        let header: serde_json::Value = rpc_client.request("chain_getHeader", params).await?;
+
+        let number_hex = header["number"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("No block number in header"))?;
+
+        u32::from_str_radix(&number_hex[2..], 16)?
+    };
+
+    // Calculate actual block number
+    let block_number = if block_identifier < 0 {
+        (current_block as i32 + block_identifier) as u32
+    } else {
+        block_identifier as u32
+    };
+
+    // Get block hash
+    let block_hash: Option<String> = rpc_client
+        .request("chain_getBlockHash", vec![block_number])
+        .await?;
+
+    let block_hash =
+        block_hash.ok_or_else(|| anyhow::anyhow!("Block {} not found", block_number))?;
+
+    // Get runtime version at this block
+    let runtime_version_json: serde_json::Value = rpc_client
+        .request("state_getRuntimeVersion", vec![&block_hash])
+        .await?;
+
+    // Parse runtime version
+    let version = RuntimeVersion {
+        spec_version: runtime_version_json["specVersion"]
+            .as_u64()
+            .ok_or_else(|| anyhow::anyhow!("No spec version"))? as u32,
+        spec_name: runtime_version_json["specName"]
+            .as_str()
+            .unwrap_or("unknown")
+            .to_string(),
+        impl_name: runtime_version_json["implName"]
+            .as_str()
+            .unwrap_or("unknown")
+            .to_string(),
+        impl_version: runtime_version_json["implVersion"].as_u64().unwrap_or(0) as u32,
+        authoring_version: runtime_version_json["authoringVersion"]
+            .as_u64()
+            .unwrap_or(0) as u32,
+        transaction_version: runtime_version_json["transactionVersion"]
+            .as_u64()
+            .unwrap_or(0) as u32,
+        state_version: runtime_version_json["stateVersion"].as_u64().unwrap_or(0) as u32,
+    };
+
+    // Get metadata at this block
+    let metadata: String = rpc_client
+        .request("state_getMetadata", vec![&block_hash])
+        .await?;
+
+    Ok(RuntimeState {
+        version,
+        metadata,
+        block_number,
+        block_hash,
+    })
+}
+
 /// Query for runtime upgrades in a block range
 pub async fn query_runtime_upgrades(
     query: RuntimeUpgradeQuery,
@@ -185,15 +297,60 @@ pub async fn query_runtime_upgrades(
     })
 }
 
-/// Search for a specific runtime upgrade and get detailed information
-pub async fn search_runtime_upgrade(
-    from_block: i32,
-    to_block: Option<i32>,
-    target_spec_version: Option<u32>,
+/// Helper function to fetch detailed information about an upgrade at a specific block
+async fn fetch_upgrade_details_at_block(
+    upgrade: RuntimeUpgrade,
     subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
-) -> Result<Option<RuntimeUpgradeDetails>> {
-    // First, find runtime upgrades in the range
+) -> Result<RuntimeUpgradeDetails> {
+    // Get all events in the upgrade block
+    let events_query = crate::substrate::historical::HistoricalEventsQuery {
+        from_block: upgrade.block_number as i32,
+        to_block: Some(upgrade.block_number as i32),
+        pallet: None,
+        event: None,
+    };
+
+    let events =
+        crate::substrate::historical::query_historical_events(events_query, subxt_client, rpc_url)
+            .await?;
+
+    // Get all transactions in the upgrade block
+    let tx_query = crate::substrate::transactions::HistoricalTransactionsQuery {
+        from_block: upgrade.block_number as i32,
+        to_block: Some(upgrade.block_number as i32),
+        pallet: None,
+        call: None,
+        signer: None,
+    };
+
+    let transactions = crate::substrate::transactions::query_historical_transactions(
+        tx_query,
+        subxt_client,
+        rpc_url,
+    )
+    .await?;
+
+    // Get storage changes (focusing on important system storage)
+    let storage_changes =
+        get_upgrade_storage_changes(&upgrade.block_hash, upgrade.block_number, rpc_url).await?;
+
+    Ok(RuntimeUpgradeDetails {
+        upgrade,
+        events: events.events,
+        storage_changes,
+        transactions: transactions.transactions,
+    })
+}
+
+/// List all runtime changes (upgrades) in a block range with detailed information
+pub async fn list_runtime_changes(
+    from_block: i32,
+    to_block: Option<i32>,
+    subxt_client: &OnlineClient<PolkadotConfig>,
+    rpc_url: &str,
+) -> Result<Vec<RuntimeUpgradeDetails>> {
+    // First, find all runtime upgrades in the range
     let query = RuntimeUpgradeQuery {
         from_block,
         to_block,
@@ -201,62 +358,24 @@ pub async fn search_runtime_upgrade(
 
     let upgrades_result = query_runtime_upgrades(query, subxt_client, rpc_url).await?;
 
-    // Find the matching upgrade
-    let upgrade = if let Some(target_version) = target_spec_version {
-        upgrades_result
-            .upgrades
-            .into_iter()
-            .find(|u| u.new_spec_version == target_version)
-    } else {
-        // If no specific version requested, return the first upgrade found
-        upgrades_result.upgrades.into_iter().next()
-    };
-
-    if let Some(upgrade) = upgrade {
-        // Get all events in the upgrade block
-        let events_query = crate::substrate::historical::HistoricalEventsQuery {
-            from_block: upgrade.block_number as i32,
-            to_block: Some(upgrade.block_number as i32),
-            pallet: None,
-            event: None,
-        };
-
-        let events = crate::substrate::historical::query_historical_events(
-            events_query,
-            subxt_client,
-            rpc_url,
-        )
-        .await?;
-
-        // Get all transactions in the upgrade block
-        let tx_query = crate::substrate::transactions::HistoricalTransactionsQuery {
-            from_block: upgrade.block_number as i32,
-            to_block: Some(upgrade.block_number as i32),
-            pallet: None,
-            call: None,
-            signer: None,
-        };
-
-        let transactions = crate::substrate::transactions::query_historical_transactions(
-            tx_query,
-            subxt_client,
-            rpc_url,
-        )
-        .await?;
-
-        // Get storage changes (focusing on important system storage)
-        let storage_changes =
-            get_upgrade_storage_changes(&upgrade.block_hash, upgrade.block_number, rpc_url).await?;
-
-        Ok(Some(RuntimeUpgradeDetails {
-            upgrade,
-            events: events.events,
-            storage_changes,
-            transactions: transactions.transactions,
-        }))
-    } else {
-        Ok(None)
+    // If no upgrades found, return empty vec
+    if upgrades_result.upgrades.is_empty() {
+        return Ok(Vec::new());
     }
+
+    // Process each upgrade sequentially to get detailed information
+    let mut details = Vec::new();
+    for upgrade in upgrades_result.upgrades {
+        match fetch_upgrade_details_at_block(upgrade, subxt_client, rpc_url).await {
+            Ok(detail) => details.push(detail),
+            Err(e) => {
+                // Log warning but continue processing other upgrades
+                eprintln!("Warning: Failed to fetch upgrade details: {}", e);
+            }
+        }
+    }
+
+    Ok(details)
 }
 
 /// Get storage changes for important system keys during upgrade
