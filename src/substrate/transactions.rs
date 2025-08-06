@@ -1,5 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use sp_core::crypto::Ss58Codec;
 use subxt::blocks::{Block, ExtrinsicDetails};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
@@ -212,13 +213,19 @@ async fn process_extrinsic(
     // Extract signer address
     let signer_address = if extrinsic.is_signed() {
         extrinsic.address_bytes().map(|bytes| {
-            // Convert to SS58 address
-            use sp_core::crypto::Ss58Codec;
-            if bytes.len() == 32 {
-                let mut account_bytes = [0u8; 32];
+            let mut account_bytes = [0u8; 32];
+            // The address_bytes() returns raw encoded bytes which includes a version prefix
+            // For AccountId32: first byte is version (0x00), next 32 bytes are the actual account
+            if bytes.len() == 33 && bytes[0] == 0x00 {
+                // Skip the first byte (version indicator) and use the next 32 bytes
+                account_bytes.copy_from_slice(&bytes[1..33]);
+                sp_core::crypto::AccountId32::new(account_bytes).to_ss58check()
+            } else if bytes.len() == 32 {
+                // Fallback for cases where we get raw 32 bytes without version prefix
                 account_bytes.copy_from_slice(bytes);
                 sp_core::crypto::AccountId32::new(account_bytes).to_ss58check()
             } else {
+                // For other address types or unexpected formats, return hex
                 format!("0x{}", hex::encode(bytes))
             }
         })
