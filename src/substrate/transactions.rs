@@ -5,9 +5,9 @@ use subxt::blocks::{Block, ExtrinsicDetails};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
-/// Query transactions from historical blocks
+/// Query extrinsics from historical blocks
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoricalTransactionsQuery {
+pub struct HistoricalExtrinsicsQuery {
     /// Start block (negative = relative to current)
     pub from_block: i32,
     /// End block (negative = relative to current)  
@@ -20,27 +20,27 @@ pub struct HistoricalTransactionsQuery {
     pub signer: Option<String>,
 }
 
-/// Result of historical transactions query
+/// Result of historical extrinsics query
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoricalTransactionsResult {
-    /// Transactions found
-    pub transactions: Vec<HistoricalTransaction>,
+pub struct HistoricalExtrinsicsResult {
+    /// Extrinsics found
+    pub extrinsics: Vec<HistoricalExtrinsic>,
     /// Number of blocks queried
     pub blocks_queried: u32,
     /// Current block height
     pub current_block: u32,
 }
 
-/// A historical transaction with decoded data
+/// A historical extrinsic with decoded data
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoricalTransaction {
+pub struct HistoricalExtrinsic {
     /// Block number
     pub block_number: u32,
     /// Block hash
     pub block_hash: String,
     /// Extrinsic index in block
     pub extrinsic_index: u32,
-    /// Transaction hash
+    /// Extrinsic hash
     pub hash: String,
     /// Signer address (if signed)
     pub signer: Option<String>,
@@ -56,12 +56,12 @@ pub struct HistoricalTransaction {
     pub fee: Option<String>,
 }
 
-/// Query historical transactions using jsonrpsee for RPC and subxt for proper decoding
-pub async fn query_historical_transactions(
-    query: HistoricalTransactionsQuery,
+/// Query historical extrinsics using jsonrpsee for RPC and subxt for proper decoding
+pub async fn query_historical_extrinsics(
+    query: HistoricalExtrinsicsQuery,
     subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
-) -> Result<HistoricalTransactionsResult> {
+) -> Result<HistoricalExtrinsicsResult> {
     use jsonrpsee::core::client::ClientT;
     use jsonrpsee::ws_client::WsClientBuilder;
 
@@ -94,7 +94,7 @@ pub async fn query_historical_transactions(
         None => from, // Default to single block if not specified
     };
 
-    let mut all_transactions = Vec::new();
+    let mut all_extrinsics = Vec::new();
     let blocks_queried = to - from + 1;
 
     // Query each block
@@ -134,7 +134,7 @@ pub async fn query_historical_transactions(
             )
             .await
             {
-                Ok(Some(tx)) => all_transactions.push(tx),
+                Ok(Some(tx)) => all_extrinsics.push(tx),
                 Ok(None) => {} // Filtered out
                 Err(e) => {
                     log::warn!("Failed to process extrinsic at block {block_num} index {idx}: {e}");
@@ -143,8 +143,8 @@ pub async fn query_historical_transactions(
         }
     }
 
-    Ok(HistoricalTransactionsResult {
-        transactions: all_transactions,
+    Ok(HistoricalExtrinsicsResult {
+        extrinsics: all_extrinsics,
         blocks_queried,
         current_block,
     })
@@ -159,7 +159,7 @@ async fn process_extrinsic(
     pallet_filter: &Option<String>,
     call_filter: &Option<String>,
     signer_filter: &Option<String>,
-) -> Result<Option<HistoricalTransaction>> {
+) -> Result<Option<HistoricalExtrinsic>> {
     // Get metadata from the client
     let metadata = subxt_client.metadata();
 
@@ -244,7 +244,7 @@ async fn process_extrinsic(
         }
     }
 
-    // Get transaction hash using the bytes
+    // Get extrinsic hash using the bytes
     let extrinsic_bytes = extrinsic.bytes();
     let hash = format!(
         "0x{}",
@@ -261,7 +261,7 @@ async fn process_extrinsic(
     // Check events for success/failure and fees
     let (success, fee) = check_extrinsic_events(block, extrinsic_index).await?;
 
-    Ok(Some(HistoricalTransaction {
+    Ok(Some(HistoricalExtrinsic {
         block_number,
         block_hash,
         extrinsic_index,

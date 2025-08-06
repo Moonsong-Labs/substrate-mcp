@@ -22,7 +22,7 @@ use crate::substrate::historical::{query_historical_events, HistoricalEventsQuer
 use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::runtime_upgrades::{get_runtime_state, list_runtime_changes};
 use crate::substrate::storage::{list_pallet_storage, BatchStorageQuery, StorageQuery};
-use crate::substrate::transactions::{query_historical_transactions, HistoricalTransactionsQuery};
+use crate::substrate::transactions::{query_historical_extrinsics, HistoricalExtrinsicsQuery};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -155,7 +155,7 @@ pub struct QueryHistoricalEventsArgs {
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct QueryHistoricalTransactionsArgs {
+pub struct QueryHistoricalExtrinsicsProperties {
     /// The RPC endpoint to connect to
     pub rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
@@ -171,15 +171,15 @@ pub struct QueryHistoricalTransactionsArgs {
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct QueryRuntimeStateArgs {
+pub struct QueryRuntimeStateProperties {
     /// The RPC endpoint to connect to
     pub rpc_url: String,
-    /// Block number (negative = relative to current, e.g. -10 = 10 blocks ago. Leaving this blank will return a single block equal to from_block)
+    /// Block number (negative = relative to current, e.g. -10 = 10 blocks ago)
     pub block: i32,
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct ListRuntimeChangesArgs {
+pub struct ListRuntimeChangesProperties {
     /// The RPC endpoint to connect to
     pub rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
@@ -594,7 +594,7 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query events from historical blocks. Supports relative block numbers (e.g., -10 for 10 blocks ago). Uses hybrid approach: RPC for historical access, subxt for decoding."
+        description = "Query events from historical blocks. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters. Uses hybrid approach: RPC for historical access, subxt for decoding."
     )]
     pub async fn query_historical_events(
         &self,
@@ -656,11 +656,11 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query transactions (extrinsics) from historical blocks. Supports filtering by pallet, call name, and signer address. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block. Returns decoded transaction data including signer, call info, and arguments."
+        description = "Query extrinsics from historical blocks. Supports filtering by pallet, call name, and signer address. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters. Returns decoded transaction data including signer, call info, and arguments."
     )]
-    pub async fn query_historical_transactions(
+    pub async fn query_historical_extrinsics(
         &self,
-        Parameters(args): Parameters<QueryHistoricalTransactionsArgs>,
+        Parameters(args): Parameters<QueryHistoricalExtrinsicsProperties>,
     ) -> Result<CallToolResult, McpError> {
         // Validate URL if provided
         if let Err(e) = validate_rpc_url(&args.rpc_url) {
@@ -685,7 +685,7 @@ impl SubstrateService {
             })?;
 
         // Create query
-        let query = HistoricalTransactionsQuery {
+        let query = HistoricalExtrinsicsQuery {
             from_block: args.from_block,
             to_block: args.to_block,
             pallet: args.pallet,
@@ -694,7 +694,7 @@ impl SubstrateService {
         };
 
         // Query historical transactions
-        let result = query_historical_transactions(query, &client, &args.rpc_url)
+        let result = query_historical_extrinsics(query, &client, &args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
@@ -719,11 +719,11 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Get runtime state (version and metadata) at a specific block. Returns runtime version information and raw metadata bytes."
+        description = "Get runtime state (version and metadata) at a specific block. Supports relative block numbers (e.g., -10 for 10 blocks ago). If the number is positive or 0, uses absolute block. Returns runtime version information and raw metadata bytes."
     )]
     pub async fn query_runtime_state(
         &self,
-        Parameters(args): Parameters<QueryRuntimeStateArgs>,
+        Parameters(args): Parameters<QueryRuntimeStateProperties>,
     ) -> Result<CallToolResult, McpError> {
         // Validate URL if provided
         if let Err(e) = validate_rpc_url(&args.rpc_url) {
@@ -777,7 +777,7 @@ impl SubstrateService {
     )]
     pub async fn list_runtime_changes(
         &self,
-        Parameters(args): Parameters<ListRuntimeChangesArgs>,
+        Parameters(args): Parameters<ListRuntimeChangesProperties>,
     ) -> Result<CallToolResult, McpError> {
         // Validate URL if provided
         if let Err(e) = validate_rpc_url(&args.rpc_url) {
