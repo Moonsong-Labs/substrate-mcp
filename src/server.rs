@@ -146,7 +146,7 @@ pub struct QueryHistoricalEventsArgs {
     pub rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
     pub from_block: i32,
-    /// End block number (negative = relative to current, defaults to from_block)
+    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
     pub to_block: Option<i32>,
     /// Filter by pallet name (optional)
     pub pallet: Option<String>,
@@ -160,7 +160,7 @@ pub struct QueryHistoricalTransactionsArgs {
     pub rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
     pub from_block: i32,
-    /// End block number (negative = relative to current, defaults to from_block)
+    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
     pub to_block: Option<i32>,
     /// Filter by pallet name (optional)
     pub pallet: Option<String>,
@@ -174,7 +174,7 @@ pub struct QueryHistoricalTransactionsArgs {
 pub struct QueryRuntimeStateArgs {
     /// The RPC endpoint to connect to
     pub rpc_url: String,
-    /// Block number (negative = relative to current, e.g. -10 = 10 blocks ago)
+    /// Block number (negative = relative to current, e.g. -10 = 10 blocks ago. Leaving this blank will return a single block equal to from_block)
     pub block: i32,
 }
 
@@ -184,7 +184,7 @@ pub struct ListRuntimeChangesArgs {
     pub rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
     pub from_block: i32,
-    /// End block number (negative = relative to current, defaults to current block)
+    /// End block number (negative = relative to current, defaults to current block. Leaving this blank will return a single block equal to from_block)
     pub to_block: Option<i32>,
 }
 
@@ -656,7 +656,7 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query transactions (extrinsics) from historical blocks. Supports filtering by pallet, call name, and signer address. Returns decoded transaction data including signer, call info, and arguments."
+        description = "Query transactions (extrinsics) from historical blocks. Supports filtering by pallet, call name, and signer address. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block. Returns decoded transaction data including signer, call info, and arguments."
     )]
     pub async fn query_historical_transactions(
         &self,
@@ -773,7 +773,7 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "List all runtime changes (upgrades) in a block range with detailed information including events, storage changes, and transactions for each upgrade block."
+        description = "List all runtime changes (upgrades) in a block range with detailed information including events, storage changes, and transactions for each upgrade block. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block. "
     )]
     pub async fn list_runtime_changes(
         &self,
