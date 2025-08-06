@@ -24,6 +24,22 @@ struct GitHubContent {
     download_url: Option<String>,
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+struct GitHubLabel {
+    name: String,
+    color: String,
+    description: Option<String>,
+}
+
+// Label metadata structure
+#[derive(Debug, Serialize)]
+struct LabelsMetadata {
+    fetched_at: String,
+    repository: String,
+    total_labels: usize,
+    labels: Vec<GitHubLabel>,
+}
+
 // Version parsing structures
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ReleaseVersion {
@@ -542,6 +558,7 @@ This directory includes JSON manifest files for efficient analysis:
 - `manifest.json` - Basic metadata about this release
 - `crate_summary.json` - Breakdown of changes by crate and severity
 - `audience_summary.json` - Changes grouped by target audience
+- `labels.json` - Complete GitHub label definitions from the repository
 
 ## Usage
 
@@ -556,6 +573,12 @@ Each file corresponds to a pull request that was included in this release.
         .await
         .map_err(|e| anyhow!("Failed to write README.md: {}", e))?;
 
+    // Fetch and save GitHub labels
+    if let Err(e) = fetch_and_save_labels(&client, &output_dir, &pr_numbers).await {
+        eprintln!("Warning: Failed to fetch GitHub labels: {}", e);
+        // Continue without labels - this is non-blocking
+    }
+
     Ok(PrdocsResult {
         success: true,
         release: release.to_string(),
@@ -563,6 +586,82 @@ Each file corresponds to a pull request that was included in this release.
         file_count: saved_count,
         total_size,
     })
+}
+
+// Helper function to fetch GitHub labels with pagination support
+async fn fetch_github_labels(client: &reqwest::Client) -> Result<Vec<GitHubLabel>> {
+    let mut all_labels = Vec::new();
+    let mut next_url = Some("https://api.github.com/repos/paritytech/polkadot-sdk/labels?per_page=100".to_string());
+    
+    while let Some(url) = next_url {
+        let response = client
+            .get(&url)
+            .header("User-Agent", "substrate-mcp")
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to fetch labels: {}", e))?;
+        
+        if !response.status().is_success() {
+            return Err(anyhow!(
+                "GitHub API returned status {} when fetching labels",
+                response.status()
+            ));
+        }
+        
+        // Check for pagination Link header
+        next_url = None;
+        if let Some(link_header) = response.headers().get("link") {
+            if let Ok(link_str) = link_header.to_str() {
+                // Parse Link header for next page
+                for link_part in link_str.split(',') {
+                    if link_part.contains("rel=\"next\"") {
+                        if let Some(url_start) = link_part.find('<') {
+                            if let Some(url_end) = link_part.find('>') {
+                                next_url = Some(link_part[url_start + 1..url_end].to_string());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        let page_labels: Vec<GitHubLabel> = response
+            .json()
+            .await
+            .map_err(|e| anyhow!("Failed to parse labels response: {}", e))?;
+        
+        all_labels.extend(page_labels);
+    }
+    
+    Ok(all_labels)
+}
+
+// Fetch labels and save to JSON file
+async fn fetch_and_save_labels(
+    client: &reqwest::Client, 
+    output_dir: &PathBuf,
+    _pr_numbers: &[u32]  // Keeping for potential future use
+) -> Result<()> {
+    // Fetch all repository labels
+    let github_labels = fetch_github_labels(client).await?;
+    
+    // Create labels metadata with raw GitHub data
+    let labels_metadata = LabelsMetadata {
+        fetched_at: chrono::Utc::now().to_rfc3339(),
+        repository: "paritytech/polkadot-sdk".to_string(),
+        total_labels: github_labels.len(),
+        labels: github_labels,
+    };
+    
+    // Save as labels.json (simple, descriptive name)
+    let labels_path = output_dir.join("labels.json");
+    let labels_json = serde_json::to_string_pretty(&labels_metadata)?;
+    fs::write(&labels_path, labels_json)
+        .await
+        .map_err(|e| anyhow!("Failed to write labels.json: {}", e))?;
+    
+    Ok(())
 }
 
 #[cfg(test)]

@@ -168,6 +168,66 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 Example: "This migration planning task requires 3 passes: First, I'll inventory all changes. Second, I'll analyze dependencies between them. Finally, I'll create an ordered migration plan."
                 
+                ## GitHub Labels: Critical Context for Polkadot SDK
+                
+                **IMPORTANT**: The Polkadot SDK project makes extensive and systematic use of GitHub labels. 
+                These labels are NOT optional metadata - they are a core part of the development workflow and 
+                convey essential information about priority, impact, risk, and relevance of changes.
+                
+                The `labels.json` file contains all repository labels with their descriptions. You MUST examine 
+                these label descriptions to understand each PR's significance. The Polkadot SDK team carefully 
+                applies labels to communicate:
+                
+                1. **Component/Subsystem Affected** - Which part of the stack is modified
+                2. **Impact Severity** - How breaking or risky the change is
+                3. **Audience Relevance** - Who needs to pay attention to this change
+                4. **Security Implications** - Whether this touches consensus or security-critical code
+                5. **Migration Requirements** - Whether downstream users need to take action
+                
+                ### How to Interpret Labels:
+                
+                Read the label descriptions in labels.json carefully. Common patterns you'll discover:
+                
+                - **Letter prefixes indicate category**: Labels often start with a letter (T, D, E, C, R, etc.) 
+                  indicating the type of information conveyed
+                - **Numbers often indicate severity/priority**: Higher numbers in certain categories may indicate 
+                  higher complexity or risk
+                - **Descriptions are authoritative**: The description field explains exactly what the label means - 
+                  trust these over any assumptions
+                
+                ### Critical Label Combinations:
+                
+                When you see multiple labels on a PR, they compound in significance. For example:
+                - A PR with both security-related and node/consensus labels = extreme priority
+                - Breaking change labels + high difficulty = complex migration required
+                - Multiple subsystem labels = cross-cutting change with wide impact
+                
+                ### Using Labels for Analysis:
+                
+                1. **Filtering**: Use labels to quickly identify PRs relevant to specific audiences or components
+                2. **Prioritization**: Labels indicating security, consensus, or breaking changes should be analyzed first
+                3. **Risk Assessment**: Combination of difficulty and impact labels indicates upgrade risk
+                4. **Migration Planning**: Breaking change labels signal need for downstream action
+                5. **Relevance Scoring**: Match labels against project context to determine applicability
+                
+                {{#if project_context}}
+                ### Project-Specific Label Relevance:
+                
+                Given your project context ({{project_context}}), pay special attention to labels that:
+                - Mention components you use (check label descriptions for mentions of your pallets/subsystems)
+                - Indicate breaking changes or API modifications
+                - Affect the runtime or node infrastructure you depend on
+                - Signal required migrations or security updates
+                
+                You can safely deprioritize labels for:
+                - Subsystems you don't use (e.g., different consensus mechanisms, unused pallets)
+                - Tool-specific changes for tools not in your stack
+                - UI/UX changes if you're focused on runtime/node development
+                {{/if}}
+                
+                Remember: In the Polkadot SDK ecosystem, labels are a primary communication tool between 
+                core developers and downstream users. Ignoring them risks missing critical changes.
+                
                 ## Fetching PR Diffs for Deeper Analysis
                 
                 PRDocs provide high-level summaries, but sometimes deeper analysis requires examining the actual code changes.
