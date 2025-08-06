@@ -1,5 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use subxt::blocks::{Block, ExtrinsicDetails};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -54,7 +55,7 @@ pub struct HistoricalTransaction {
     pub fee: Option<String>,
 }
 
-/// Query historical transactions using jsonrpsee for RPC and subxt for decoding
+/// Query historical transactions using jsonrpsee for RPC and subxt for proper decoding
 pub async fn query_historical_transactions(
     query: HistoricalTransactionsQuery,
     subxt_client: &OnlineClient<PolkadotConfig>,
@@ -62,10 +63,10 @@ pub async fn query_historical_transactions(
 ) -> Result<HistoricalTransactionsResult> {
     use jsonrpsee::core::client::ClientT;
     use jsonrpsee::ws_client::WsClientBuilder;
-
+    
     // Create WebSocket RPC client for historical queries
     let rpc_client = WsClientBuilder::default().build(rpc_url).await?;
-
+    
     // Get current block number
     let current_block: u32 = {
         let params: Vec<serde_json::Value> = vec![];
@@ -89,50 +90,53 @@ pub async fn query_historical_transactions(
     let to = match query.to_block {
         Some(b) if b < 0 => (current_block as i32 + b) as u32,
         Some(b) => b as u32,
-        None => current_block, // Default to current block if not specified
+        None => from, // Default to single block if not specified
     };
 
     let mut all_transactions = Vec::new();
     let blocks_queried = to - from + 1;
-
+    
     // Query each block
     for block_num in from..=to {
-        // Get block hash
-        let block_hash: Option<String> = rpc_client
+        // Get block hash using RPC
+        let block_hash: Option<subxt::utils::H256> = rpc_client
             .request("chain_getBlockHash", vec![block_num])
             .await?;
+        
+        let block_hash = block_hash
+            .ok_or_else(|| anyhow::anyhow!("Block {} not found", block_num))?;
 
-        let block_hash =
-            block_hash.ok_or_else(|| anyhow::anyhow!("Block {} not found", block_num))?;
+        let block = subxt_client.blocks().at(block_hash).await?;
 
-        // Get block with extrinsics
-        let block: serde_json::Value = rpc_client
-            .request("chain_getBlock", vec![&block_hash])
-            .await?;
-
-        // Extract extrinsics
-        if let Some(extrinsics) = block["block"]["extrinsics"].as_array() {
-            for (idx, extrinsic_hex) in extrinsics.iter().enumerate() {
-                if let Some(hex_str) = extrinsic_hex.as_str() {
-                    // Decode extrinsic using subxt
-                    match decode_extrinsic_with_subxt(
-                        hex_str,
-                        &block_hash,
-                        block_num,
-                        idx as u32,
-                        subxt_client,
-                        &query.pallet,
-                        &query.call,
-                        &query.signer,
-                    )
-                    .await
-                    {
-                        Ok(Some(tx)) => all_transactions.push(tx),
-                        Ok(None) => {}, // Filtered out
-                        Err(e) => {
-                            log::warn!("Failed to decode extrinsic at block {block_num} index {idx}: {e}");
-                        }
-                    }
+        // Process extrinsics in the block
+        let extrinsics = block.extrinsics().await?;
+        
+        for (idx, extrinsic_result) in extrinsics.iter().enumerate() {
+            // Handle the Result from iterator
+            let extrinsic = match extrinsic_result {
+                Ok(ext) => ext,
+                Err(e) => {
+                    log::warn!("Failed to decode extrinsic at block {} index {}: {}", block_num, idx, e);
+                    continue;
+                }
+            };
+            
+            // Decode extrinsic using proper subxt APIs
+            match process_extrinsic(
+                &extrinsic,
+                &block,
+                subxt_client,
+                idx as u32,
+                &query.pallet,
+                &query.call,
+                &query.signer,
+            )
+            .await
+            {
+                Ok(Some(tx)) => all_transactions.push(tx),
+                Ok(None) => {}, // Filtered out
+                Err(e) => {
+                    log::warn!("Failed to process extrinsic at block {} index {}: {}", block_num, idx, e);
                 }
             }
         }
@@ -145,55 +149,85 @@ pub async fn query_historical_transactions(
     })
 }
 
-/// Decode extrinsic using subxt's metadata
-async fn decode_extrinsic_with_subxt(
-    extrinsic_hex: &str,
-    block_hash: &str,
-    block_number: u32,
+/// Process an extrinsic using proper subxt APIs
+async fn process_extrinsic(
+    extrinsic: &ExtrinsicDetails<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+    block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+    subxt_client: &OnlineClient<PolkadotConfig>,
     extrinsic_index: u32,
-    client: &OnlineClient<PolkadotConfig>,
     pallet_filter: &Option<String>,
     call_filter: &Option<String>,
     signer_filter: &Option<String>,
 ) -> Result<Option<HistoricalTransaction>> {
-    // Remove 0x prefix and decode hex
-    let bytes = hex::decode(extrinsic_hex.trim_start_matches("0x"))?;
-
-    // Get metadata from subxt client
-    let metadata = client.metadata();
-
-    // Decode the extrinsic
-    let _extrinsic = subxt::tx::SubmittableExtrinsic::<PolkadotConfig, OnlineClient<PolkadotConfig>>::from_bytes(
-        client.clone(),
-        bytes.clone(),
-    );
-
-    // Try to decode as a signed extrinsic
-    let _decoded_ext = subxt::utils::Encoded(bytes.clone());
+    // Get metadata from the client
+    let metadata = subxt_client.metadata();
     
-    // Extract basic extrinsic info using raw decoding
-    // This is a simplified approach - in production you'd want more robust decoding
-    let (pallet_name, call_name, signer_address) = match extract_extrinsic_info(&bytes, &metadata) {
-        Ok(info) => info,
-        Err(e) => {
-            log::debug!("Failed to extract extrinsic info: {e}");
-            return Ok(None);
+    // Get pallet and call indices
+    let pallet_index = extrinsic.pallet_index();
+    let call_index = extrinsic.variant_index();
+    
+    // Resolve pallet name from index
+    let pallet = metadata
+        .pallet_by_index(pallet_index)
+        .ok_or_else(|| anyhow::anyhow!("Pallet with index {} not found", pallet_index))?;
+    let pallet_name = pallet.name();
+    
+    // Get call name (variant name)
+    let call_name = if let Some(call_ty) = pallet.call_ty_id() {
+        // Get the call type info
+        let call_type = metadata
+            .types()
+            .resolve(call_ty)
+            .ok_or_else(|| anyhow::anyhow!("Call type not found"))?;
+        
+        // Get variant by index
+        if let scale_info::TypeDef::Variant(variants) = &call_type.type_def {
+            variants
+                .variants
+                .iter()
+                .find(|v| v.index == call_index)
+                .map(|v| v.name.to_string())
+                .unwrap_or_else(|| format!("Call{}", call_index))
+        } else {
+            format!("Call{}", call_index)
         }
+    } else {
+        format!("Call{}", call_index)
     };
-
-    // Apply filters
+    
+    // Apply pallet filter
     if let Some(ref pallet) = pallet_filter {
         if !pallet_name.eq_ignore_ascii_case(pallet) {
             return Ok(None);
         }
     }
-
+    
+    // Apply call filter
     if let Some(ref call) = call_filter {
         if !call_name.eq_ignore_ascii_case(call) {
             return Ok(None);
         }
     }
-
+    
+    // Extract signer address
+    let signer_address = if extrinsic.is_signed() {
+        extrinsic.address_bytes()
+            .map(|bytes| {
+                // Convert to SS58 address
+                use sp_core::crypto::Ss58Codec;
+                if bytes.len() == 32 {
+                    let mut account_bytes = [0u8; 32];
+                    account_bytes.copy_from_slice(&bytes);
+                    sp_core::crypto::AccountId32::new(account_bytes).to_ss58check()
+                } else {
+                    format!("0x{}", hex::encode(&bytes))
+                }
+            })
+    } else {
+        None
+    };
+    
+    // Apply signer filter
     if let Some(ref signer) = signer_filter {
         if let Some(ref addr) = signer_address {
             if !addr.contains(signer) {
@@ -203,78 +237,103 @@ async fn decode_extrinsic_with_subxt(
             return Ok(None); // Filter requires signer but this is unsigned
         }
     }
-
-    // Calculate transaction hash using subxt's hashing
-    let hash = format!("0x{}", hex::encode(subxt::utils::H256::from_slice(&bytes[..32.min(bytes.len())]).as_bytes()));
-
-    // For now, we'll return a simplified version
-    // In a full implementation, you'd decode the call arguments properly
+    
+    // Get transaction hash using the bytes
+    let extrinsic_bytes = extrinsic.bytes();
+    let hash = format!("0x{}", hex::encode(sp_core::hashing::blake2_256(&extrinsic_bytes)));
+    
+    // Get block info
+    let block_number = block.number();
+    let block_hash = format!("0x{}", hex::encode(block.hash()));
+    
+    // Decode call arguments
+    let args = decode_call_args(extrinsic, &metadata)?;
+    
+    // Check events for success/failure and fees
+    let (success, fee) = check_extrinsic_events(block, extrinsic_index).await?;
+    
     Ok(Some(HistoricalTransaction {
         block_number,
-        block_hash: block_hash.to_string(),
+        block_hash,
         extrinsic_index,
         hash,
         signer: signer_address,
-        pallet: pallet_name,
+        pallet: pallet_name.to_string(),
         call: call_name,
-        args: serde_json::json!({"raw": extrinsic_hex}),
-        success: true, // Would need to check events to determine this
-        fee: None, // Would need to calculate from events
+        args,
+        success,
+        fee,
     }))
 }
 
-/// Extract basic info from extrinsic bytes
-fn extract_extrinsic_info(
-    bytes: &[u8],
-    metadata: &subxt::Metadata,
-) -> Result<(String, String, Option<String>)> {
-    use codec::Decode;
-    use codec::Compact;
+/// Decode call arguments to JSON
+fn decode_call_args(
+    extrinsic: &ExtrinsicDetails<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+    _metadata: &subxt::Metadata,
+) -> Result<serde_json::Value> {
+    // Try to decode the fields
+    match extrinsic.field_values() {
+        Ok(fields) => {
+            // Convert scale_value to JSON using existing utility
+            Ok(crate::substrate::scale_utils::composite_to_json(&fields))
+        }
+        Err(e) => {
+            // If decoding fails, return the raw hex
+            log::debug!("Failed to decode call arguments: {}", e);
+            let extrinsic_bytes = extrinsic.bytes();
+            Ok(serde_json::json!({
+                "raw": format!("0x{}", hex::encode(&extrinsic_bytes))
+            }))
+        }
+    }
+}
+
+/// Check events to determine success/failure and extract fees
+async fn check_extrinsic_events(
+    block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+    extrinsic_index: u32,
+) -> Result<(bool, Option<String>)> {
+    let events = block.events().await?;
     
-    let mut input = &bytes[..];
+    let mut success = false;
+    let mut fee = None;
     
-    // Skip the length prefix (compact encoded)
-    let _: Compact<u32> = Decode::decode(&mut input)?;
-    
-    // Version byte (first 2 bits = version, bit 7 = signed)
-    let version_byte = input[0];
-    let is_signed = version_byte & 0b10000000 != 0;
-    input = &input[1..];
-    
-    let signer = if is_signed {
-        // Skip signature data for now - this is complex and varies by chain
-        // In a real implementation, you'd properly decode MultiAddress and signature
-        Some("0x...".to_string()) // Placeholder
-    } else {
-        None
-    };
-    
-    // After skipping signature data, we'd find the call data
-    // For now, we'll try to find it heuristically
-    
-    // Look for pallet index in metadata
-    if let Some(pallet_index_pos) = input.iter().position(|&b| b < 50) { // Assume pallet indices < 50
-        let pallet_index = input[pallet_index_pos];
+    // Iterate through events
+    for event in events.iter() {
+        let event = event?;
         
-        // Try to find pallet by index
-        for pallet in metadata.pallets() {
-            if pallet.index() == pallet_index {
-                // Assume next byte is call index
-                if pallet_index_pos + 1 < input.len() {
-                    let call_index = input[pallet_index_pos + 1];
-                    
-                    // Try to find call by index
-                    if let Some(_call_ty) = pallet.call_ty_id() {
-                        // For now, we'll just return the pallet name with unknown call
-                        // Proper call decoding would require more complex logic
-                        return Ok((pallet.name().to_string(), format!("Call{}", call_index), signer));
+        // Check if this event is associated with our extrinsic
+        if let subxt::events::Phase::ApplyExtrinsic(ext_idx) = event.phase() {
+            if ext_idx != extrinsic_index {
+                continue;
+            }
+            
+            // Check for success/failure
+            if event.pallet_name() == "System" {
+                match event.variant_name() {
+                    "ExtrinsicSuccess" => success = true,
+                    "ExtrinsicFailed" => success = false,
+                    _ => {}
+                }
+            }
+            
+            // Check for fee payment
+            if event.pallet_name() == "TransactionPayment" && event.variant_name() == "TransactionFeePaid" {
+                // Try to extract fee amount
+                match event.field_values() {
+                    Ok(fields) => {
+                        let json = crate::substrate::scale_utils::composite_to_json(&fields);
+                        if let Some(actual_fee) = json.get("actual_fee") {
+                            fee = Some(actual_fee.to_string());
+                        }
+                    }
+                    Err(e) => {
+                        log::debug!("Failed to decode fee event: {}", e);
                     }
                 }
-                
-                return Ok((pallet.name().to_string(), "Unknown".to_string(), signer));
             }
         }
     }
     
-    Ok(("Unknown".to_string(), "Unknown".to_string(), signer))
+    Ok((success, fee))
 }
