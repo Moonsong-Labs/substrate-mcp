@@ -370,7 +370,7 @@ pub async fn list_runtime_changes(
             Ok(detail) => details.push(detail),
             Err(e) => {
                 // Log warning but continue processing other upgrades
-                eprintln!("Warning: Failed to fetch upgrade details: {}", e);
+                eprintln!("Warning: Failed to fetch upgrade details: {e}");
             }
         }
     }
