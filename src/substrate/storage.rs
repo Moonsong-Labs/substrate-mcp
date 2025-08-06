@@ -4,6 +4,7 @@ use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee::rpc_params;
 use jsonrpsee::ws_client::WsClientBuilder;
 use serde::{Deserialize, Serialize};
+use sp_core::crypto::{AccountId32, Ss58Codec};
 use subxt::dynamic::{self, Value};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
@@ -139,11 +140,20 @@ impl StorageQuery {
         match &self.keys {
             Some(keys) => {
                 // Convert JSON values to dynamic Values
-                // This is a simplified implementation
                 Ok(keys
                     .iter()
                     .map(|k| match k {
-                        serde_json::Value::String(s) => Value::string(s),
+                        serde_json::Value::String(s) => {
+                            // Try to decode as SS58 address first
+                            if let Ok(account_id) = AccountId32::from_ss58check(s) {
+                                // Create a composite value with the AccountId32 bytes
+                                let bytes: &[u8] = account_id.as_ref();
+                                Value::from_bytes(bytes)
+                            } else {
+                                // Fall back to treating it as a regular string
+                                Value::string(s)
+                            }
+                        }
                         serde_json::Value::Number(n) => {
                             if let Some(u) = n.as_u64() {
                                 Value::u128(u as u128)

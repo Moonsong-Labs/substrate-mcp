@@ -124,7 +124,7 @@ pub struct StorageQueryArgs {
     pub pallet: String,
     /// The storage entry name
     pub entry: String,
-    /// Optional keys for map-type storage (as JSON array)
+    /// Optional keys for map-type storage (as JSON array). Supports SS58 addresses which will be automatically decoded to AccountId32
     pub keys: Option<Vec<serde_json::Value>>,
     /// Start block number for range query (None defaults to latest if end_block is also None)
     pub start_block: Option<u32>,
