@@ -47,40 +47,83 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 You MUST analyze EVERY PRDoc in release {{release}} using parallel processing for efficiency.
                 
-                ## Project Context Assessment
+                ## Phase 0: Project Dependency Discovery (MANDATORY when project_context provided)
                 
                 {{#if project_context}}
                 Project context provided: {{project_context}}
                 
-                Before analyzing, identify:
-                - Key dependencies and components used in this project
-                - Relevant audiences (e.g., parachain teams need Runtime Dev + Node Dev changes)
-                - Specific subsystems of interest (e.g., EVM pallets, XCM, consensus)
+                ### Automated Dependency Analysis (MUST COMPLETE BEFORE PR ANALYSIS)
                 
-                For maximum accuracy, consider examining your runtime's construct_runtime! macro(s)
-                (typically in runtime/*/src/lib.rs or runtimes/*/src/lib.rs) which show:
-                - All pallets actually included in each runtime
-                - Which pallets have Storage (on-chain state that needs migrations)
-                - The exact configuration of each pallet
+                You MUST perform the following automated discovery steps to understand the project's actual dependencies:
                 
-                Example:
-                ```rust
-                construct_runtime!(
-                    pub enum Runtime {
-                        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-                        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-                        // Note: Storage component shows this pallet has on-chain state
-                    }
-                );
-                ```
+                1. **Locate and Parse All construct_runtime! Macros**
+                   - Search for files containing `construct_runtime!` (typically in `runtime/*/src/lib.rs` or `runtimes/*/src/lib.rs`)
+                   - For EACH runtime found, extract:
+                     * Complete list of pallets included
+                     * Which pallets have Storage component (require migrations)
+                     * Pallet instance names and configurations
+                   - Example pattern to identify:
+                     ```rust
+                     construct_runtime!(
+                         pub enum Runtime {
+                             System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+                             Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+                             // Storage component = on-chain state that may need migrations
+                         }
+                     );
+                     ```
                 
-                Note: If you have multiple runtimes (e.g., production/canary/testnet), check each one
-                as they may use different pallets or configurations.
+                2. **Analyze Pallet Imports in Runtime Files**
+                   - Scan all `use` statements in runtime files for pallet imports
+                   - Identify custom pallets vs standard Substrate pallets
+                   - Track version-specific imports (e.g., `use pallet_xcm::v3`)
+                   - Note trait implementations and type aliases that indicate deep integration
                 
-                Use this context to score relevance throughout the analysis.
+                3. **Parse Cargo.toml Files for Dependencies**
+                   - Check all Cargo.toml files (root and workspace members)
+                   - Extract all `pallet-*`, `frame-*`, `sp-*`, `sc-*` dependencies
+                   - Note specific version constraints or git dependencies
+                   - Identify feature flags enabled for each dependency
+                   - Build dependency tree to understand transitive dependencies
+                
+                4. **Semantic Dependency Analysis**
+                   Based on discovered dependencies, categorize them:
+                   - **Core Dependencies**: Pallets in construct_runtime! with Storage
+                   - **API Dependencies**: Pallets used for types/traits but not in runtime
+                   - **Build Dependencies**: Development/testing only
+                   - **Feature-Gated**: Dependencies only active with certain features
+                
+                5. **Generate Project Dependency Profile**
+                   Create a structured profile containing:
+                   ```
+                   Project Dependency Profile:
+                   - Active Pallets: [list from construct_runtime!]
+                   - Storage Pallets: [pallets with Storage component]
+                   - Custom Pallets: [project-specific pallets]
+                   - Substrate Version: [from Cargo.toml]
+                   - Critical Features: [XCM version, consensus type, etc.]
+                   - Risk Areas: [complex integrations, custom implementations]
+                   ```
+                
+                ### Using the Dependency Profile for Analysis
+                
+                This profile becomes the lens through which EVERY PR is evaluated:
+                
+                - **Direct Impact**: PR affects pallets in your construct_runtime!
+                - **Storage Impact**: PR affects pallets with Storage component
+                - **API Impact**: PR changes traits/types you depend on
+                - **Transitive Impact**: PR affects dependencies of your dependencies
+                - **No Impact**: PR affects unused components
+                
                 {{else}}
                 No project context provided. Performing comprehensive analysis of all changes.
                 💡 Tip: Provide project_context parameter for targeted, project-specific insights.
+                
+                Consider running this analysis with project_context to get:
+                - Automated discovery of your actual pallet dependencies
+                - Relevance scoring based on your runtime configuration
+                - Migration requirements specific to your pallets
+                - Filtered results showing only what affects your project
                 {{/if}}
                 
                 ## Analysis Strategy Selection
@@ -149,6 +192,18 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 Analyze PR(s) from release {{release}}: [PR number(s)]
                 
+                {{#if project_context}}
+                ## Project Dependency Profile (from Phase 0 analysis):
+                [INSERT DISCOVERED DEPENDENCY PROFILE HERE]
+                - Active Pallets: [list from construct_runtime!]
+                - Storage Pallets: [pallets with on-chain state]
+                - Custom Pallets: [project-specific implementations]
+                - Critical APIs: [traits and types used]
+                - Feature Flags: [enabled features affecting behavior]
+                
+                Use this profile to evaluate relevance of EVERY change in your assigned PR(s).
+                {{/if}}
+                
                 Instructions for this sub-agent:
                 1. Read ONLY the PRDoc file(s) for the assigned PR(s)
                 2. DO NOT reference or consider other PRs outside your assignment
@@ -156,12 +211,44 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                    - Pass 1: [discovery instructions]
                    - Pass 2: [deep analysis using Pass 1 data]  
                    - Pass 3: [synthesis using all previous data]
+                
                 {{#if project_context}}
-                4. For each finding, assess relevance to the project:
-                   - **Directly Affects**: Changes to components used by the project
-                   - **Indirect Impact**: Ecosystem changes that may affect the project
-                   - **Not Applicable**: Changes to components not used by the project
-                5. Return structured findings with relevance scores
+                4. For EACH change in the PR, perform semantic relevance analysis:
+                   
+                   **Direct Impact (Score: 10/10)**
+                   - Modifies a pallet in your construct_runtime!
+                   - Changes storage layout of your active pallets
+                   - Alters consensus mechanism you use
+                   - Breaks API of traits you implement
+                   
+                   **High Relevance (Score: 7-9/10)**
+                   - Affects pallets your pallets depend on
+                   - Changes in frame_support/frame_system affecting all pallets
+                   - Security fixes in any component you use
+                   - XCM/XCMP changes (if you're a parachain)
+                   
+                   **Medium Relevance (Score: 4-6/10)**
+                   - Changes to optional features you might use
+                   - Performance improvements in shared components
+                   - New features in pallets you use (but don't require)
+                   - Deprecations with migration paths
+                   
+                   **Low Relevance (Score: 1-3/10)**
+                   - Changes to pallets in same category but not used
+                   - General ecosystem improvements
+                   - Documentation or example updates
+                   
+                   **Not Applicable (Score: 0/10)**
+                   - Different consensus mechanisms (e.g., BABE when you use Aura)
+                   - Pallets not in your dependency tree
+                   - Tools/utilities you don't use
+                
+                5. Structure findings with:
+                   - PR number and title
+                   - Relevance score with justification
+                   - Specific impact on YOUR runtime
+                   - Required actions (if any)
+                   - Migration complexity estimate
                 {{else}}
                 4. Return structured findings
                 {{/if}}
@@ -276,6 +363,57 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 Note: Be selective - not every PR needs diff analysis. Focus on high-impact or unclear changes.
                 
+                ## Semantic Change Analysis Framework
+                
+                When analyzing PRs, understand the semantic implications of different change types:
+                
+                ### Breaking Changes - Require Immediate Action
+                - **Storage Layout Changes**: Can brick your chain if not migrated properly
+                - **Removed APIs**: Code won't compile without updates  
+                - **Changed Trait Signatures**: Implementations must be updated
+                - **Consensus Rule Changes**: Can cause chain splits if not coordinated
+                - **Weight/Fee Model Changes**: Can affect transaction validity
+                
+                ### Security-Critical Changes - Evaluate Urgency
+                - **Vulnerability Fixes**: Check if you're affected by the vulnerability
+                - **New Attack Vectors**: Understand if your runtime is exposed
+                - **Permission/Origin Changes**: May affect your runtime's security model
+                - **Cryptographic Updates**: Consider timeline for adoption
+                
+                ### Feature Additions - Opportunity Analysis
+                - **New Pallets**: Evaluate if they solve existing problems
+                - **New APIs**: Check if they simplify your code
+                - **Performance Improvements**: Quantify potential benefits
+                - **Developer Experience**: Consider adoption for better maintainability
+                
+                ### Deprecations - Plan Migration Timeline
+                - **Soft Deprecations**: Plan migration before removal
+                - **Hard Deprecations**: Must migrate in this release
+                - **Alternative APIs**: Understand migration path complexity
+                
+                ### Internal Changes - Usually Safe to Ignore
+                - **Refactoring**: No action unless you depend on internals
+                - **Test Improvements**: No runtime impact
+                - **Documentation**: Useful but not critical
+                - **Build System**: Only matters for development
+                
+                {{#if project_context}}
+                ### Project-Specific Semantic Analysis
+                
+                Based on your dependency profile, prioritize:
+                1. **Storage migrations** for pallets in your construct_runtime! with Storage
+                2. **API changes** in traits your pallets implement  
+                3. **Security fixes** in any component (even transitive dependencies)
+                4. **Consensus changes** if you run validators or collators
+                5. **XCM changes** if you're a parachain or use cross-chain features
+                
+                For each category, assess:
+                - **Blast Radius**: How many of your components are affected?
+                - **Migration Complexity**: Simple config change vs. code rewrite?
+                - **Risk Level**: Can this cause downtime or fund loss?
+                - **Testing Requirements**: Unit tests, integration tests, or full staging?
+                {{/if}}
+                
                 ## User-Specified Analysis
                 
                 The user has requested: {{analysis_instructions}}
@@ -286,15 +424,21 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 1. Confirm 100% coverage (all PRDocs analyzed)
                 2. Provide organized findings based on the analysis type
-                3. Include summary statistics
+                3. Include summary statistics with semantic categorization
                 4. For multi-pass: Show how insights evolved across passes
-                5. Deliver actionable conclusions
+                5. Deliver actionable conclusions with clear next steps
                 {{#if project_context}}
-                6. Organize findings by relevance score:
-                   - **Directly Affects Your Project**: Detailed analysis of high-impact changes
-                   - **Indirect/Ecosystem Impact**: Summary of relevant ecosystem changes
-                   - **Not Applicable**: Brief listing of changes that don't affect your project
-                7. Provide project-specific recommendations
+                6. Organize findings by both relevance AND semantic impact:
+                   - **Critical Actions Required**: Breaking changes affecting your project
+                   - **Security Updates Needed**: Vulnerabilities in your dependencies  
+                   - **Recommended Upgrades**: Beneficial changes worth adopting
+                   - **Optional Enhancements**: Nice-to-have improvements
+                   - **Not Applicable**: Changes that don't affect your project
+                7. Provide project-specific migration guide:
+                   - Order of operations for safe upgrade
+                   - Specific code changes needed
+                   - Testing checklist
+                   - Rollback procedures
                 {{/if}}
                 
                 ## CRITICAL REQUIREMENTS
