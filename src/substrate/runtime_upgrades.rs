@@ -109,7 +109,7 @@ pub struct RuntimeVersion {
 /// Get runtime state (version and metadata) at a specific block
 pub async fn get_runtime_state(
     block_identifier: i32, // Negative for relative, positive for absolute
-    _subxt_client: &OnlineClient<PolkadotConfig>,
+    subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
 ) -> Result<RuntimeState> {
     use jsonrpsee::core::client::ClientT;
@@ -119,16 +119,8 @@ pub async fn get_runtime_state(
     let rpc_client = WsClientBuilder::default().build(rpc_url).await?;
 
     // Get current block number if needed for relative positioning
-    let current_block: u32 = {
-        let params: Vec<serde_json::Value> = vec![];
-        let header: serde_json::Value = rpc_client.request("chain_getHeader", params).await?;
-
-        let number_hex = header["number"]
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("No block number in header"))?;
-
-        u32::from_str_radix(&number_hex[2..], 16)?
-    };
+    let latest_block = subxt_client.blocks().at_latest().await?;
+    let current_block = latest_block.header().number;
 
     // Calculate actual block number
     let block_number = if block_identifier < 0 {
@@ -195,7 +187,7 @@ pub async fn get_runtime_state(
 /// Query for runtime upgrades in a block range
 pub async fn query_runtime_upgrades(
     query: RuntimeUpgradeQuery,
-    _subxt_client: &OnlineClient<PolkadotConfig>,
+    subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
 ) -> Result<RuntimeUpgradeResult> {
     use jsonrpsee::core::client::ClientT;
@@ -205,16 +197,8 @@ pub async fn query_runtime_upgrades(
     let rpc_client = WsClientBuilder::default().build(rpc_url).await?;
 
     // Get current block number
-    let current_block: u32 = {
-        let params: Vec<serde_json::Value> = vec![];
-        let header: serde_json::Value = rpc_client.request("chain_getHeader", params).await?;
-
-        let number_hex = header["number"]
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("No block number in header"))?;
-
-        u32::from_str_radix(&number_hex[2..], 16)?
-    };
+    let latest_block = subxt_client.blocks().at_latest().await?;
+    let current_block = latest_block.header().number;
 
     // Calculate actual block range
     let from = if query.from_block < 0 {

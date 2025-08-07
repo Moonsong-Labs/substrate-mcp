@@ -55,17 +55,8 @@ pub async fn query_historical_events(
     let rpc_client = WsClientBuilder::default().build(rpc_url).await?;
 
     // Get current block number
-    let current_block: u32 = {
-        let params: Vec<serde_json::Value> = vec![];
-        let header: serde_json::Value = rpc_client.request("chain_getHeader", params).await?;
-
-        let number_hex = header["number"]
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("No block number in header"))?;
-
-        // Parse hex number (remove 0x prefix)
-        u32::from_str_radix(&number_hex[2..], 16)?
-    };
+    let latest_block = subxt_client.blocks().at_latest().await?;
+    let current_block = latest_block.header().number;
 
     // Calculate actual block range
     let from = if query.from_block < 0 {
