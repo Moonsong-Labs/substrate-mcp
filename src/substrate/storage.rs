@@ -4,8 +4,8 @@ use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee::rpc_params;
 use jsonrpsee::ws_client::WsClientBuilder;
 use serde::{Deserialize, Serialize};
-use sp_core::crypto::{AccountId32, Ss58Codec};
 use subxt::dynamic::{self, Value};
+use subxt::utils::AccountId32 as SubxtAccountId32;
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -145,12 +145,12 @@ impl StorageQuery {
                     .map(|k| match k {
                         serde_json::Value::String(s) => {
                             // Try to decode as SS58 address first
-                            if let Ok(account_id) = AccountId32::from_ss58check(s) {
+                            if let Ok(account_id) = s.parse::<SubxtAccountId32>() {
                                 // Create a composite value with the AccountId32 bytes
                                 let bytes: &[u8] = account_id.as_ref();
                                 Value::from_bytes(bytes)
                             } else {
-                                // Fall back to treating it as a regular string
+                                // If it's a String and not SS58, then convert directly
                                 Value::string(s)
                             }
                         }
