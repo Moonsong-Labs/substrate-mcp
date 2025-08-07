@@ -18,3 +18,6 @@ pub mod historical;
 
 /// Utilities for converting scale values to JSON
 pub mod scale_utils;
+
+/// General utils
+pub mod utils;

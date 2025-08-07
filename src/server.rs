@@ -14,14 +14,17 @@ use tokio::process::Command;
 
 use crate::polkadot_sdk_releases;
 use crate::prompts;
+use crate::tools;
 use serde::Deserialize;
 
 use crate::resources;
 use crate::substrate::client::SubstrateClient;
 use crate::substrate::events::EventFilter;
 use crate::substrate::historical::{query_historical_events, HistoricalEventsQuery};
-use crate::substrate::metadata::MetadataFilter;
+use crate::substrate::metadata::{MetadataFilter, get_call_metadata};
 use crate::substrate::storage::{list_pallet_storage, StorageQuery};
+use crate::substrate::utils::validate_rpc_url;
+
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -36,49 +39,6 @@ pub struct StorageBisectArgs {
 #[derive(Clone)]
 pub struct SubstrateService {
     tool_router: ToolRouter<Self>,
-}
-
-/// Validates if a string is a valid RPC URL textually (without connecting)
-fn validate_rpc_url(url: &str) -> Result<(), String> {
-    // Check if it starts with a valid protocol
-    if !url.starts_with("ws://")
-        && !url.starts_with("wss://")
-        && !url.starts_with("http://")
-        && !url.starts_with("https://")
-    {
-        return Err("URL must start with ws://, wss://, http://, or https://".to_string());
-    }
-
-    // Basic URL structure validation
-    if url.len() < 10 {
-        // Minimum: ws://a.b
-        return Err("URL is too short".to_string());
-    }
-
-    // Check for basic URL structure
-    let after_protocol = if let Some(stripped) = url.strip_prefix("ws://") {
-        stripped
-    } else if let Some(stripped) = url.strip_prefix("wss://") {
-        stripped
-    } else if let Some(stripped) = url.strip_prefix("http://") {
-        stripped
-    } else if let Some(stripped) = url.strip_prefix("https://") {
-        stripped
-    } else {
-        return Err("Invalid protocol".to_string());
-    };
-
-    // Must have at least one character after protocol
-    if after_protocol.is_empty() {
-        return Err("URL must have a host after the protocol".to_string());
-    }
-
-    // Check for spaces or invalid characters
-    if url.contains(' ') || url.contains('\n') || url.contains('\t') {
-        return Err("URL contains invalid whitespace characters".to_string());
-    }
-
-    Ok(())
 }
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
@@ -157,6 +117,16 @@ pub struct QueryHistoricalEventsArgs {
     pub pallet: Option<String>,
     /// Filter by event name (optional)
     pub event: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct GetCallMetadataArgs {
+    /// The RPC URL to connect to
+    pub rpc_url: String,
+    /// The pallet name (e.g., "Balances", "System")
+    pub pallet: String,
+    /// The call name (e.g., "transfer", "remark")
+    pub call: String,
 }
 
 impl Default for SubstrateService {
@@ -591,6 +561,68 @@ impl SubstrateService {
             }],
             is_error: None,
         })
+    }
+
+    #[tool(
+        description = "Get detailed metadata for a specific call including argument types and documentation. Use this before submit_extrinsic to understand the expected JSON format for arguments."
+    )]
+    pub async fn get_call_metadata(
+        &self,
+        Parameters(args): Parameters<GetCallMetadataArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        // Validate URL
+        if let Err(e) = validate_rpc_url(&args.rpc_url) {
+            return Err(McpError {
+                code: rmcp::model::ErrorCode(-32602),
+                message: format!("Invalid RPC URL: {e}").into(),
+                data: None,
+            });
+        }
+
+        // Connect to the chain using subxt
+        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to connect to chain: {e}").into(),
+                data: None,
+            })?;
+
+        // Get metadata
+        let metadata = client.metadata();
+
+        // Extract call metadata
+        let call_detail = get_call_metadata(&metadata, &args.pallet, &args.call)
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to get call metadata: {e}").into(),
+                data: None,
+            })?;
+
+        // Convert to JSON
+        let json_result = serde_json::to_string_pretty(&call_detail).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+            message: format!("Serialization error: {e}").into(),
+            data: None,
+        })?;
+
+        Ok(CallToolResult {
+            content: vec![Content {
+                annotations: None,
+                raw: RawContent::Text(RawTextContent { text: json_result }),
+            }],
+            is_error: None,
+        })
+    }
+
+    #[tool(
+        description = "Submit a generic extrinsic to a Substrate chain using dev accounts. Supports any pallet call with arbitrary arguments. Use dev account names like 'alice', 'bob', 'charlie', etc. for signing. Recommend using get_call_metadata first to understand argument format."
+    )]
+    pub async fn submit_extrinsic(
+        &self,
+        Parameters(properties): Parameters<tools::SubmitExtrinsicProperties>,
+    ) -> Result<CallToolResult, McpError> {
+        tools::handle_submit_dev_extrinsic(properties).await
     }
 }
 

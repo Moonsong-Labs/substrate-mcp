@@ -5100,6 +5100,7 @@ dependencies = [
  "parity-scale-codec",
  "reqwest",
  "rmcp",
+ "scale-info",
  "scale-value",
  "serde",
  "serde_json",

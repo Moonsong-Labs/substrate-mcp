@@ -8,6 +8,7 @@ mod public_endpoints;
 mod resources;
 mod server;
 mod substrate;
+mod tools;
 
 use server::SubstrateService;
 
