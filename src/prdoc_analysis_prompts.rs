@@ -31,7 +31,7 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 },
                 PromptArgument {
                     name: "batch_size".to_string(),
-                    description: Some("Number of PRs to process in parallel (2-4 recommended, default: 3)".to_string()),
+                    description: Some("Number of PRs each sub-agent processes. Use 1 for true isolation (one agent per PR), 2-4 for batched processing (default: 3)".to_string()),
                     required: Some(false),
                 },
                 PromptArgument {
@@ -105,14 +105,18 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 ## Execution Framework
                 
                 ### Initial Setup (Always)
-                1. Download the release using get_polkadot_sdk_release_prdocs tool
-                2. Get complete inventory of all PRDocs (use LS to list them)
-                3. Determine if single or multi-pass approach is needed
-                4. Plan batches of size {{batch_size}} (or 3 if not specified)
+                1. Check if analyzing multiple releases or upgrading across versions
+                   - If comparing versions (e.g., from X to Y), fetch all intermediate releases using: "X>Y"
+                   - If multiple specific releases requested, download each one
+                2. Download the release(s) using get_polkadot_sdk_release_prdocs tool
+                3. Get complete inventory of all PRDocs (use LS to list them)
+                4. Determine if single or multi-pass approach is needed
+                5. Plan batches of size {{batch_size}} (or 3 if not specified)
                 
                 ### For Single-Pass Analysis:
                 1. **Parallel Analysis Phase**
-                   - Process {{batch_size}} PRDocs at a time
+                   - When batch_size=1: Each PR gets its own isolated sub-agent (maximum isolation)
+                   - When batch_size>1: Each sub-agent processes {{batch_size}} PRDocs (faster but shared context)
                    - Each sub-agent applies the analysis instructions directly
                    - Collect all findings
                 
@@ -140,23 +144,30 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 ### Sub-Agent Task Template:
                 ```
-                Analyze the following PRs from release {{release}}: [list of PRs]
+                IMPORTANT: This sub-agent instance should analyze ONLY the following specific PR(s).
+                Each sub-agent gets a fresh, isolated context to ensure unbiased analysis.
                 
-                For each PR:
-                1. Read the PRDoc file at the specified path
-                2. Apply the appropriate analysis for this pass:
+                Analyze PR(s) from release {{release}}: [PR number(s)]
+                
+                Instructions for this sub-agent:
+                1. Read ONLY the PRDoc file(s) for the assigned PR(s)
+                2. DO NOT reference or consider other PRs outside your assignment
+                3. Apply the appropriate analysis for this pass:
                    - Pass 1: [discovery instructions]
-                   - Pass 2: [deep analysis using Pass 1 data]
+                   - Pass 2: [deep analysis using Pass 1 data]  
                    - Pass 3: [synthesis using all previous data]
                 {{#if project_context}}
-                3. For each finding, assess relevance to the project:
+                4. For each finding, assess relevance to the project:
                    - **Directly Affects**: Changes to components used by the project
                    - **Indirect Impact**: Ecosystem changes that may affect the project
                    - **Not Applicable**: Changes to components not used by the project
-                4. Return structured findings with relevance scores
+                5. Return structured findings with relevance scores
                 {{else}}
-                3. Return structured findings
+                4. Return structured findings
                 {{/if}}
+                
+                Note: If analyzing multiple PRs (batch mode), analyze each PR independently
+                within this agent, but return consolidated findings.
                 ```
                 
                 ## Decision Transparency

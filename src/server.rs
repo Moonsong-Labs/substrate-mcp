@@ -49,7 +49,9 @@ pub struct GetPolkadotSdkReleasePrdocsRequest {
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
 pub struct AnalyzeReleaseRequest {
-    /// polkadot-sdk release to analyze (must have scout data available)
+    /// polkadot-sdk release(s) to analyze (must have scout data available).
+    /// Can be a single release or comma-separated list for cross-release analysis.
+    /// Example: "stable2412" or "stable2412,stable2412-1,stable2412-2"
     pub release: String,
 }
 
@@ -279,7 +281,7 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
         }
     }
 
-    #[tool(description = "Analyze a Polkadot SDK release comprehensively, going beyond PRDocs to analyze all PR metadata, patches, and relationships. Creates structured index, impact analysis, and categorization. Requires scout data to be available in test_scout_output directory.")]
+    #[tool(description = "Analyze Polkadot SDK release(s) comprehensively, going beyond PRDocs to analyze all PR metadata, patches, and relationships. Creates structured index, impact analysis, and categorization. Supports single release or multiple releases (comma-separated) for cross-release analysis. Requires scout data to be available in test_scout_output directory.")]
     pub async fn analyze_release(
         &self,
         Parameters(AnalyzeReleaseRequest { release }): Parameters<AnalyzeReleaseRequest>,
@@ -298,11 +300,22 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
                 data: None,
             })?;
 
-        let response_text = format!(
-            "Successfully analyzed release '{}'. Analysis saved to:\n{}\n\nThe analysis includes:\n- Release summary with PR counts by category\n- Comprehensive index of all PRs\n- Impact analysis for breaking changes and migrations\n- Categorization by subsystem and audience\n- Change relationships and dependencies\n\nUse Read to view the full analysis JSON.",
-            release,
-            analysis_path
-        );
+        // Check if multiple releases were analyzed
+        let releases: Vec<&str> = release.split(',').map(|s| s.trim()).collect();
+        let response_text = if releases.len() > 1 {
+            format!(
+                "Successfully analyzed {} releases: {}. Combined analysis saved to:\n{}\n\nThe analysis includes data for each release:\n- Release summaries with PR counts by category\n- Comprehensive index of all PRs across releases\n- Impact analysis for breaking changes and migrations\n- Cross-release dependency tracking\n- Cumulative change analysis\n\nUse Read to view the full analysis JSON.",
+                releases.len(),
+                releases.join(", "),
+                analysis_path
+            )
+        } else {
+            format!(
+                "Successfully analyzed release '{}'. Analysis saved to:\n{}\n\nThe analysis includes:\n- Release summary with PR counts by category\n- Comprehensive index of all PRs\n- Impact analysis for breaking changes and migrations\n- Categorization by subsystem and audience\n- Change relationships and dependencies\n\nUse Read to view the full analysis JSON.",
+                release,
+                analysis_path
+            )
+        };
 
         Ok(CallToolResult {
             content: vec![Content {

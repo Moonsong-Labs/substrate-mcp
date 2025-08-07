@@ -585,15 +585,47 @@ fn extract_crate_name(file_path: &str) -> Option<String> {
 // Export function for analysis
 pub async fn analyze_polkadot_release(release: &str, base_path: PathBuf) -> Result<String> {
     let analyzer = ReleaseAnalyzer::new(base_path);
-    let analysis = analyzer.analyze_release(release).await?;
     
-    // Save analysis
-    let output_dir = analyzer.base_path.join("release_analysis");
-    fs::create_dir_all(&output_dir).await?;
+    // Check if multiple releases are requested (comma-separated)
+    let releases: Vec<&str> = release.split(',').map(|s| s.trim()).collect();
     
-    let output_path = output_dir.join(format!("{}_analysis.json", release));
-    let json = serde_json::to_string_pretty(&analysis)?;
-    fs::write(&output_path, &json).await?;
-    
-    Ok(output_path.display().to_string())
+    if releases.len() > 1 {
+        // Multi-release analysis
+        let mut all_analyses = Vec::new();
+        for single_release in &releases {
+            match analyzer.analyze_release(single_release).await {
+                Ok(analysis) => all_analyses.push(analysis),
+                Err(e) => eprintln!("Warning: Failed to analyze {}: {}", single_release, e),
+            }
+        }
+        
+        if all_analyses.is_empty() {
+            return Err(anyhow!("Failed to analyze any of the requested releases"));
+        }
+        
+        // Save individual and combined analyses
+        let output_dir = analyzer.base_path.join("release_analysis");
+        fs::create_dir_all(&output_dir).await?;
+        
+        // Save combined analysis
+        let combined_name = format!("{}_combined", releases.join("_"));
+        let output_path = output_dir.join(format!("{}_analysis.json", combined_name));
+        let json = serde_json::to_string_pretty(&all_analyses)?;
+        fs::write(&output_path, &json).await?;
+        
+        Ok(output_path.display().to_string())
+    } else {
+        // Single release analysis (existing behavior)
+        let analysis = analyzer.analyze_release(release).await?;
+        
+        // Save analysis
+        let output_dir = analyzer.base_path.join("release_analysis");
+        fs::create_dir_all(&output_dir).await?;
+        
+        let output_path = output_dir.join(format!("{}_analysis.json", release));
+        let json = serde_json::to_string_pretty(&analysis)?;
+        fs::write(&output_path, &json).await?;
+        
+        Ok(output_path.display().to_string())
+    }
 }

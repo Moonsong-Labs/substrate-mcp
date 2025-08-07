@@ -66,7 +66,12 @@ pub fn get_release_prompts() -> Vec<ReleasePrompt> {
             instructions: indoc! {r#"
                 Generate a comprehensive migration guide for upgrading from {{from_release}} to {{to_release}}.
                 
-                Use the analyze_release tool to analyze {{to_release}} comprehensively.
+                IMPORTANT: First check if there are intermediate releases between {{from_release}} and {{to_release}}.
+                If there are, use get_polkadot_sdk_release_prdocs with the range syntax: "{{from_release}}>{{to_release}}"
+                This will automatically fetch all intermediate releases for complete analysis.
+                
+                Then use the analyze_release tool to analyze {{to_release}} comprehensively.
+                If intermediate releases exist, also note cumulative changes across all versions.
                 
                 Structure the guide as follows:
                 
