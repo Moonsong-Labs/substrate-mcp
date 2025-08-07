@@ -18,4 +18,4 @@ pub mod scale_utils;
 pub mod transactions;
 
 /// Runtime upgrades module for tracking and analyzing runtime upgrades
-pub mod runtime_upgrades;
+pub mod runtime;

@@ -20,7 +20,7 @@ use crate::resources;
 use crate::substrate::events::EventFilter;
 use crate::substrate::historical::{query_historical_events, HistoricalEventsQuery};
 use crate::substrate::metadata::MetadataFilter;
-use crate::substrate::runtime_upgrades::{get_runtime_state, list_runtime_changes};
+use crate::substrate::runtime::{get_runtime_state, list_runtime_changes};
 use crate::substrate::storage::{list_pallet_storage, BatchStorageQuery, StorageQuery};
 use crate::substrate::transactions::{query_historical_extrinsics, HistoricalExtrinsicsQuery};
 use subxt::OnlineClient;
