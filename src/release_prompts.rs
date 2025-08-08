@@ -249,6 +249,7 @@ pub fn get_release_prompts() -> Vec<ReleasePrompt> {
 }
 
 /// Get a specific release prompt by name
+#[allow(dead_code)]
 pub fn get_release_prompt(name: &str) -> Option<ReleasePrompt> {
     get_release_prompts()
         .into_iter()
@@ -256,6 +257,7 @@ pub fn get_release_prompt(name: &str) -> Option<ReleasePrompt> {
 }
 
 /// Get all release prompt names
+#[allow(dead_code)]
 pub fn list_release_prompt_names() -> Vec<String> {
     get_release_prompts()
         .into_iter()

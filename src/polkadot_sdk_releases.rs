@@ -96,21 +96,6 @@ impl ReleaseVersion {
         
         None
     }
-    
-    /// Convert back to string format
-    fn to_string(&self) -> String {
-        match self {
-            ReleaseVersion::Semantic { major, minor, patch } => 
-                format!("{}.{}.{}", major, minor, patch),
-            ReleaseVersion::Stable { year, month, patch } => {
-                let base = format!("stable{:02}{:02}", year % 100, month);
-                match patch {
-                    Some(p) => format!("{}-{}", base, p),
-                    None => base,
-                }
-            }
-        }
-    }
 }
 
 impl Ord for ReleaseVersion {
