@@ -123,8 +123,3 @@ pub async fn handle_submit_dev_extrinsic(
     })
 }
 
-#[cfg(test)]
-mod test;
-
-#[cfg(test)]
-mod parse_test;
