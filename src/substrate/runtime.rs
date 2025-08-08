@@ -53,7 +53,7 @@ pub struct RuntimeUpgradeDetails {
     /// The runtime upgrade info
     pub upgrade: RuntimeUpgrade,
     /// Events in the upgrade block
-    pub events: Vec<crate::substrate::historical::HistoricalEvent>,
+    pub events: Vec<crate::substrate::events::HistoricalEvent>,
     /// Storage changes in the upgrade block
     pub storage_changes: Vec<StorageChange>,
     /// Transactions in the upgrade block
@@ -276,7 +276,7 @@ async fn fetch_upgrade_details_at_block(
     rpc_url: &str,
 ) -> Result<RuntimeUpgradeDetails> {
     // Get all events in the upgrade block
-    let events_query = crate::substrate::historical::HistoricalEventsQuery {
+    let events_query = crate::substrate::events::HistoricalEventsQuery {
         from_block: upgrade.block_number as i32,
         to_block: Some(upgrade.block_number as i32),
         pallet: None,
@@ -284,7 +284,7 @@ async fn fetch_upgrade_details_at_block(
     };
 
     let events =
-        crate::substrate::historical::query_historical_events(events_query, subxt_client, rpc_url)
+        crate::substrate::events::query_historical_events(events_query, subxt_client, rpc_url)
             .await?;
 
     // Get all transactions in the upgrade block

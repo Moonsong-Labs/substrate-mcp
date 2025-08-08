@@ -17,9 +17,8 @@ use crate::prompts;
 use serde::Deserialize;
 
 use crate::resources;
-use crate::substrate::events::EventFilter;
+use crate::substrate::events::{query_historical_events, EventFilter, HistoricalEventsQuery};
 use crate::substrate::extrinsic::{query_historical_extrinsics, HistoricalExtrinsicsQuery};
-use crate::substrate::historical::{query_historical_events, HistoricalEventsQuery};
 use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::runtime::{get_runtime_state, list_runtime_changes};
 use crate::substrate::storage::{list_pallet_storage, BatchStorageQuery, StorageQuery};

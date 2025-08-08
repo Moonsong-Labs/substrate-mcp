@@ -8,16 +8,13 @@ pub mod events;
 /// Storage module for querying chain storage
 pub mod storage;
 
-/// Historical module for querying past blocks
-pub mod historical;
-
 /// Utilities for converting scale values to JSON
 pub mod scale_utils;
 
-/// Transactions module for querying chain transactions
+/// Extrinsic module for querying chain extrinsics
 pub mod extrinsic;
 
-/// Runtime upgrades module for tracking and analyzing runtime upgrades
+/// Runtime module for tracking and analyzing runtime
 pub mod runtime;
 
 /// Common utility functions used across substrate modules
