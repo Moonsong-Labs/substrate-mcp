@@ -3,9 +3,6 @@ use serde::{Deserialize, Serialize};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
-use crate::substrate::metadata::{
-    decode_metadata_from_hex, extract_metadata_summary, MetadataSummary,
-};
 use crate::substrate::utils;
 
 /// Query runtime upgrades from historical blocks
@@ -75,19 +72,6 @@ pub struct StorageChange {
     pub storage_item: Option<String>,
 }
 
-/// Runtime state at a specific block
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RuntimeState {
-    /// Runtime version information
-    pub version: RuntimeVersion,
-    /// Decoded metadata summary
-    pub metadata: MetadataSummary,
-    /// Block number
-    pub block_number: u32,
-    /// Block hash
-    pub block_hash: String,
-}
-
 /// Runtime version information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeVersion {
@@ -105,72 +89,6 @@ pub struct RuntimeVersion {
     pub transaction_version: u32,
     /// State version
     pub state_version: u32,
-}
-
-/// Get runtime state (version and metadata) at a specific block
-pub async fn get_runtime_state(
-    block_identifier: i32, // Negative for relative, positive for absolute
-    subxt_client: &OnlineClient<PolkadotConfig>,
-    rpc_url: &str,
-) -> Result<RuntimeState> {
-    // Create RPC client for historical queries
-    let rpc_client = utils::RpcClient::new(rpc_url).await?;
-
-    // Get current block number if needed for relative positioning
-    let latest_block = subxt_client.blocks().at_latest().await?;
-    let current_block = latest_block.header().number;
-
-    // Calculate actual block number
-    let block_number = utils::calculate_block_number(block_identifier, current_block);
-
-    // Get block hash
-    let block_hash = rpc_client
-        .request("chain_getBlockHash", vec![block_number])
-        .await?;
-
-    // Get runtime version at this block
-    let runtime_version_json: serde_json::Value = rpc_client
-        .request("state_getRuntimeVersion", vec![&block_hash])
-        .await?;
-
-    // Parse runtime version
-    let version = RuntimeVersion {
-        spec_version: runtime_version_json["specVersion"]
-            .as_u64()
-            .ok_or_else(|| anyhow::anyhow!("No spec version"))? as u32,
-        spec_name: runtime_version_json["specName"]
-            .as_str()
-            .unwrap_or("unknown")
-            .to_string(),
-        impl_name: runtime_version_json["implName"]
-            .as_str()
-            .unwrap_or("unknown")
-            .to_string(),
-        impl_version: runtime_version_json["implVersion"].as_u64().unwrap_or(0) as u32,
-        authoring_version: runtime_version_json["authoringVersion"]
-            .as_u64()
-            .unwrap_or(0) as u32,
-        transaction_version: runtime_version_json["transactionVersion"]
-            .as_u64()
-            .unwrap_or(0) as u32,
-        state_version: runtime_version_json["stateVersion"].as_u64().unwrap_or(0) as u32,
-    };
-
-    // Get metadata at this block
-    let metadata_hex: String = rpc_client
-        .request("state_getMetadata", vec![&block_hash])
-        .await?;
-
-    // Decode the metadata and extract summary
-    let metadata = decode_metadata_from_hex(&metadata_hex)?;
-    let metadata_summary = extract_metadata_summary(&metadata);
-
-    Ok(RuntimeState {
-        version,
-        metadata: metadata_summary,
-        block_number,
-        block_hash,
-    })
 }
 
 /// Query for runtime upgrades in a block range

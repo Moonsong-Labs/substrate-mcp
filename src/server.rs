@@ -20,7 +20,7 @@ use crate::resources;
 use crate::substrate::events::{query_historical_events, EventFilter, HistoricalEventsQuery};
 use crate::substrate::extrinsic::{query_historical_extrinsics, HistoricalExtrinsicsQuery};
 use crate::substrate::metadata::MetadataFilter;
-use crate::substrate::runtime::{get_runtime_state, list_runtime_changes};
+use crate::substrate::runtime::list_runtime_changes;
 use crate::substrate::storage::{list_pallet_storage, BatchStorageQuery, StorageQuery};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
@@ -167,14 +167,6 @@ pub struct QueryHistoricalExtrinsicsProperties {
     pub call: Option<String>,
     /// Filter by signer address (optional)
     pub signer: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct QueryRuntimeStateProperties {
-    /// The RPC endpoint to connect to
-    pub rpc_url: String,
-    /// Block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
-    pub block: i32,
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -700,60 +692,6 @@ impl SubstrateService {
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
                 message: format!("Failed to query historical transactions: {e}").into(),
-                data: None,
-            })?;
-
-        // Convert to JSON
-        let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
-            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-            message: format!("Serialization error: {e}").into(),
-            data: None,
-        })?;
-
-        Ok(CallToolResult {
-            content: vec![Content {
-                annotations: None,
-                raw: RawContent::Text(RawTextContent { text: json_result }),
-            }],
-            is_error: None,
-        })
-    }
-
-    #[tool(
-        description = "Get runtime state (version and metadata) at a specific block. Supports relative block numbers (e.g., -10 for 10 blocks ago). If the number is positive, uses absolute block; if it's 0, returns current block. Returns runtime version information and raw metadata bytes."
-    )]
-    pub async fn query_runtime_state(
-        &self,
-        Parameters(args): Parameters<QueryRuntimeStateProperties>,
-    ) -> Result<CallToolResult, McpError> {
-        // Validate URL if provided
-        if let Err(e) = validate_rpc_url(&args.rpc_url) {
-            return Err(McpError {
-                code: rmcp::model::ErrorCode(-32602),
-                message: format!("Invalid RPC URL: {e}").into(),
-                data: None,
-            });
-        }
-
-        // Connect to the chain using subxt
-        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
-            .await
-            .map_err(|e| McpError {
-                code: rmcp::model::ErrorCode(-32603),
-                message: format!(
-                    "Failed to connect to chain with URL '{}': {e}",
-                    args.rpc_url
-                )
-                .into(),
-                data: None,
-            })?;
-
-        // Get runtime state
-        let result = get_runtime_state(args.block, &client, &args.rpc_url)
-            .await
-            .map_err(|e| McpError {
-                code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to get runtime state: {e}").into(),
                 data: None,
             })?;
 
