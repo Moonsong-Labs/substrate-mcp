@@ -57,7 +57,7 @@ pub struct RuntimeUpgradeDetails {
     /// Storage changes in the upgrade block
     pub storage_changes: Vec<StorageChange>,
     /// Transactions in the upgrade block
-    pub transactions: Vec<crate::substrate::transactions::HistoricalExtrinsic>,
+    pub transactions: Vec<crate::substrate::extrinsic::HistoricalExtrinsic>,
 }
 
 /// A storage change in the upgrade block
@@ -288,7 +288,7 @@ async fn fetch_upgrade_details_at_block(
             .await?;
 
     // Get all transactions in the upgrade block
-    let tx_query = crate::substrate::transactions::HistoricalExtrinsicsQuery {
+    let tx_query = crate::substrate::extrinsic::HistoricalExtrinsicsQuery {
         from_block: upgrade.block_number as i32,
         to_block: Some(upgrade.block_number as i32),
         pallet: None,
@@ -296,12 +296,9 @@ async fn fetch_upgrade_details_at_block(
         signer: None,
     };
 
-    let transactions = crate::substrate::transactions::query_historical_extrinsics(
-        tx_query,
-        subxt_client,
-        rpc_url,
-    )
-    .await?;
+    let transactions =
+        crate::substrate::extrinsic::query_historical_extrinsics(tx_query, subxt_client, rpc_url)
+            .await?;
 
     // Get storage changes (focusing on important system storage)
     let storage_changes =

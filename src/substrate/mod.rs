@@ -15,7 +15,7 @@ pub mod historical;
 pub mod scale_utils;
 
 /// Transactions module for querying chain transactions
-pub mod transactions;
+pub mod extrinsic;
 
 /// Runtime upgrades module for tracking and analyzing runtime upgrades
 pub mod runtime;
