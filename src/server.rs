@@ -281,7 +281,7 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
         }
     }
 
-    #[tool(description = "Analyze Polkadot SDK release(s) and generate a comprehensive markdown report with migration guides, breaking changes, security analysis, and PR-by-PR breakdown. The primary output is a detailed markdown file suitable for documentation, planning, and team communication. Also creates JSON data for programmatic use. Supports single or multiple releases (comma-separated). Requires PR analysis data in pr_analysis_data directory.")]
+    #[tool(description = "Analyze Polkadot SDK release(s) and generate a comprehensive markdown report with migration guides, breaking changes, security analysis, and PR-by-PR breakdown. IMPORTANT: This tool MUST create a markdown file as its primary output - this is mandatory unless explicitly told not to. The markdown file will be saved to .substrate-analysis/releases/. Also creates JSON data for programmatic use. Supports single or multiple releases (comma-separated). Requires PR analysis data in pr_analysis_data directory.")]
     pub async fn analyze_release(
         &self,
         Parameters(AnalyzeReleaseRequest { release }): Parameters<AnalyzeReleaseRequest>,

@@ -420,11 +420,21 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 Apply this analysis using the most appropriate strategy (single or multi-pass).
                 
-                ## Output Requirements: Markdown Report (PRIMARY) + Brief Console Summary
+                ## 🚨 MANDATORY OUTPUT REQUIREMENTS 🚨
                 
-                ### PRIMARY OUTPUT: Comprehensive Markdown Report
+                ### ⚠️ YOU MUST CREATE A MARKDOWN FILE - THIS IS NOT OPTIONAL ⚠️
                 
-                You MUST generate a detailed markdown report using the following EXACT template:
+                **CRITICAL INSTRUCTION**: You MUST create and save a comprehensive markdown report file.
+                The ONLY exceptions are:
+                1. The user explicitly says "don't create a file" or similar
+                2. You encounter a file system error that prevents file creation
+                3. The analysis completely fails due to missing data
+                
+                If none of these exceptions apply, YOU MUST CREATE THE MARKDOWN FILE.
+                
+                ### PRIMARY OUTPUT: Comprehensive Markdown Report FILE (REQUIRED)
+                
+                You MUST generate AND SAVE a detailed markdown report using the following EXACT template:
                 
                 ```markdown
                 # Polkadot SDK Release {{release}} Analysis Report
@@ -651,11 +661,19 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 *End of Report*
                 ```
                 
-                Save this report to: `.substrate-analysis/releases/{{release}}-[timestamp].md`
+                ### 📁 FILE CREATION INSTRUCTIONS (MANDATORY)
+                
+                1. **CREATE THE DIRECTORY** (if it doesn't exist): `.substrate-analysis/releases/`
+                2. **SAVE THE REPORT** to: `.substrate-analysis/releases/{{release}}-[timestamp].md`
+                   - Replace [timestamp] with actual ISO 8601 timestamp (e.g., 2024-01-15T10-30-00Z)
+                3. **VERIFY THE FILE** was created successfully
+                4. **INFORM THE USER** of the file location
+                
+                ⚠️ DO NOT SKIP THIS STEP. THE FILE MUST BE CREATED.
                 
                 ### SECONDARY OUTPUT: Brief Console Summary (5-10 lines maximum)
                 
-                After saving the markdown report, display ONLY this brief summary:
+                ONLY AFTER successfully saving the markdown report file, display this brief summary:
                 
                 ```
                 ✅ Release {{release}} Analysis Complete
@@ -669,14 +687,22 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 That's it for console output. The markdown file contains everything else.
                 
-                ## CRITICAL REQUIREMENTS
+                ## CRITICAL REQUIREMENTS (IN ORDER OF IMPORTANCE)
                 
-                ⚠️ EXHAUSTIVE ANALYSIS: You MUST analyze EVERY SINGLE PRDoc. No sampling allowed.
-                ⚠️ PARALLEL EXECUTION: You MUST use parallel sub-agents for efficiency within each pass.
-                ⚠️ INTELLIGENT STRATEGY: Choose single vs multi-pass based on the analysis needs.
-                ⚠️ STRUCTURED OUTPUT: Organize findings clearly based on the analysis performed.
+                1️⃣ FILE CREATION: You MUST create the markdown report file. This is NON-NEGOTIABLE unless explicitly told otherwise.
+                2️⃣ EXHAUSTIVE ANALYSIS: You MUST analyze EVERY SINGLE PRDoc. No sampling allowed.
+                3️⃣ PARALLEL EXECUTION: You MUST use parallel sub-agents for efficiency within each pass.
+                4️⃣ INTELLIGENT STRATEGY: Choose single vs multi-pass based on the analysis needs.
+                5️⃣ STRUCTURED OUTPUT: Organize findings clearly based on the analysis performed.
                 
-                Remember: The goal is complete, efficient, and thorough analysis. The method (single or multi-pass) should serve this goal.
+                Remember: The markdown file is the PRIMARY deliverable. Console output is secondary.
+                
+                ## FINAL CHECKLIST (YOU MUST COMPLETE ALL):
+                ✓ Did you create the .substrate-analysis/releases/ directory?
+                ✓ Did you save the markdown report to a file?
+                ✓ Did you verify the file was created?
+                ✓ Did you tell the user where the file is located?
+                ✓ Did you analyze ALL PRDocs (not just a sample)?
             "#}.to_string(),
         },
         
