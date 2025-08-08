@@ -9,7 +9,7 @@ use crate::substrate::utils;
 
 /// Represents a storage entry value
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorageEntry {
+pub struct HistoricalStorage {
     /// The pallet name
     pub pallet: String,
     /// The storage entry name
@@ -24,58 +24,86 @@ pub struct StorageEntry {
 
 /// Query parameters for storage entries
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorageQuery {
+pub struct HistoricalStorageQuery {
+    /// Start block (negative = relative to current)
+    pub from_block: i32,
+    /// End block (negative = relative to current)  
+    pub to_block: Option<i32>,
     /// The pallet name
     pub pallet: String,
     /// The storage entry name
     pub entry: String,
     /// Optional keys for map-type storage (as JSON array)
     pub keys: Option<Vec<serde_json::Value>>,
-    /// Block number to query at (None for latest)
-    pub at_block: u32,
 }
 
-impl StorageQuery {
-    /// Execute the storage query
-    pub async fn execute(
-        &self,
-        subxt_client: &OnlineClient<PolkadotConfig>,
-        rpc_url: &str,
-    ) -> Result<StorageEntry> {
-        // Get metadata
-        let metadata = subxt_client.metadata();
+/// Result of historical extrinsics query
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HistoricalStorageResult {
+    /// Storage found
+    pub storage: Vec<HistoricalStorage>,
+    /// Number of blocks queried
+    pub blocks_queried: u32,
+    /// Current block height
+    pub current_block: u32,
+}
 
-        // Find the pallet
-        let pallet = metadata
-            .pallet_by_name(&self.pallet)
-            .ok_or_else(|| anyhow::anyhow!("Pallet '{}' not found", self.pallet))?;
+pub async fn query_historical_storage(
+    query: HistoricalStorageQuery,
+    subxt_client: &OnlineClient<PolkadotConfig>,
+    rpc_url: &str,
+) -> Result<HistoricalStorageResult> {
+    // Get current block number
+    let latest_block = subxt_client.blocks().at_latest().await?;
+    let current_block = latest_block.header().number;
 
-        // Find the storage entry
-        let storage = pallet
-            .storage()
-            .ok_or_else(|| anyhow::anyhow!("Pallet '{}' has no storage", self.pallet))?;
+    // Calculate actual block range
+    let from = utils::calculate_block_number(query.from_block, current_block);
 
-        let _entry = storage.entry_by_name(&self.entry).ok_or_else(|| {
-            anyhow::anyhow!(
-                "Storage entry '{}' not found in pallet '{}'",
-                self.entry,
-                self.pallet
-            )
-        })?;
+    let to = match query.to_block {
+        Some(b) => utils::calculate_block_number(b, current_block),
+        None => from, // Default to single block if not specified
+    };
 
-        // Build the storage address dynamically
-        let storage_address = dynamic::storage(&self.pallet, &self.entry, self.build_keys()?);
+    // Get metadata
+    let metadata = subxt_client.metadata();
 
-        // Create RPC client for historical queries
-        let rpc_client = utils::RpcClient::new(rpc_url).await?;
+    // Find the pallet
+    let pallet = metadata
+        .pallet_by_name(&query.pallet)
+        .ok_or_else(|| anyhow::anyhow!("Pallet '{}' not found", query.pallet))?;
 
+    // Find the storage entry
+    let storage = pallet
+        .storage()
+        .ok_or_else(|| anyhow::anyhow!("Pallet '{}' has no storage", query.pallet))?;
+
+    let _entry = storage.entry_by_name(&query.entry).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Storage entry '{}' not found in pallet '{}'",
+            query.entry,
+            query.pallet
+        )
+    })?;
+
+    // Build the storage address dynamically
+    let storage_address = dynamic::storage(&query.pallet, &query.entry, build_keys(&query.keys)?);
+
+    // Create RPC client for historical queries
+    let rpc_client = utils::RpcClient::new(rpc_url).await?;
+
+    let mut all_storages = Vec::new();
+    let blocks_queried = to - from + 1;
+
+    // Query each block
+    for block_num in from..=to {
         // Get block hash
         let block_hash: Option<subxt::utils::H256> = rpc_client
-            .request("chain_getBlockHash", vec![self.at_block])
+            .request("chain_getBlockHash", vec![block_num])
             .await?;
 
         let block_hash =
-            block_hash.ok_or_else(|| anyhow::anyhow!("Block {} not found", self.at_block))?;
+            block_hash.ok_or_else(|| anyhow::anyhow!("Block {} not found", block_num))?;
 
         let block = subxt_client.blocks().at(block_hash).await?;
 
@@ -107,88 +135,56 @@ impl StorageQuery {
 
         // Get the storage key - for now just indicate the query params
         // A full implementation would encode the actual storage key
-        let key = format!("{}.{}", self.pallet, self.entry);
+        let key = format!("{}.{}", query.pallet, query.entry);
 
-        Ok(StorageEntry {
-            pallet: self.pallet.clone(),
-            entry: self.entry.clone(),
+        all_storages.push(HistoricalStorage {
+            pallet: query.pallet.clone(),
+            entry: query.entry.clone(),
             key,
             value,
-            at_block: Some(self.at_block),
+            at_block: Some(block_num),
         })
     }
 
-    /// Build keys for the storage query
-    fn build_keys(&self) -> Result<Vec<Value>> {
-        match &self.keys {
-            Some(keys) => {
-                // Convert JSON values to dynamic Values
-                Ok(keys
-                    .iter()
-                    .map(|k| match k {
-                        serde_json::Value::String(s) => {
-                            // Try to decode as SS58 address first
-                            if let Ok(account_id) = s.parse::<SubxtAccountId32>() {
-                                // Create a composite value with the AccountId32 bytes
-                                let bytes: &[u8] = account_id.as_ref();
-                                Value::from_bytes(bytes)
-                            } else {
-                                // If it's a String and not SS58, then convert directly
-                                Value::string(s)
-                            }
-                        }
-                        serde_json::Value::Number(n) => {
-                            if let Some(u) = n.as_u64() {
-                                Value::u128(u as u128)
-                            } else {
-                                Value::i128(n.as_i64().unwrap_or(0) as i128)
-                            }
-                        }
-                        serde_json::Value::Bool(b) => Value::bool(*b),
-                        _ => Value::string(k.to_string()),
-                    })
-                    .collect())
-            }
-            None => Ok(vec![]),
-        }
-    }
+    Ok(HistoricalStorageResult {
+        storage: all_storages,
+        blocks_queried,
+        current_block,
+    })
 }
 
-/// Query multiple storage entries in a single batch
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BatchStorageQuery {
-    /// List of storage queries to execute
-    pub queries: Vec<StorageQuery>,
-}
-
-impl BatchStorageQuery {
-    /// Execute all storage queries
-    pub async fn execute(
-        &self,
-        client: &OnlineClient<PolkadotConfig>,
-        rpc_url: &str,
-    ) -> Result<Vec<StorageEntry>> {
-        let mut results = Vec::new();
-
-        for query in &self.queries {
-            match query.execute(client, rpc_url).await {
-                Ok(entry) => results.push(entry),
-                Err(e) => {
-                    // Include error in result
-                    results.push(StorageEntry {
-                        pallet: query.pallet.clone(),
-                        entry: query.entry.clone(),
-                        key: String::new(),
-                        value: serde_json::json!({
-                            "error": e.to_string()
-                        }),
-                        at_block: Some(query.at_block),
-                    });
-                }
-            }
+/// Build keys for the storage query
+fn build_keys(keys: &Option<Vec<serde_json::Value>>) -> Result<Vec<Value>> {
+    match &keys {
+        Some(keys) => {
+            // Convert JSON values to dynamic Values
+            Ok(keys
+                .iter()
+                .map(|k| match k {
+                    serde_json::Value::String(s) => {
+                        // Try to decode as SS58 address first
+                        if let Ok(account_id) = s.parse::<SubxtAccountId32>() {
+                            // Create a composite value with the AccountId32 bytes
+                            let bytes: &[u8] = account_id.as_ref();
+                            Value::from_bytes(bytes)
+                        } else {
+                            // If it's a String and not SS58, then convert directly
+                            Value::string(s)
+                        }
+                    }
+                    serde_json::Value::Number(n) => {
+                        if let Some(u) = n.as_u64() {
+                            Value::u128(u as u128)
+                        } else {
+                            Value::i128(n.as_i64().unwrap_or(0) as i128)
+                        }
+                    }
+                    serde_json::Value::Bool(b) => Value::bool(*b),
+                    _ => Value::string(k.to_string()),
+                })
+                .collect())
         }
-
-        Ok(results)
+        None => Ok(vec![]),
     }
 }
 

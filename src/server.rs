@@ -21,7 +21,9 @@ use crate::substrate::events::{query_historical_events, EventFilter, HistoricalE
 use crate::substrate::extrinsic::{query_historical_extrinsics, HistoricalExtrinsicsQuery};
 use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::runtime::list_runtime_changes;
-use crate::substrate::storage::{list_pallet_storage, BatchStorageQuery, StorageQuery};
+use crate::substrate::storage::{
+    list_pallet_storage, query_historical_storage, HistoricalStorageQuery,
+};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -116,19 +118,19 @@ pub struct EventFilterArgs {
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct StorageQueryArgs {
+pub struct QueryHistoricalStorageProperties {
     /// The RPC URL to connect to
     pub rpc_url: String,
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
+    pub from_block: i32,
+    /// End block number (negative = relative to current, defaults to from_block if not specified)
+    pub to_block: Option<i32>,
     /// The pallet name
     pub pallet: String,
     /// The storage entry name
     pub entry: String,
     /// Optional keys for map-type storage (as JSON array). Supports SS58 addresses which will be automatically decoded to AccountId32
     pub keys: Option<Vec<serde_json::Value>>,
-    /// Start block number for range query (None defaults to latest if end_block is also None)
-    pub start_block: Option<u32>,
-    /// End block number for range query (None defaults to latest if start_block is also None)
-    pub end_block: Option<u32>,
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -393,11 +395,11 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys. Use this to read chain state like account balances, staking info, or governance proposals. Can query at specific blocks or ranges."
+        description = "Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys. Use this to read chain state like account balances, staking info, or governance proposals. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is not specified, will query only from_block."
     )]
-    pub async fn query_storage(
+    pub async fn query_historical_storage(
         &self,
-        Parameters(args): Parameters<StorageQueryArgs>,
+        Parameters(args): Parameters<QueryHistoricalStorageProperties>,
     ) -> Result<CallToolResult, McpError> {
         // Validate URL if provided
         if let Err(e) = validate_rpc_url(&args.rpc_url) {
@@ -417,111 +419,26 @@ impl SubstrateService {
                 data: None,
             })?;
 
-        // Get the latest block number for validation
-        let latest_block = client.blocks().at_latest().await.map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to get latest block: {e}").into(),
-            data: None,
-        })?;
-        let latest_block_num = latest_block.number();
-
-        // Maximum number of blocks that can be queried in a single request
-        const MAX_BLOCK_RANGE: u32 = 100;
-
-        // Validate and determine query range
-        let (start_block, end_block) = match (args.start_block, args.end_block) {
-            (None, None) => {
-                // No blocks specified: query latest only
-                (latest_block_num, latest_block_num)
-            }
-            (None, Some(end)) => {
-                // Only end block specified: single query at that block
-                if end > latest_block_num {
-                    return Err(McpError {
-                        code: rmcp::model::ErrorCode(-32602),
-                        message: format!(
-                            "End block {end} is beyond latest block {latest_block_num}"
-                        )
-                        .into(),
-                        data: None,
-                    });
-                }
-                (end, end)
-            }
-            (Some(start), None) => {
-                // Only start block specified: query from start to latest
-                if start > latest_block_num {
-                    return Err(McpError {
-                        code: rmcp::model::ErrorCode(-32602),
-                        message: format!(
-                            "Start block {start} is beyond latest block {latest_block_num}"
-                        )
-                        .into(),
-                        data: None,
-                    });
-                }
-                (start, latest_block_num)
-            }
-            (Some(start), Some(end)) => {
-                // Both blocks specified: validate range
-                if start > end {
-                    return Err(McpError {
-                        code: rmcp::model::ErrorCode(-32602),
-                        message: format!("Start block {start} must be <= end block {end}").into(),
-                        data: None,
-                    });
-                }
-                if end > latest_block_num {
-                    return Err(McpError {
-                        code: rmcp::model::ErrorCode(-32602),
-                        message: format!(
-                            "End block {end} is beyond latest block {latest_block_num}"
-                        )
-                        .into(),
-                        data: None,
-                    });
-                }
-                (start, end)
-            }
+        // Create query
+        let query = HistoricalStorageQuery {
+            from_block: args.from_block,
+            to_block: args.to_block,
+            pallet: args.pallet,
+            entry: args.entry,
+            keys: args.keys,
         };
 
-        // Check if the range is within limits
-        if end_block - start_block + 1 > MAX_BLOCK_RANGE {
-            return Err(McpError {
-                code: rmcp::model::ErrorCode(-32602),
-                message: format!(
-                    "Block range {} exceeds maximum limit of {} blocks",
-                    end_block - start_block + 1,
-                    MAX_BLOCK_RANGE
-                )
-                .into(),
-                data: None,
-            });
-        }
-
-        // Create queries for each block in range
-        let queries: Vec<StorageQuery> = (start_block..=end_block)
-            .map(|block_num| StorageQuery {
-                pallet: args.pallet.clone(),
-                entry: args.entry.clone(),
-                keys: args.keys.clone(),
-                at_block: block_num,
-            })
-            .collect();
-
-        // Execute batch query
-        let batch_query = BatchStorageQuery { queries };
-        let results = batch_query
-            .execute(&client, &args.rpc_url)
+        // Query historical storage
+        let result = query_historical_storage(query, &client, &args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to query storage: {e}").into(),
+                message: format!("Failed to query historical storage: {e}").into(),
                 data: None,
             })?;
 
         // Convert to JSON
-        let json_result = serde_json::to_string_pretty(&results).map_err(|e| McpError {
+        let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
             code: rmcp::model::ErrorCode::INTERNAL_ERROR,
             message: format!("Serialization error: {e}").into(),
             data: None,
