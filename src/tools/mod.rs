@@ -16,13 +16,7 @@ pub struct SubmitExtrinsicProperties {
     pub pallet: String,
     /// The call/extrinsic name (e.g., "transfer", "set_code")
     pub call: String,
-    /// The arguments for the call in scale_value string format.
-    /// Use get_call_metadata first to understand the expected format.
-    /// Example formats:
-    /// - For a single value: "123" or "\"hello\""
-    /// - For a composite: "{ dest: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\", value: 1000000000000 }"
-    /// - For a variant: "v\"Some\"(42)"
-    /// - For a tuple: "(123, \"hello\", true)"
+    /// The arguments for the call in scale_value string format (see 'substrate:scale-value-format' resource)
     pub args: String,
     /// The dev account to use for signing (alice, bob, charlie, dave, eve, ferdie)
     pub signer: String,
@@ -51,7 +45,7 @@ pub async fn handle_submit_dev_extrinsic(
     let (scale_args_result, remainder) = scale_value::stringify::from_str(&properties.args);
     let scale_args = scale_args_result.map_err(|e| McpError {
         code: rmcp::model::ErrorCode(-32602),
-        message: format!("Failed to parse arguments: {e}. Use scale_value string format").into(),
+        message: format!("Failed to parse arguments: {e}. See 'substrate:scale-value-format' resource for syntax guide").into(),
         data: None,
     })?;
 

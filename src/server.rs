@@ -616,7 +616,7 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Submit a generic extrinsic to a Substrate chain using dev accounts. Supports any pallet call with arbitrary arguments. Use dev account names like 'alice', 'bob', 'charlie', etc. for signing. Arguments must be in scale_value string format. Examples: single value: \"123\", composite: \"{ dest: \\\"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\\\", value: 1000000000000 }\", variant: \"v\\\"Some\\\"(42)\", tuple: \"(123, \\\"hello\\\", true)\". Recommend using get_call_metadata first to understand argument structure."
+        description = "Submit a generic extrinsic to a Substrate chain using dev accounts. Supports any pallet call with arbitrary arguments. Use dev account names like 'alice', 'bob', 'charlie', etc. for signing. Recommend using get_call_metadata first to understand argument format. Arguments must be in scale_value string format - consult the 'substrate:scale-value-format' resource for detailed syntax and examples."
     )]
     pub async fn submit_extrinsic(
         &self,
