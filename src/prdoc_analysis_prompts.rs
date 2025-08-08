@@ -147,12 +147,23 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 ## Execution Framework
                 
+                ### 📂 Data Locations (CRITICAL - READ THIS!)
+                
+                **PRDoc Input Data**: `~/.substrate-mcp/prdocs/prdocs-{{release}}/`
+                - This is where get_polkadot_sdk_release_prdocs saves files
+                - Contains: pr_XXXX.prdoc files + summary JSONs
+                
+                **Report Output Location**: `~/.substrate-mcp/analysis-reports/{{release}}/`
+                - You MUST create this directory if it doesn't exist
+                - Save report as: `{{release}}-[ISO-8601-timestamp].md`
+                
                 ### Initial Setup (Always)
                 1. Check if analyzing multiple releases or upgrading across versions
                    - If comparing versions (e.g., from X to Y), fetch all intermediate releases using: "X>Y"
                    - If multiple specific releases requested, download each one
                 2. Download the release(s) using get_polkadot_sdk_release_prdocs tool
-                3. Get complete inventory of all PRDocs (use LS to list them)
+                   - Files will be saved to: `~/.substrate-mcp/prdocs/prdocs-{release}/`
+                3. Get complete inventory of all PRDocs (use LS on the prdocs directory)
                 4. Determine if single or multi-pass approach is needed
                 5. Plan batches of size {{batch_size}} (or 3 if not specified)
                 
@@ -663,13 +674,29 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 ### 📁 FILE CREATION INSTRUCTIONS (MANDATORY)
                 
-                1. **CREATE THE DIRECTORY** (if it doesn't exist): `.substrate-analysis/releases/`
-                2. **SAVE THE REPORT** to: `.substrate-analysis/releases/{{release}}-[timestamp].md`
-                   - Replace [timestamp] with actual ISO 8601 timestamp (e.g., 2024-01-15T10-30-00Z)
-                3. **VERIFY THE FILE** was created successfully
-                4. **INFORM THE USER** of the file location
+                **STANDARD DIRECTORY STRUCTURE - USE THESE EXACT PATHS:**
+                ```
+                ~/.substrate-mcp/                    # Root directory for all substrate-mcp data
+                ├── prdocs/                          # Downloaded PRDoc data
+                │   └── prdocs-{release}/           # e.g., prdocs-stable2412-1/
+                │       ├── pr_XXXX.prdoc           # Individual PRDoc files
+                │       ├── manifest.json           # Release metadata
+                │       ├── crate_summary.json      # Crate changes summary
+                │       └── audience_summary.json   # Audience categorization
+                └── analysis-reports/                # Generated analysis reports
+                    └── {release}/                  # e.g., stable2412-1/
+                        └── {release}-{timestamp}.md # e.g., stable2412-1-2024-01-15T10-30-00Z.md
+                ```
                 
-                ⚠️ DO NOT SKIP THIS STEP. THE FILE MUST BE CREATED.
+                **STEPS YOU MUST FOLLOW:**
+                1. **CREATE THE DIRECTORY** (if it doesn't exist): `~/.substrate-mcp/analysis-reports/{{release}}/`
+                2. **SAVE THE REPORT** to: `~/.substrate-mcp/analysis-reports/{{release}}/{{release}}-[timestamp].md`
+                   - Replace [timestamp] with actual ISO 8601 timestamp (e.g., 2024-01-15T10-30-00Z)
+                   - Use hyphens in timestamp, not colons (for filesystem compatibility)
+                3. **VERIFY THE FILE** was created successfully
+                4. **INFORM THE USER** of the full absolute path to the file
+                
+                ⚠️ DO NOT SKIP THIS STEP. THE FILE MUST BE CREATED IN THIS EXACT LOCATION.
                 
                 ### SECONDARY OUTPUT: Brief Console Summary (5-10 lines maximum)
                 
@@ -681,7 +708,7 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 📊 Analyzed: [X] PRs | Breaking: [Y] | Security: [Z]
                 {{#if project_context}}⚠️ [N] changes directly affect your project{{/if}}
                 
-                📄 Full report: .substrate-analysis/releases/{{release}}-[timestamp].md
+                📄 Full report saved to: ~/.substrate-mcp/analysis-reports/{{release}}/{{release}}-[timestamp].md
                 💡 Open in your IDE for detailed migration guides and code examples
                 ```
                 
@@ -698,11 +725,11 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 Remember: The markdown file is the PRIMARY deliverable. Console output is secondary.
                 
                 ## FINAL CHECKLIST (YOU MUST COMPLETE ALL):
-                ✓ Did you create the .substrate-analysis/releases/ directory?
-                ✓ Did you save the markdown report to a file?
-                ✓ Did you verify the file was created?
-                ✓ Did you tell the user where the file is located?
-                ✓ Did you analyze ALL PRDocs (not just a sample)?
+                ✓ Did you create the ~/.substrate-mcp/analysis-reports/{{release}}/ directory?
+                ✓ Did you save the markdown report to the EXACT path specified above?
+                ✓ Did you verify the file was created successfully?
+                ✓ Did you tell the user the FULL absolute path to the file?
+                ✓ Did you analyze ALL PRDocs from ~/.substrate-mcp/prdocs/prdocs-{{release}}/?
             "#}.to_string(),
         },
         

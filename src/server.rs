@@ -158,14 +158,15 @@ impl SubstrateService {
         })
     }
 
-    #[tool(description = "Get all documented changes for a given polkadot-sdk release. Downloads prdoc files to a local directory and returns the path.
+    #[tool(description = "Get all documented changes for a given polkadot-sdk release. Downloads PRDoc files to ~/.substrate-mcp/prdocs/prdocs-{release}/ directory.
 
-The tool creates the following manifest files alongside the PRDocs:
+Files are saved to: ~/.substrate-mcp/prdocs/prdocs-{release}/
+- Individual PRDocs: pr_XXXX.prdoc
 - manifest.json: Basic metadata (release, total PRDocs, PR numbers from filenames, download date)
 - crate_summary.json: Changes grouped by crate with bump levels (major/minor/patch/none) and counts
 - audience_summary.json: Changes grouped by target audience (Runtime Dev, Node Dev, Runtime User, Node Operator)
 
-These manifests enable efficient analysis without parsing all PRDocs individually.")]
+These manifests enable efficient analysis without parsing all PRDocs individually. After downloading, use standard file tools (Read, Grep, etc.) to explore the PRDocs.")]
     pub async fn get_polkadot_sdk_release_prdocs(
         &self,
         Parameters(GetPolkadotSdkReleasePrdocsRequest { release }): Parameters<
@@ -281,7 +282,7 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
         }
     }
 
-    #[tool(description = "Analyze Polkadot SDK release(s) and generate a comprehensive markdown report with migration guides, breaking changes, security analysis, and PR-by-PR breakdown. IMPORTANT: This tool MUST create a markdown file as its primary output - this is mandatory unless explicitly told not to. The markdown file will be saved to .substrate-analysis/releases/. Also creates JSON data for programmatic use. Supports single or multiple releases (comma-separated). Requires PR analysis data in pr_analysis_data directory.")]
+    #[tool(description = "Analyze Polkadot SDK release(s) and generate a comprehensive markdown report with migration guides, breaking changes, security analysis, and PR-by-PR breakdown. IMPORTANT: This tool MUST create a markdown file as its primary output - this is mandatory unless explicitly told not to. The markdown file will be saved to ~/.substrate-mcp/analysis-reports/{release}/. Expects PRDoc data to be in ~/.substrate-mcp/prdocs/prdocs-{release}/ (use get_polkadot_sdk_release_prdocs first to download). Also creates JSON data for programmatic use. Supports single or multiple releases (comma-separated).")]
     pub async fn analyze_release(
         &self,
         Parameters(AnalyzeReleaseRequest { release }): Parameters<AnalyzeReleaseRequest>,
