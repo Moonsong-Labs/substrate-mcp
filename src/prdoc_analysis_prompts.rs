@@ -420,26 +420,254 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 Apply this analysis using the most appropriate strategy (single or multi-pass).
                 
-                ## Output Requirements
+                ## Output Requirements: Markdown Report (PRIMARY) + Brief Console Summary
                 
-                1. Confirm 100% coverage (all PRDocs analyzed)
-                2. Provide organized findings based on the analysis type
-                3. Include summary statistics with semantic categorization
-                4. For multi-pass: Show how insights evolved across passes
-                5. Deliver actionable conclusions with clear next steps
+                ### PRIMARY OUTPUT: Comprehensive Markdown Report
+                
+                You MUST generate a detailed markdown report using the following EXACT template:
+                
+                ```markdown
+                # Polkadot SDK Release {{release}} Analysis Report
+                
+                **Generated**: [ISO 8601 timestamp]  
+                **Analyzed PRs**: [total count]  
+                **Analysis Type**: {{analysis_instructions}}  
+                {{#if project_context}}**Project Context**: {{project_context}}{{/if}}
+                
+                ## Table of Contents
+                
+                - [Executive Summary](#executive-summary)
+                - [Critical Actions Required](#critical-actions-required)
+                - [Security Analysis](#security-analysis)
+                - [Breaking Changes](#breaking-changes)
+                - [New Features & Improvements](#new-features--improvements)
+                - [Migration Guide](#migration-guide)
+                - [Detailed PR Analysis](#detailed-pr-analysis)
+                - [Appendix](#appendix)
+                
+                ## Executive Summary
+                
+                ### Key Metrics
+                
+                | Metric | Count | Impact Level |
+                |--------|-------|--------------|
+                | Total PRs Analyzed | [X] | - |
+                | Breaking Changes | [X] | High |
+                | Security Fixes | [X] | Critical |
+                | New Features | [X] | Medium |
+                | Bug Fixes | [X] | Low |
+                | Performance Improvements | [X] | Medium |
+                
+                ### Release Overview
+                
+                [2-3 paragraph summary of the release's major themes and changes]
+                
                 {{#if project_context}}
-                6. Organize findings by both relevance AND semantic impact:
-                   - **Critical Actions Required**: Breaking changes affecting your project
-                   - **Security Updates Needed**: Vulnerabilities in your dependencies  
-                   - **Recommended Upgrades**: Beneficial changes worth adopting
-                   - **Optional Enhancements**: Nice-to-have improvements
-                   - **Not Applicable**: Changes that don't affect your project
-                7. Provide project-specific migration guide:
-                   - Order of operations for safe upgrade
-                   - Specific code changes needed
-                   - Testing checklist
-                   - Rollback procedures
+                ### Project-Specific Impact Summary
+                
+                **Directly Affected Components**: [list]  
+                **Required Actions**: [count]  
+                **Estimated Migration Effort**: [Low/Medium/High]  
                 {{/if}}
+                
+                ## Critical Actions Required
+                
+                {{#if project_context}}
+                ### ⚠️ Breaking Changes Affecting Your Project
+                
+                | PR # | Description | Your Affected Component | Action Required |
+                |------|-------------|------------------------|-----------------|
+                | #[X] | [description] | [pallet/module] | [specific action] |
+                
+                ### 🔒 Security Updates for Your Dependencies
+                
+                | PR # | Vulnerability | Severity | Your Exposure | Action |
+                |------|--------------|----------|---------------|--------|
+                | #[X] | [CVE/description] | [Critical/High/Medium] | [component] | [update/patch] |
+                {{else}}
+                [List all critical changes that require immediate attention]
+                {{/if}}
+                
+                ## Security Analysis
+                
+                ### Security Fixes in This Release
+                
+                [For each security-related PR, provide:]
+                
+                #### PR #[number]: [title]
+                - **Severity**: [Critical/High/Medium/Low]
+                - **Component**: [affected component]
+                - **Vulnerability**: [description]
+                - **Fix**: [what was fixed]
+                - **Action Required**: [what users need to do]
+                
+                ## Breaking Changes
+                
+                ### Complete List of Breaking Changes
+                
+                [For each breaking change:]
+                
+                #### PR #[number]: [title]
+                
+                **What Changed**:
+                [Description of the breaking change]
+                
+                **Why It Changed**:
+                [Rationale for the change]
+                
+                **Migration Path**:
+                ```rust
+                // Before (old code)
+                [code example]
+                
+                // After (new code)
+                [code example]
+                ```
+                
+                **Affected Pallets/Components**:
+                - [list of affected components]
+                
+                ---
+                
+                ## New Features & Improvements
+                
+                ### Major Features
+                
+                [For each major feature:]
+                
+                #### [Feature Name] (PR #[number])
+                
+                **Description**: [what the feature does]
+                
+                **Usage Example**:
+                ```rust
+                [code example showing how to use the feature]
+                ```
+                
+                **Benefits**: [why users should care]
+                
+                ### Performance Improvements
+                
+                | PR # | Component | Improvement | Benchmark Results |
+                |------|-----------|-------------|-------------------|
+                | #[X] | [component] | [description] | [metrics if available] |
+                
+                ## Migration Guide
+                
+                ### Pre-Migration Checklist
+                
+                - [ ] Backup your chain state
+                - [ ] Review all breaking changes above
+                - [ ] Test migrations on a testnet
+                - [ ] Prepare rollback plan
+                {{#if project_context}}
+                - [ ] Review project-specific changes in [Critical Actions Required](#critical-actions-required)
+                {{/if}}
+                
+                ### Step-by-Step Migration Process
+                
+                #### Step 1: Update Dependencies
+                
+                ```toml
+                [dependencies]
+                # Update your Cargo.toml
+                [specific version updates based on the release]
+                ```
+                
+                #### Step 2: Code Changes
+                
+                [For each breaking change that requires code updates:]
+                
+                **[Component Name]**:
+                ```rust
+                // Required change description
+                [code changes needed]
+                ```
+                
+                #### Step 3: Storage Migrations
+                
+                [For each pallet requiring migration:]
+                
+                **[Pallet Name]**:
+                ```rust
+                // Migration code
+                [migration implementation]
+                ```
+                
+                #### Step 4: Testing
+                
+                ```bash
+                # Run tests
+                cargo test --all
+                
+                # Run benchmarks if needed
+                [benchmark commands]
+                ```
+                
+                #### Step 5: Deployment
+                
+                [Deployment steps specific to the changes]
+                
+                ## Detailed PR Analysis
+                
+                [Exhaustive analysis of EVERY PR, grouped by category/subsystem]
+                
+                ### Runtime Changes
+                
+                [PRs affecting runtime]
+                
+                ### Node Changes
+                
+                [PRs affecting node]
+                
+                ### API Changes
+                
+                [PRs affecting APIs]
+                
+                ### Other Changes
+                
+                [Remaining PRs]
+                
+                ## Appendix
+                
+                ### A. Complete PR List
+                
+                | PR # | Title | Author | Category | Risk Level |
+                |------|-------|--------|----------|------------|
+                | [all PRs in a sortable table format] |
+                
+                ### B. Change Statistics by Component
+                
+                | Component | Breaking | Features | Fixes | Total |
+                |-----------|----------|----------|-------|-------|
+                | [component stats] |
+                
+                ### C. Author Contributions
+                
+                [Top contributors to this release]
+                
+                ---
+                
+                *End of Report*
+                ```
+                
+                Save this report to: `.substrate-analysis/releases/{{release}}-[timestamp].md`
+                
+                ### SECONDARY OUTPUT: Brief Console Summary (5-10 lines maximum)
+                
+                After saving the markdown report, display ONLY this brief summary:
+                
+                ```
+                ✅ Release {{release}} Analysis Complete
+                
+                📊 Analyzed: [X] PRs | Breaking: [Y] | Security: [Z]
+                {{#if project_context}}⚠️ [N] changes directly affect your project{{/if}}
+                
+                📄 Full report: .substrate-analysis/releases/{{release}}-[timestamp].md
+                💡 Open in your IDE for detailed migration guides and code examples
+                ```
+                
+                That's it for console output. The markdown file contains everything else.
                 
                 ## CRITICAL REQUIREMENTS
                 

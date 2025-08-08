@@ -191,14 +191,14 @@ impl ReleaseAnalyzer {
     async fn load_pr_data(&self, release: &str) -> Result<Vec<PrData>> {
         let mut pr_data = Vec::new();
         
-        // Load from test_scout_output directory
-        let scout_dir = self.base_path.join("test_scout_output").join(format!("polkadot-sdk-{}", release));
+        // Load from pr_analysis_data directory
+        let pr_data_dir = self.base_path.join("pr_analysis_data").join(format!("polkadot-sdk-{}", release));
         
-        if !scout_dir.exists() {
-            return Err(anyhow!("Scout data directory not found: {}", scout_dir.display()));
+        if !pr_data_dir.exists() {
+            return Err(anyhow!("PR analysis data directory not found: {}", pr_data_dir.display()));
         }
 
-        let mut entries = fs::read_dir(&scout_dir).await?;
+        let mut entries = fs::read_dir(&pr_data_dir).await?;
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
             if path.is_dir() && path.file_name().unwrap().to_str().unwrap().starts_with("pr-") {

@@ -49,7 +49,7 @@ pub struct GetPolkadotSdkReleasePrdocsRequest {
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
 pub struct AnalyzeReleaseRequest {
-    /// polkadot-sdk release(s) to analyze (must have scout data available).
+    /// polkadot-sdk release(s) to analyze (must have PR analysis data available).
     /// Can be a single release or comma-separated list for cross-release analysis.
     /// Example: "stable2412" or "stable2412,stable2412-1,stable2412-2"
     pub release: String,
@@ -281,7 +281,7 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
         }
     }
 
-    #[tool(description = "Analyze Polkadot SDK release(s) comprehensively, going beyond PRDocs to analyze all PR metadata, patches, and relationships. Creates structured index, impact analysis, and categorization. Supports single release or multiple releases (comma-separated) for cross-release analysis. Requires scout data to be available in test_scout_output directory.")]
+    #[tool(description = "Analyze Polkadot SDK release(s) and generate a comprehensive markdown report with migration guides, breaking changes, security analysis, and PR-by-PR breakdown. The primary output is a detailed markdown file suitable for documentation, planning, and team communication. Also creates JSON data for programmatic use. Supports single or multiple releases (comma-separated). Requires PR analysis data in pr_analysis_data directory.")]
     pub async fn analyze_release(
         &self,
         Parameters(AnalyzeReleaseRequest { release }): Parameters<AnalyzeReleaseRequest>,
