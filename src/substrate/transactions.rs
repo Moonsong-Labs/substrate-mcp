@@ -5,6 +5,8 @@ use subxt::blocks::{Block, ExtrinsicDetails};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
+use crate::substrate::utils;
+
 /// Query extrinsics from historical blocks
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoricalExtrinsicsQuery {
@@ -62,28 +64,18 @@ pub async fn query_historical_extrinsics(
     subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
 ) -> Result<HistoricalExtrinsicsResult> {
-    use jsonrpsee::core::client::ClientT;
-    use jsonrpsee::ws_client::WsClientBuilder;
-
-    // Create WebSocket RPC client for historical queries
-    let rpc_client = WsClientBuilder::default().build(rpc_url).await?;
+    // Create RPC client for historical queries
+    let rpc_client = utils::RpcClient::new(rpc_url).await?;
 
     // Get current block number
     let latest_block = subxt_client.blocks().at_latest().await?;
     let current_block = latest_block.header().number;
 
     // Calculate actual block range
-    let from = if query.from_block < 0 {
-        (current_block as i32 + query.from_block) as u32
-    } else if query.from_block == 0 {
-        current_block
-    } else {
-        query.from_block as u32
-    };
+    let from = utils::calculate_block_number(query.from_block, current_block);
 
     let to = match query.to_block {
-        Some(b) if b < 0 => (current_block as i32 + b) as u32,
-        Some(b) => b as u32,
+        Some(b) => utils::calculate_block_number(b, current_block),
         None => from, // Default to single block if not specified
     };
 
@@ -92,7 +84,7 @@ pub async fn query_historical_extrinsics(
 
     // Query each block
     for block_num in from..=to {
-        // Get block hash using RPC
+        // Get block hash
         let block_hash: Option<subxt::utils::H256> = rpc_client
             .request("chain_getBlockHash", vec![block_num])
             .await?;

@@ -6,6 +6,7 @@ use subxt::PolkadotConfig;
 use crate::substrate::metadata::{
     decode_metadata_from_hex, extract_metadata_summary, MetadataSummary,
 };
+use crate::substrate::utils;
 
 /// Query runtime upgrades from historical blocks
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,32 +113,20 @@ pub async fn get_runtime_state(
     subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
 ) -> Result<RuntimeState> {
-    use jsonrpsee::core::client::ClientT;
-    use jsonrpsee::ws_client::WsClientBuilder;
-
-    // Create WebSocket RPC client
-    let rpc_client = WsClientBuilder::default().build(rpc_url).await?;
+    // Create RPC client for historical queries
+    let rpc_client = utils::RpcClient::new(rpc_url).await?;
 
     // Get current block number if needed for relative positioning
     let latest_block = subxt_client.blocks().at_latest().await?;
     let current_block = latest_block.header().number;
 
     // Calculate actual block number
-    let block_number = if block_identifier < 0 {
-        (current_block as i32 + block_identifier) as u32
-    } else if block_identifier == 0 {
-        current_block
-    } else {
-        block_identifier as u32
-    };
+    let block_number = utils::calculate_block_number(block_identifier, current_block);
 
     // Get block hash
-    let block_hash: Option<String> = rpc_client
+    let block_hash = rpc_client
         .request("chain_getBlockHash", vec![block_number])
         .await?;
-
-    let block_hash =
-        block_hash.ok_or_else(|| anyhow::anyhow!("Block {} not found", block_number))?;
 
     // Get runtime version at this block
     let runtime_version_json: serde_json::Value = rpc_client
@@ -190,26 +179,18 @@ pub async fn query_runtime_upgrades(
     subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
 ) -> Result<RuntimeUpgradeResult> {
-    use jsonrpsee::core::client::ClientT;
-    use jsonrpsee::ws_client::WsClientBuilder;
-
-    // Create WebSocket RPC client
-    let rpc_client = WsClientBuilder::default().build(rpc_url).await?;
+    // Create RPC client for historical queries
+    let rpc_client = utils::RpcClient::new(rpc_url).await?;
 
     // Get current block number
     let latest_block = subxt_client.blocks().at_latest().await?;
     let current_block = latest_block.header().number;
 
     // Calculate actual block range
-    let from = if query.from_block < 0 {
-        (current_block as i32 + query.from_block) as u32
-    } else {
-        query.from_block as u32
-    };
+    let from = utils::calculate_block_number(query.from_block, current_block);
 
     let to = match query.to_block {
-        Some(b) if b < 0 => (current_block as i32 + b) as u32,
-        Some(b) => b as u32,
+        Some(b) => utils::calculate_block_number(b, current_block),
         None => current_block,
     };
 
@@ -225,12 +206,9 @@ pub async fn query_runtime_upgrades(
     // Query each block
     for block_num in from..=to {
         // Get block hash
-        let block_hash: Option<String> = rpc_client
+        let block_hash: String = rpc_client
             .request("chain_getBlockHash", vec![block_num])
             .await?;
-
-        let block_hash =
-            block_hash.ok_or_else(|| anyhow::anyhow!("Block {} not found", block_num))?;
 
         // Get runtime version at this block
         let runtime_version: serde_json::Value = rpc_client
@@ -378,17 +356,13 @@ async fn get_upgrade_storage_changes(
     block_number: u32,
     rpc_url: &str,
 ) -> Result<Vec<StorageChange>> {
-    use jsonrpsee::core::client::ClientT;
-    use jsonrpsee::ws_client::WsClientBuilder;
-
-    let rpc_client = WsClientBuilder::default().build(rpc_url).await?;
+    // Create RPC client for historical queries
+    let rpc_client = utils::RpcClient::new(rpc_url).await?;
 
     // Get the parent block hash
-    let parent_hash: Option<String> = rpc_client
+    let parent_hash: () = rpc_client
         .request("chain_getBlockHash", vec![block_number - 1])
         .await?;
-
-    let parent_hash = parent_hash.ok_or_else(|| anyhow::anyhow!("Parent block not found"))?;
 
     let mut changes = Vec::new();
 

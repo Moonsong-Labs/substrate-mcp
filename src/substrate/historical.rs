@@ -1,6 +1,8 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+use crate::substrate::utils;
+
 /// Query events from historical blocks using a hybrid approach
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoricalEventsQuery {
@@ -48,28 +50,18 @@ pub async fn query_historical_events(
     subxt_client: &subxt::OnlineClient<subxt::PolkadotConfig>,
     rpc_url: &str,
 ) -> Result<HistoricalEventsResult> {
-    use jsonrpsee::core::client::ClientT;
-    use jsonrpsee::ws_client::WsClientBuilder;
-
     // Create WebSocket RPC client for historical queries
-    let rpc_client = WsClientBuilder::default().build(rpc_url).await?;
+    let rpc_client = utils::RpcClient::new(rpc_url).await?;
 
     // Get current block number
     let latest_block = subxt_client.blocks().at_latest().await?;
     let current_block = latest_block.header().number;
 
     // Calculate actual block range
-    let from = if query.from_block < 0 {
-        (current_block as i32 + query.from_block) as u32
-    } else if query.from_block == 0 {
-        current_block
-    } else {
-        query.from_block as u32
-    };
+    let from = utils::calculate_block_number(query.from_block, current_block);
 
     let to = match query.to_block {
-        Some(b) if b < 0 => (current_block as i32 + b) as u32,
-        Some(b) => b as u32,
+        Some(b) => utils::calculate_block_number(b, current_block),
         None => current_block, // Default to current block if not specified
     };
 
@@ -79,12 +71,9 @@ pub async fn query_historical_events(
     // Query each block
     for block_num in from..=to {
         // Get block hash
-        let block_hash: Option<String> = rpc_client
+        let block_hash: String = rpc_client
             .request("chain_getBlockHash", vec![block_num])
             .await?;
-
-        let block_hash =
-            block_hash.ok_or_else(|| anyhow::anyhow!("Block {} not found", block_num))?;
 
         // Get storage key for System.Events
         let storage_key = get_events_storage_key();

@@ -1,13 +1,11 @@
 use anyhow::Result;
-use jsonrpsee::core::client::ClientT;
-use jsonrpsee::http_client::HttpClientBuilder;
-use jsonrpsee::rpc_params;
-use jsonrpsee::ws_client::WsClientBuilder;
 use serde::{Deserialize, Serialize};
 use subxt::dynamic::{self, Value};
 use subxt::utils::AccountId32 as SubxtAccountId32;
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
+
+use crate::substrate::utils;
 
 /// Represents a storage entry value
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,16 +33,17 @@ pub struct StorageQuery {
     pub keys: Option<Vec<serde_json::Value>>,
     /// Block number to query at (None for latest)
     pub at_block: u32,
-    /// RPC URL for historical queries (internal use)
-    #[serde(skip)]
-    pub rpc_url: String,
 }
 
 impl StorageQuery {
     /// Execute the storage query
-    pub async fn execute(&self, client: &OnlineClient<PolkadotConfig>) -> Result<StorageEntry> {
+    pub async fn execute(
+        &self,
+        subxt_client: &OnlineClient<PolkadotConfig>,
+        rpc_url: &str,
+    ) -> Result<StorageEntry> {
         // Get metadata
-        let metadata = client.metadata();
+        let metadata = subxt_client.metadata();
 
         // Find the pallet
         let pallet = metadata
@@ -67,34 +66,18 @@ impl StorageQuery {
         // Build the storage address dynamically
         let storage_address = dynamic::storage(&self.pallet, &self.entry, self.build_keys()?);
 
-        // Create the appropriate RPC client based on URL scheme and get block hash
-        let block_hash: Option<subxt::utils::H256> =
-            if self.rpc_url.starts_with("ws://") || self.rpc_url.starts_with("wss://") {
-                // WebSocket client for ws:// or wss://
-                let rpc_client = WsClientBuilder::default().build(&self.rpc_url).await?;
-                rpc_client
-                    .request("chain_getBlockHash", rpc_params![self.at_block])
-                    .await?
-            } else if self.rpc_url.starts_with("http://") || self.rpc_url.starts_with("https://") {
-                // HTTP client for http:// or https://
-                let rpc_client = HttpClientBuilder::default().build(&self.rpc_url)?;
-                rpc_client
-                    .request("chain_getBlockHash", rpc_params![self.at_block])
-                    .await?
-            } else {
-                return Err(anyhow::anyhow!(
-                    "Unsupported RPC URL scheme: {}",
-                    self.rpc_url
-                ));
-            };
+        // Create RPC client for historical queries
+        let rpc_client = utils::RpcClient::new(rpc_url).await?;
 
-        // Get the block to query
-        let block = match block_hash {
-            Some(hash) => client.blocks().at(hash).await?,
-            None => {
-                return Err(anyhow::anyhow!("Block {} not found", self.at_block));
-            }
-        };
+        // Get block hash
+        let block_hash: Option<subxt::utils::H256> = rpc_client
+            .request("chain_getBlockHash", vec![self.at_block])
+            .await?;
+
+        let block_hash =
+            block_hash.ok_or_else(|| anyhow::anyhow!("Block {} not found", self.at_block))?;
+
+        let block = subxt_client.blocks().at(block_hash).await?;
 
         // Fetch the storage value
         let result = block.storage().fetch(&storage_address).await?;
@@ -183,11 +166,12 @@ impl BatchStorageQuery {
     pub async fn execute(
         &self,
         client: &OnlineClient<PolkadotConfig>,
+        rpc_url: &str,
     ) -> Result<Vec<StorageEntry>> {
         let mut results = Vec::new();
 
         for query in &self.queries {
-            match query.execute(client).await {
+            match query.execute(client, rpc_url).await {
                 Ok(entry) => results.push(entry),
                 Err(e) => {
                     // Include error in result

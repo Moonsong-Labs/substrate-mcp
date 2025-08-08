@@ -515,17 +515,19 @@ impl SubstrateService {
                 entry: args.entry.clone(),
                 keys: args.keys.clone(),
                 at_block: block_num,
-                rpc_url: args.rpc_url.clone(),
             })
             .collect();
 
         // Execute batch query
         let batch_query = BatchStorageQuery { queries };
-        let results = batch_query.execute(&client).await.map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to query storage: {e}").into(),
-            data: None,
-        })?;
+        let results = batch_query
+            .execute(&client, &args.rpc_url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to query storage: {e}").into(),
+                data: None,
+            })?;
 
         // Convert to JSON
         let json_result = serde_json::to_string_pretty(&results).map_err(|e| McpError {

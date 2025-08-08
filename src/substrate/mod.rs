@@ -19,3 +19,6 @@ pub mod transactions;
 
 /// Runtime upgrades module for tracking and analyzing runtime upgrades
 pub mod runtime;
+
+/// Common utility functions used across substrate modules
+pub mod utils;
