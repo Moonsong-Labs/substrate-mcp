@@ -554,17 +554,7 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Get detailed metadata for a specific call including argument types and documentation. Use this before submit_extrinsic to understand the expected argument structure and types. This helps you construct the correct scale_value string format for submit_extrinsic."
-    )]
-    pub async fn get_call_metadata(
-        &self,
-        Parameters(properties): Parameters<tools::GetCallMetadataProperties>,
-    ) -> Result<CallToolResult, McpError> {
-        tools::handle_get_call_metadata(properties).await
-    }
-
-    #[tool(
-        description = "Submit a generic extrinsic to a Substrate chain using dev accounts. Supports any pallet call with arbitrary arguments. Use dev account names like 'alice', 'bob', 'charlie', etc. for signing. Recommend using get_call_metadata first to understand argument format. Arguments must be in scale_value string format and will be parsed using scale_value::stringify::from_str - consult the 'substrate:scale-value-format' resource for detailed syntax and examples."
+        description = "Submit a generic extrinsic to a Substrate chain using dev accounts. Supports any pallet call with arbitrary arguments. Use dev account names like 'alice', 'bob', 'charlie', etc. for signing. Recommend using filter_metadata first to understand argument format. Arguments must be in scale_value string format and will be parsed using scale_value::stringify::from_str - consult the 'substrate:scale-value-format' resource for detailed syntax and examples."
     )]
     pub async fn submit_extrinsic(
         &self,

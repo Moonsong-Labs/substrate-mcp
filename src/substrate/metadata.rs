@@ -1,7 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use subxt::Metadata;
-use scale_info::{TypeDef, TypeDefPrimitive};
 
 /// Represents a filtered metadata item
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,34 +13,6 @@ pub struct MetadataItem {
     pub name: Option<String>,
     /// Additional metadata about the item
     pub details: serde_json::Value,
-}
-
-/// Represents detailed call argument information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CallArgumentInfo {
-    /// Argument name
-    pub name: String,
-    /// Type information as a string (simplified)
-    pub type_name: String,
-    /// Whether the argument is optional
-    pub optional: bool,
-    /// Documentation for the argument
-    pub docs: Vec<String>,
-}
-
-/// Represents detailed information about a specific call
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CallMetadataDetail {
-    /// Pallet name
-    pub pallet: String,
-    /// Call name  
-    pub call: String,
-    /// Call documentation
-    pub docs: Vec<String>,
-    /// Call index
-    pub index: u8,
-    /// Arguments for this call
-    pub arguments: Vec<CallArgumentInfo>,
 }
 
 /// Filter criteria for metadata queries
@@ -234,117 +205,5 @@ impl MetadataFilter {
         } else {
             true
         }
-    }
-}
-
-/// Extract detailed metadata for a specific call
-pub fn get_call_metadata(metadata: &Metadata, pallet_name: &str, call_name: &str) -> Result<CallMetadataDetail> {
-    // Find the pallet
-    let pallet = metadata.pallets()
-        .find(|p| p.name().eq_ignore_ascii_case(pallet_name))
-        .ok_or_else(|| anyhow::anyhow!("Pallet '{}' not found", pallet_name))?;
-    
-    // Get call variants
-    let call_variants = pallet.call_variants()
-        .ok_or_else(|| anyhow::anyhow!("Pallet '{}' has no calls", pallet_name))?;
-    
-    // Find the specific call
-    let call_variant = call_variants
-        .iter()
-        .find(|v| v.name.eq_ignore_ascii_case(call_name))
-        .ok_or_else(|| anyhow::anyhow!("Call '{}' not found in pallet '{}'", call_name, pallet_name))?;
-    
-    // Extract argument information
-    let mut arguments = Vec::new();
-    for field in &call_variant.fields {
-        arguments.push(CallArgumentInfo {
-            name: field.name.clone().unwrap_or_else(|| format!("arg_{}", arguments.len())),
-            type_name: format_type_name(field.ty.id, metadata),
-            optional: false, // TODO: Determine if optional based on type analysis
-            docs: field.docs.clone(),
-        });
-    }
-    
-    Ok(CallMetadataDetail {
-        pallet: pallet.name().to_string(),
-        call: call_variant.name.clone(),
-        docs: call_variant.docs.clone(),
-        index: call_variant.index,
-        arguments,
-    })
-}
-
-/// Format a type name for human readability
-fn format_type_name(type_id: u32, metadata: &Metadata) -> String {
-    // Get the type from the registry
-    if let Some(ty) = metadata.types().resolve(type_id) {
-        match &ty.type_def {
-            TypeDef::Composite(composite) => {
-                if composite.fields.is_empty() {
-                    "()".to_string()
-                } else if composite.fields.len() == 1 {
-                    format_type_name(composite.fields[0].ty.id, metadata)
-                } else {
-                    let field_types: Vec<String> = composite.fields
-                        .iter()
-                        .map(|f| {
-                            if let Some(name) = &f.name {
-                                format!("{}: {}", name, format_type_name(f.ty.id, metadata))
-                            } else {
-                                format_type_name(f.ty.id, metadata)
-                            }
-                        })
-                        .collect();
-                    format!("{{ {} }}", field_types.join(", "))
-                }
-            },
-            TypeDef::Variant(_variant) => {
-                ty.path.ident()
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| "Unknown".to_string())
-            },
-            TypeDef::Sequence(seq) => {
-                format!("Vec<{}>", format_type_name(seq.type_param.id, metadata))
-            },
-            TypeDef::Array(arr) => {
-                format!("[{}; {}]", format_type_name(arr.type_param.id, metadata), arr.len)
-            },
-            TypeDef::Tuple(tuple) => {
-                if tuple.fields.is_empty() {
-                    "()".to_string()
-                } else {
-                    let field_types: Vec<String> = tuple.fields
-                        .iter()
-                        .map(|f| format_type_name(f.id, metadata))
-                        .collect();
-                    format!("({})", field_types.join(", "))
-                }
-            },
-            TypeDef::Primitive(primitive) => {
-                match primitive {
-                    TypeDefPrimitive::Bool => "bool".to_string(),
-                    TypeDefPrimitive::Char => "char".to_string(),
-                    TypeDefPrimitive::Str => "String".to_string(),
-                    TypeDefPrimitive::U8 => "u8".to_string(),
-                    TypeDefPrimitive::U16 => "u16".to_string(),
-                    TypeDefPrimitive::U32 => "u32".to_string(),
-                    TypeDefPrimitive::U64 => "u64".to_string(),
-                    TypeDefPrimitive::U128 => "u128".to_string(),
-                    TypeDefPrimitive::U256 => "U256".to_string(),
-                    TypeDefPrimitive::I8 => "i8".to_string(),
-                    TypeDefPrimitive::I16 => "i16".to_string(),
-                    TypeDefPrimitive::I32 => "i32".to_string(),
-                    TypeDefPrimitive::I64 => "i64".to_string(),
-                    TypeDefPrimitive::I128 => "i128".to_string(),
-                    TypeDefPrimitive::I256 => "I256".to_string(),
-                }
-            },
-            TypeDef::Compact(compact) => {
-                format!("Compact<{}>", format_type_name(compact.type_param.id, metadata))
-            },
-            TypeDef::BitSequence(_) => "BitVec".to_string(),
-        }
-    } else {
-        format!("Type({type_id})")
     }
 }

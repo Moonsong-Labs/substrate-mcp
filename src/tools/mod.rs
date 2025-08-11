@@ -6,7 +6,7 @@ use serde::Deserialize;
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
 
-use crate::substrate::{metadata::get_call_metadata, utils::validate_rpc_url};
+use crate::substrate::utils::validate_rpc_url;
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct SubmitExtrinsicProperties {
@@ -118,66 +118,6 @@ pub async fn handle_submit_dev_extrinsic(
         content: vec![Content {
             annotations: None,
             raw: RawContent::Text(RawTextContent { text: result }),
-        }],
-        is_error: None,
-    })
-}
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct GetCallMetadataProperties {
-    /// The RPC URL to connect to
-    pub rpc_url: String,
-    /// The pallet name (e.g., "Balances", "System")
-    pub pallet: String,
-    /// The call name (e.g., "transfer", "remark")
-    pub call: String,
-}
-
-pub async fn handle_get_call_metadata(
-    properties: GetCallMetadataProperties,
-) -> Result<CallToolResult, McpError> {
-    // Validate URL
-    if let Err(e) = validate_rpc_url(&properties.rpc_url) {
-        return Err(McpError {
-            code: rmcp::model::ErrorCode(-32602),
-            message: format!("Invalid RPC URL: {e}").into(),
-            data: None,
-        });
-    }
-
-    // Connect to the chain using subxt
-    let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
-        .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to connect to chain: {e}").into(),
-            data: None,
-        })?;
-
-    // Get metadata
-    let metadata = client.metadata();
-
-    // Extract call metadata
-    let call_detail =
-        get_call_metadata(&metadata, &properties.pallet, &properties.call).map_err(|e| {
-            McpError {
-                code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to get call metadata: {e}").into(),
-                data: None,
-            }
-        })?;
-
-    // Convert to JSON
-    let json_result = serde_json::to_string_pretty(&call_detail).map_err(|e| McpError {
-        code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-        message: format!("Serialization error: {e}").into(),
-        data: None,
-    })?;
-
-    Ok(CallToolResult {
-        content: vec![Content {
-            annotations: None,
-            raw: RawContent::Text(RawTextContent { text: json_result }),
         }],
         is_error: None,
     })
