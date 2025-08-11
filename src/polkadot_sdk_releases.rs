@@ -165,13 +165,15 @@ impl std::fmt::Display for ReleaseVersion {
                 minor,
                 patch,
             } => {
-                write!(f, "{}.{}.{}", major, minor, patch)
+                write!(f, "{major}.{minor}.{patch}")
             }
             ReleaseVersion::Stable { year, month, patch } => {
                 if let Some(p) = patch {
-                    write!(f, "stable{:02}{:02}-{}", year % 100, month, p)
+                    let y = year % 100;
+                    write!(f, "stable{y:02}{month:02}-{p}")
                 } else {
-                    write!(f, "stable{:02}{:02}", year % 100, month)
+                    let y = year % 100;
+                    write!(f, "stable{y:02}{month:02}")
                 }
             }
         }
