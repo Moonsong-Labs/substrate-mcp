@@ -160,7 +160,11 @@ impl PartialOrd for ReleaseVersion {
 impl std::fmt::Display for ReleaseVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ReleaseVersion::Semantic { major, minor, patch } => {
+            ReleaseVersion::Semantic {
+                major,
+                minor,
+                patch,
+            } => {
                 write!(f, "{}.{}.{}", major, minor, patch)
             }
             ReleaseVersion::Stable { year, month, patch } => {
