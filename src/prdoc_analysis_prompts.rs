@@ -149,21 +149,21 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 ### 📂 Data Locations (CRITICAL - READ THIS!)
                 
-                **PRDoc Input Data**: `~/.substrate-mcp/prdocs/prdocs-{{release}}/`
+                **PRDoc Input Data**: `./polkadot-release-analysis/releases/{{release}}/pr-docs/`
                 - This is where get_polkadot_sdk_release_prdocs saves files
                 - Contains: pr_XXXX.prdoc files + summary JSONs
                 
-                **Report Output Location**: `~/.substrate-mcp/analysis-reports/{{release}}/`
+                **Report Output Location**: `./polkadot-release-analysis/releases/{{release}}/reports/`
                 - You MUST create this directory if it doesn't exist
-                - Save report as: `{{release}}-[ISO-8601-timestamp].md`
+                - Save report as: `analysis-[ISO-8601-timestamp].md`
                 
                 ### Initial Setup (Always)
                 1. Check if analyzing multiple releases or upgrading across versions
                    - If comparing versions (e.g., from X to Y), fetch all intermediate releases using: "X>Y"
                    - If multiple specific releases requested, download each one
                 2. Download the release(s) using get_polkadot_sdk_release_prdocs tool
-                   - Files will be saved to: `~/.substrate-mcp/prdocs/prdocs-{release}/`
-                3. Get complete inventory of all PRDocs (use LS on the prdocs directory)
+                   - Files will be saved to: `./polkadot-release-analysis/releases/{release}/pr-docs/`
+                3. Get complete inventory of all PRDocs (use LS on the pr-docs directory)
                 4. Determine if single or multi-pass approach is needed
                 5. Plan batches of size {{batch_size}} (or 3 if not specified)
                 
@@ -433,19 +433,19 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 
                 ## 🚨 MANDATORY OUTPUT REQUIREMENTS 🚨
                 
-                ### ⚠️ YOU MUST CREATE A MARKDOWN FILE - THIS IS NOT OPTIONAL ⚠️
+                ### ⚠️ YOU (THE LLM) MUST CREATE A MARKDOWN FILE - THIS IS NOT OPTIONAL ⚠️
                 
-                **CRITICAL INSTRUCTION**: You MUST create and save a comprehensive markdown report file.
+                **CRITICAL INSTRUCTION**: After the analyze_release tool returns this prompt, YOU (the LLM/AI agent) MUST create and save a comprehensive markdown report file.
                 The ONLY exceptions are:
                 1. The user explicitly says "don't create a file" or similar
                 2. You encounter a file system error that prevents file creation
                 3. The analysis completely fails due to missing data
                 
-                If none of these exceptions apply, YOU MUST CREATE THE MARKDOWN FILE.
+                If none of these exceptions apply, YOU (the LLM) MUST CREATE THE MARKDOWN FILE.
                 
                 ### PRIMARY OUTPUT: Comprehensive Markdown Report FILE (REQUIRED)
                 
-                You MUST generate AND SAVE a detailed markdown report using the following EXACT template:
+                YOU (not the MCP tool, but you the LLM) MUST generate AND SAVE a detailed markdown report using the following EXACT template:
                 
                 ```markdown
                 # Polkadot SDK Release {{release}} Analysis Report
@@ -672,31 +672,31 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 *End of Report*
                 ```
                 
-                ### 📁 FILE CREATION INSTRUCTIONS (MANDATORY)
+                ### 📁 FILE CREATION INSTRUCTIONS (MANDATORY FOR YOU, THE LLM)
                 
-                **STANDARD DIRECTORY STRUCTURE - USE THESE EXACT PATHS:**
+                **STANDARD DIRECTORY STRUCTURE - YOU MUST USE THESE EXACT PATHS:**
                 ```
-                ~/.substrate-mcp/                    # Root directory for all substrate-mcp data
-                ├── prdocs/                          # Downloaded PRDoc data
-                │   └── prdocs-{release}/           # e.g., prdocs-stable2412-1/
-                │       ├── pr_XXXX.prdoc           # Individual PRDoc files
-                │       ├── manifest.json           # Release metadata
-                │       ├── crate_summary.json      # Crate changes summary
-                │       └── audience_summary.json   # Audience categorization
-                └── analysis-reports/                # Generated analysis reports
-                    └── {release}/                  # e.g., stable2412-1/
-                        └── {release}-{timestamp}.md # e.g., stable2412-1-2024-01-15T10-30-00Z.md
+                ./polkadot-release-analysis/             # Root directory in current working directory
+                └── releases/                        # All release data
+                    └── {release}/                   # e.g., stable2412-1/
+                        ├── pr-docs/                 # Downloaded PRDoc files
+                        │   ├── pr_XXXX.prdoc       # Individual PRDoc files
+                        │   ├── manifest.json       # Release metadata
+                        │   ├── crate_summary.json  # Crate changes summary
+                        │   └── audience_summary.json # Audience categorization
+                        └── reports/                 # Analysis reports for this release
+                            └── analysis-{timestamp}.md # e.g., analysis-2024-01-15T10-30-00Z.md
                 ```
                 
-                **STEPS YOU MUST FOLLOW:**
-                1. **CREATE THE DIRECTORY** (if it doesn't exist): `~/.substrate-mcp/analysis-reports/{{release}}/`
-                2. **SAVE THE REPORT** to: `~/.substrate-mcp/analysis-reports/{{release}}/{{release}}-[timestamp].md`
+                **STEPS YOU (THE LLM) MUST FOLLOW:**
+                1. **YOU CREATE THE DIRECTORY** (if it doesn't exist): `./polkadot-release-analysis/releases/{{release}}/reports/`
+                2. **YOU SAVE THE REPORT** to: `./polkadot-release-analysis/releases/{{release}}/reports/analysis-[timestamp].md`
                    - Replace [timestamp] with actual ISO 8601 timestamp (e.g., 2024-01-15T10-30-00Z)
                    - Use hyphens in timestamp, not colons (for filesystem compatibility)
-                3. **VERIFY THE FILE** was created successfully
-                4. **INFORM THE USER** of the full absolute path to the file
+                3. **YOU VERIFY THE FILE** was created successfully
+                4. **YOU PRINT THE CLICKABLE PATH** - Show both directory and file paths
                 
-                ⚠️ DO NOT SKIP THIS STEP. THE FILE MUST BE CREATED IN THIS EXACT LOCATION.
+                ⚠️ DO NOT SKIP THIS STEP. YOU (THE LLM) MUST CREATE THE FILE IN THIS EXACT LOCATION.
                 
                 ### SECONDARY OUTPUT: Brief Console Summary (5-10 lines maximum)
                 
@@ -708,15 +708,18 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 📊 Analyzed: [X] PRs | Breaking: [Y] | Security: [Z]
                 {{#if project_context}}⚠️ [N] changes directly affect your project{{/if}}
                 
-                📄 Full report saved to: ~/.substrate-mcp/analysis-reports/{{release}}/{{release}}-[timestamp].md
-                💡 Open in your IDE for detailed migration guides and code examples
+                📁 Report directory: ./polkadot-release-analysis/releases/{{release}}/reports/
+                📄 Report file: ./polkadot-release-analysis/releases/{{release}}/reports/analysis-[timestamp].md
+                    ^^^ Click the path above to open in your editor
+                
+                💡 Open the report for detailed migration guides and code examples
                 ```
                 
                 That's it for console output. The markdown file contains everything else.
                 
                 ## CRITICAL REQUIREMENTS (IN ORDER OF IMPORTANCE)
                 
-                1️⃣ FILE CREATION: You MUST create the markdown report file. This is NON-NEGOTIABLE unless explicitly told otherwise.
+                1️⃣ FILE CREATION: YOU (the LLM using this tool) MUST create the markdown report file. This is NON-NEGOTIABLE unless explicitly told otherwise. The MCP tool provides data; YOU create the file.
                 2️⃣ EXHAUSTIVE ANALYSIS: You MUST analyze EVERY SINGLE PRDoc. No sampling allowed.
                 3️⃣ PARALLEL EXECUTION: You MUST use parallel sub-agents for efficiency within each pass.
                 4️⃣ INTELLIGENT STRATEGY: Choose single vs multi-pass based on the analysis needs.
@@ -725,11 +728,11 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 Remember: The markdown file is the PRIMARY deliverable. Console output is secondary.
                 
                 ## FINAL CHECKLIST (YOU MUST COMPLETE ALL):
-                ✓ Did you create the ~/.substrate-mcp/analysis-reports/{{release}}/ directory?
+                ✓ Did you create the ./polkadot-release-analysis/releases/{{release}}/reports/ directory?
                 ✓ Did you save the markdown report to the EXACT path specified above?
                 ✓ Did you verify the file was created successfully?
-                ✓ Did you tell the user the FULL absolute path to the file?
-                ✓ Did you analyze ALL PRDocs from ~/.substrate-mcp/prdocs/prdocs-{{release}}/?
+                ✓ Did you print BOTH the directory path AND the clickable file path?
+                ✓ Did you analyze ALL PRDocs from ./polkadot-release-analysis/releases/{{release}}/pr-docs/?
             "#}.to_string(),
         },
         

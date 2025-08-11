@@ -335,12 +335,12 @@ fn extract_pr_number(filename: &str) -> Option<u32> {
 pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
     let client = reqwest::Client::new();
 
-    // Create deterministic directory path based on release
-    let home_dir = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    let output_dir = PathBuf::from(home_dir)
-        .join(".substrate-mcp")
-        .join("prdocs")
-        .join(format!("prdocs-{}", release));
+    // Create directory in current working directory
+    let output_dir = PathBuf::from(".")
+        .join("polkadot-release-analysis")
+        .join("releases")
+        .join(release)
+        .join("pr-docs");
 
     // Create directory if it doesn't exist
     fs::create_dir_all(&output_dir)

@@ -191,8 +191,12 @@ impl ReleaseAnalyzer {
     async fn load_pr_data(&self, release: &str) -> Result<Vec<PrData>> {
         let mut pr_data = Vec::new();
         
-        // Load from pr_analysis_data directory
-        let pr_data_dir = self.base_path.join("pr_analysis_data").join(format!("polkadot-sdk-{}", release));
+        // Load from polkadot-release-analysis directory
+        let pr_data_dir = self.base_path
+            .join("polkadot-release-analysis")
+            .join("releases")
+            .join(release)
+            .join("pr-docs");
         
         if !pr_data_dir.exists() {
             return Err(anyhow!("PR analysis data directory not found: {}", pr_data_dir.display()));
@@ -604,12 +608,14 @@ pub async fn analyze_polkadot_release(release: &str, base_path: PathBuf) -> Resu
         }
         
         // Save individual and combined analyses
-        let output_dir = analyzer.base_path.join("release_analysis");
+        let output_dir = analyzer.base_path
+            .join("polkadot-release-analysis")
+            .join("comparisons")
+            .join(format!("{}_combined", releases.join("_")));
         fs::create_dir_all(&output_dir).await?;
         
         // Save combined analysis
-        let combined_name = format!("{}_combined", releases.join("_"));
-        let output_path = output_dir.join(format!("{}_analysis.json", combined_name));
+        let output_path = output_dir.join("analysis.json");
         let json = serde_json::to_string_pretty(&all_analyses)?;
         fs::write(&output_path, &json).await?;
         
@@ -619,10 +625,14 @@ pub async fn analyze_polkadot_release(release: &str, base_path: PathBuf) -> Resu
         let analysis = analyzer.analyze_release(release).await?;
         
         // Save analysis
-        let output_dir = analyzer.base_path.join("release_analysis");
+        let output_dir = analyzer.base_path
+            .join("polkadot-release-analysis")
+            .join("releases")
+            .join(release)
+            .join("reports");
         fs::create_dir_all(&output_dir).await?;
         
-        let output_path = output_dir.join(format!("{}_analysis.json", release));
+        let output_path = output_dir.join("analysis.json");
         let json = serde_json::to_string_pretty(&analysis)?;
         fs::write(&output_path, &json).await?;
         

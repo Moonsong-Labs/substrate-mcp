@@ -158,9 +158,9 @@ impl SubstrateService {
         })
     }
 
-    #[tool(description = "Get all documented changes for a given polkadot-sdk release. Downloads PRDoc files to ~/.substrate-mcp/prdocs/prdocs-{release}/ directory.
+    #[tool(description = "Get all documented changes for a given polkadot-sdk release. Downloads PRDoc files to ./polkadot-release-analysis/releases/{release}/pr-docs/ directory in your current working directory.
 
-Files are saved to: ~/.substrate-mcp/prdocs/prdocs-{release}/
+Files are saved to: ./polkadot-release-analysis/releases/{release}/pr-docs/
 - Individual PRDocs: pr_XXXX.prdoc
 - manifest.json: Basic metadata (release, total PRDocs, PR numbers from filenames, download date)
 - crate_summary.json: Changes grouped by crate with bump levels (major/minor/patch/none) and counts
@@ -230,7 +230,7 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
             }
             
             let response_text = format!(
-                "Downloaded PRDocs for {} releases between {} and {}:\n\nReleases processed: {}\n\nTotal files: {}\nTotal size: {} bytes\n\nPRDocs are organized by release in ~/.substrate-mcp/prdocs/\n\nYou can now use standard file operations (LS, Read, Glob, Grep) to explore the PRDocs.",
+                "Downloaded PRDocs for {} releases between {} and {}:\n\nReleases processed: {}\n\nTotal files: {}\nTotal size: {} bytes\n\n📁 PRDocs saved to: ./polkadot-release-analysis/releases/\nEach release has its own subdirectory with pr-docs/\n\nYou can now use standard file operations (LS, Read, Glob, Grep) to explore the PRDocs.",
                 downloaded_releases.len(),
                 current_version,
                 target_version,
@@ -282,7 +282,7 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
         }
     }
 
-    #[tool(description = "Analyze Polkadot SDK release(s) and generate a comprehensive markdown report with migration guides, breaking changes, security analysis, and PR-by-PR breakdown. IMPORTANT: This tool MUST create a markdown file as its primary output - this is mandatory unless explicitly told not to. The markdown file will be saved to ~/.substrate-mcp/analysis-reports/{release}/. Expects PRDoc data to be in ~/.substrate-mcp/prdocs/prdocs-{release}/ (use get_polkadot_sdk_release_prdocs first to download). Also creates JSON data for programmatic use. Supports single or multiple releases (comma-separated).")]
+    #[tool(description = "Analyze Polkadot SDK release(s) and return data for generating a comprehensive markdown report with migration guides, breaking changes, security analysis, and PR-by-PR breakdown. IMPORTANT: After using this tool, YOU (the LLM) MUST create a markdown file with the analysis results - this is mandatory unless explicitly told not to. Save the markdown file to ./polkadot-release-analysis/releases/{release}/reports/. This tool expects PRDoc data to be in ./polkadot-release-analysis/releases/{release}/pr-docs/ (use get_polkadot_sdk_release_prdocs first to download). The tool itself returns analysis prompts and data; YOU must execute the analysis and create the report file. Supports single or multiple releases (comma-separated).")]
     pub async fn analyze_release(
         &self,
         Parameters(AnalyzeReleaseRequest { release }): Parameters<AnalyzeReleaseRequest>,
