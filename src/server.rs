@@ -42,7 +42,7 @@ pub struct SubstrateService {
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
 pub struct GetPolkadotSdkReleasePrdocsRequest {
-    /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412'). 
+    /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412').
     /// Can also be a range using '>': 'stable2502>stable2503-2' to get all releases between them.
     pub release: String,
 }
@@ -158,7 +158,8 @@ impl SubstrateService {
         })
     }
 
-    #[tool(description = "Get all documented changes for a given polkadot-sdk release. Downloads PRDoc files to ./polkadot-release-analysis/releases/{release}/pr-docs/ directory in your current working directory.
+    #[tool(
+        description = "Get all documented changes for a given polkadot-sdk release. Downloads PRDoc files to ./polkadot-release-analysis/releases/{release}/pr-docs/ directory in your current working directory.
 
 Files are saved to: ./polkadot-release-analysis/releases/{release}/pr-docs/
 - Individual PRDocs: pr_XXXX.prdoc
@@ -166,7 +167,8 @@ Files are saved to: ./polkadot-release-analysis/releases/{release}/pr-docs/
 - crate_summary.json: Changes grouped by crate with bump levels (major/minor/patch/none) and counts
 - audience_summary.json: Changes grouped by target audience (Runtime Dev, Node Dev, Runtime User, Node Operator)
 
-These manifests enable efficient analysis without parsing all PRDocs individually. After downloading, use standard file tools (Read, Grep, etc.) to explore the PRDocs.")]
+These manifests enable efficient analysis without parsing all PRDocs individually. After downloading, use standard file tools (Read, Grep, etc.) to explore the PRDocs."
+    )]
     pub async fn get_polkadot_sdk_release_prdocs(
         &self,
         Parameters(GetPolkadotSdkReleasePrdocsRequest { release }): Parameters<
@@ -184,36 +186,39 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
                     data: None,
                 });
             }
-            
+
             let current_version = parts[0].trim();
             let target_version = parts[1].trim();
-            
+
             // Get all releases in the range
-            let releases = polkadot_sdk_releases::get_releases_between(current_version, target_version)
-                .await
-                .map_err(|e| McpError {
-                    code: rmcp::model::ErrorCode(-32603),
-                    message: e.to_string().into(),
-                    data: None,
-                })?;
-            
+            let releases =
+                polkadot_sdk_releases::get_releases_between(current_version, target_version)
+                    .await
+                    .map_err(|e| McpError {
+                        code: rmcp::model::ErrorCode(-32603),
+                        message: e.to_string().into(),
+                        data: None,
+                    })?;
+
             if releases.is_empty() {
                 return Ok(CallToolResult {
                     content: vec![Content {
                         annotations: None,
-                        raw: RawContent::Text(RawTextContent { 
-                            text: format!("No releases found between {} and {}", current_version, target_version) 
+                        raw: RawContent::Text(RawTextContent {
+                            text: format!(
+                                "No releases found between {current_version} and {target_version}"
+                            ),
                         }),
                     }],
                     is_error: None,
                 });
             }
-            
+
             // Download PRDocs for each release
             let mut total_files = 0;
             let mut total_size = 0;
             let mut downloaded_releases = Vec::new();
-            
+
             for release_version in &releases {
                 match polkadot_sdk_releases::query_prdocs(release_version).await {
                     Ok(result) => {
@@ -224,11 +229,11 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
                         }
                     }
                     Err(e) => {
-                        eprintln!("Failed to download PRDocs for {}: {}", release_version, e);
+                        eprintln!("Failed to download PRDocs for {release_version}: {e}");
                     }
                 }
             }
-            
+
             let response_text = format!(
                 "Downloaded PRDocs for {} releases between {} and {}:\n\nReleases processed: {}\n\nTotal files: {}\nTotal size: {} bytes\n\n📁 PRDocs saved to: ./polkadot-release-analysis/releases/\nEach release has its own subdirectory with pr-docs/\n\nYou can now use standard file operations (LS, Read, Glob, Grep) to explore the PRDocs.",
                 downloaded_releases.len(),
@@ -238,11 +243,13 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
                 total_files,
                 total_size
             );
-            
+
             Ok(CallToolResult {
                 content: vec![Content {
                     annotations: None,
-                    raw: RawContent::Text(RawTextContent { text: response_text }),
+                    raw: RawContent::Text(RawTextContent {
+                        text: response_text,
+                    }),
                 }],
                 is_error: None,
             })
@@ -275,14 +282,18 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
             Ok(CallToolResult {
                 content: vec![Content {
                     annotations: None,
-                    raw: RawContent::Text(RawTextContent { text: response_text }),
+                    raw: RawContent::Text(RawTextContent {
+                        text: response_text,
+                    }),
                 }],
                 is_error: None,
             })
         }
     }
 
-    #[tool(description = "Analyze Polkadot SDK release(s) and return data for generating a comprehensive markdown report with migration guides, breaking changes, security analysis, and PR-by-PR breakdown. IMPORTANT: After using this tool, YOU (the LLM) MUST create a markdown file with the analysis results - this is mandatory unless explicitly told not to. Save the markdown file to ./polkadot-release-analysis/releases/{release}/reports/. This tool expects PRDoc data to be in ./polkadot-release-analysis/releases/{release}/pr-docs/ (use get_polkadot_sdk_release_prdocs first to download). The tool itself returns analysis prompts and data; YOU must execute the analysis and create the report file. Supports single or multiple releases (comma-separated).")]
+    #[tool(
+        description = "Analyze Polkadot SDK release(s) and return data for generating a comprehensive markdown report with migration guides, breaking changes, security analysis, and PR-by-PR breakdown. IMPORTANT: After using this tool, YOU (the LLM) MUST create a markdown file with the analysis results - this is mandatory unless explicitly told not to. Save the markdown file to ./polkadot-release-analysis/releases/{release}/reports/. This tool expects PRDoc data to be in ./polkadot-release-analysis/releases/{release}/pr-docs/ (use get_polkadot_sdk_release_prdocs first to download). The tool itself returns analysis prompts and data; YOU must execute the analysis and create the report file. Supports single or multiple releases (comma-separated)."
+    )]
     pub async fn analyze_release(
         &self,
         Parameters(AnalyzeReleaseRequest { release }): Parameters<AnalyzeReleaseRequest>,
@@ -312,16 +323,16 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
             )
         } else {
             format!(
-                "Successfully analyzed release '{}'. Analysis saved to:\n{}\n\nThe analysis includes:\n- Release summary with PR counts by category\n- Comprehensive index of all PRs\n- Impact analysis for breaking changes and migrations\n- Categorization by subsystem and audience\n- Change relationships and dependencies\n\nUse Read to view the full analysis JSON.",
-                release,
-                analysis_path
+                "Successfully analyzed release '{release}'. Analysis saved to:\n{analysis_path}\n\nThe analysis includes:\n- Release summary with PR counts by category\n- Comprehensive index of all PRs\n- Impact analysis for breaking changes and migrations\n- Categorization by subsystem and audience\n- Change relationships and dependencies\n\nUse Read to view the full analysis JSON."
             )
         };
 
         Ok(CallToolResult {
             content: vec![Content {
                 annotations: None,
-                raw: RawContent::Text(RawTextContent { text: response_text }),
+                raw: RawContent::Text(RawTextContent {
+                    text: response_text,
+                }),
             }],
             is_error: None,
         })

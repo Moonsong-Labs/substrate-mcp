@@ -19,7 +19,7 @@ pub mod endpoints {
     /// Asset Hub on Polkadot
     pub const ASSET_HUB_POLKADOT: &str = "wss://polkadot-asset-hub-rpc.polkadot.io";
 
-    /// Asset Hub on Kusama  
+    /// Asset Hub on Kusama
     pub const ASSET_HUB_KUSAMA: &str = "wss://kusama-asset-hub-rpc.polkadot.io";
 
     /// Asset Hub on Westend

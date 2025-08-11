@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::PathBuf;
-use tokio::fs;
 use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use tokio::fs;
 
 // GitHub API structures
 #[derive(Debug, Deserialize)]
@@ -43,8 +43,16 @@ struct LabelsMetadata {
 // Version parsing structures
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ReleaseVersion {
-    Semantic { major: u32, minor: u32, patch: u32 },
-    Stable { year: u32, month: u32, patch: Option<u32> },
+    Semantic {
+        major: u32,
+        minor: u32,
+        patch: u32,
+    },
+    Stable {
+        year: u32,
+        month: u32,
+        patch: Option<u32>,
+    },
 }
 
 impl ReleaseVersion {
@@ -52,16 +60,23 @@ impl ReleaseVersion {
     fn parse(version: &str) -> Option<Self> {
         // Try semantic version first (e.g., "1.9.0" or "v1.9.0")
         let version = version.trim_start_matches('v');
-        
+
         if let Some((major, rest)) = version.split_once('.') {
             if let Some((minor, patch)) = rest.split_once('.') {
-                if let (Ok(major), Ok(minor), Ok(patch)) = 
-                    (major.parse::<u32>(), minor.parse::<u32>(), patch.parse::<u32>()) {
-                    return Some(ReleaseVersion::Semantic { major, minor, patch });
+                if let (Ok(major), Ok(minor), Ok(patch)) = (
+                    major.parse::<u32>(),
+                    minor.parse::<u32>(),
+                    patch.parse::<u32>(),
+                ) {
+                    return Some(ReleaseVersion::Semantic {
+                        major,
+                        minor,
+                        patch,
+                    });
                 }
             }
         }
-        
+
         // Try stable version (e.g., "stable2503" or "stable2503-7")
         if let Some(version) = version.strip_prefix("stable") {
             if let Some((yymm, patch_str)) = version.split_once('-') {
@@ -70,30 +85,29 @@ impl ReleaseVersion {
                     if let (Ok(year), Ok(month), Ok(patch)) = (
                         yymm[0..2].parse::<u32>(),
                         yymm[2..4].parse::<u32>(),
-                        patch_str.parse::<u32>()
+                        patch_str.parse::<u32>(),
                     ) {
-                        return Some(ReleaseVersion::Stable { 
-                            year: 2000 + year, 
-                            month, 
-                            patch: Some(patch) 
+                        return Some(ReleaseVersion::Stable {
+                            year: 2000 + year,
+                            month,
+                            patch: Some(patch),
                         });
                     }
                 }
             } else if version.len() == 4 {
                 // No patch suffix
-                if let (Ok(year), Ok(month)) = (
-                    version[0..2].parse::<u32>(),
-                    version[2..4].parse::<u32>()
-                ) {
-                    return Some(ReleaseVersion::Stable { 
-                        year: 2000 + year, 
-                        month, 
-                        patch: None 
+                if let (Ok(year), Ok(month)) =
+                    (version[0..2].parse::<u32>(), version[2..4].parse::<u32>())
+                {
+                    return Some(ReleaseVersion::Stable {
+                        year: 2000 + year,
+                        month,
+                        patch: None,
                     });
                 }
             }
         }
-        
+
         None
     }
 }
@@ -102,18 +116,34 @@ impl Ord for ReleaseVersion {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
             // Semantic versions comparison
-            (ReleaseVersion::Semantic { major: m1, minor: n1, patch: p1 },
-             ReleaseVersion::Semantic { major: m2, minor: n2, patch: p2 }) => {
-                (m1, n1, p1).cmp(&(m2, n2, p2))
-            }
+            (
+                ReleaseVersion::Semantic {
+                    major: m1,
+                    minor: n1,
+                    patch: p1,
+                },
+                ReleaseVersion::Semantic {
+                    major: m2,
+                    minor: n2,
+                    patch: p2,
+                },
+            ) => (m1, n1, p1).cmp(&(m2, n2, p2)),
             // Stable versions comparison
-            (ReleaseVersion::Stable { year: y1, month: m1, patch: p1 },
-             ReleaseVersion::Stable { year: y2, month: m2, patch: p2 }) => {
-                match (y1, m1).cmp(&(y2, m2)) {
-                    Ordering::Equal => p1.cmp(p2),
-                    other => other,
-                }
-            }
+            (
+                ReleaseVersion::Stable {
+                    year: y1,
+                    month: m1,
+                    patch: p1,
+                },
+                ReleaseVersion::Stable {
+                    year: y2,
+                    month: m2,
+                    patch: p2,
+                },
+            ) => match (y1, m1).cmp(&(y2, m2)) {
+                Ordering::Equal => p1.cmp(p2),
+                other => other,
+            },
             // Stable releases came after semantic versions
             (ReleaseVersion::Semantic { .. }, ReleaseVersion::Stable { .. }) => Ordering::Less,
             (ReleaseVersion::Stable { .. }, ReleaseVersion::Semantic { .. }) => Ordering::Greater,
@@ -124,6 +154,23 @@ impl Ord for ReleaseVersion {
 impl PartialOrd for ReleaseVersion {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl std::fmt::Display for ReleaseVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReleaseVersion::Semantic { major, minor, patch } => {
+                write!(f, "{}.{}.{}", major, minor, patch)
+            }
+            ReleaseVersion::Stable { year, month, patch } => {
+                if let Some(p) = patch {
+                    write!(f, "stable{:02}{:02}-{}", year % 100, month, p)
+                } else {
+                    write!(f, "stable{:02}{:02}", year % 100, month)
+                }
+            }
+        }
     }
 }
 
@@ -138,19 +185,18 @@ async fn fetch_releases_until(current_version: &str) -> Result<Vec<String>> {
             return Ok(cache.clone());
         }
     }
-    
+
     let client = reqwest::Client::new();
     let mut all_releases = Vec::new();
     let mut page = 1;
     let current = ReleaseVersion::parse(current_version)
         .ok_or_else(|| anyhow!("Invalid current version format: {}", current_version))?;
-    
+
     'pages: loop {
         let url = format!(
-            "https://api.github.com/repos/paritytech/polkadot-sdk/releases?per_page=100&page={}",
-            page
+            "https://api.github.com/repos/paritytech/polkadot-sdk/releases?per_page=100&page={page}"
         );
-        
+
         let response = client
             .get(&url)
             .header("Accept", "application/vnd.github.v3+json")
@@ -158,7 +204,7 @@ async fn fetch_releases_until(current_version: &str) -> Result<Vec<String>> {
             .send()
             .await
             .map_err(|e| anyhow!("Failed to fetch releases: {}", e))?;
-        
+
         if !response.status().is_success() {
             return Err(anyhow!(
                 "GitHub API returned status {}: {}",
@@ -166,62 +212,68 @@ async fn fetch_releases_until(current_version: &str) -> Result<Vec<String>> {
                 response.text().await.unwrap_or_default()
             ));
         }
-        
+
         let releases: Vec<GitHubRelease> = response
             .json()
             .await
             .map_err(|e| anyhow!("Failed to parse releases: {}", e))?;
-        
+
         if releases.is_empty() {
             break;
         }
-        
+
         for release in releases {
             // Skip pre-releases
             if release.prerelease {
                 continue;
             }
-            
+
             // Try to parse the version
             if let Some(version) = ReleaseVersion::parse(&release.tag_name) {
                 // Check if we've reached the current version
                 if version <= current {
                     break 'pages;
                 }
-                
+
                 all_releases.push(release.tag_name.clone());
             }
         }
-        
+
         page += 1;
     }
-    
+
     // Cache the results
     unsafe {
         RELEASE_CACHE = Some(all_releases.clone());
     }
-    
+
     Ok(all_releases)
 }
 
 /// Get all releases between two versions (inclusive of target, exclusive of current)
-pub async fn get_releases_between(current_version: &str, target_version: &str) -> Result<Vec<String>> {
+pub async fn get_releases_between(
+    current_version: &str,
+    target_version: &str,
+) -> Result<Vec<String>> {
     let current = ReleaseVersion::parse(current_version)
         .ok_or_else(|| anyhow!("Invalid current version format: {}", current_version))?;
     let target = ReleaseVersion::parse(target_version)
         .ok_or_else(|| anyhow!("Invalid target version format: {}", target_version))?;
-    
+
     if current >= target {
-        return Err(anyhow!("Current version {} must be less than target version {}", 
-            current_version, target_version));
+        return Err(anyhow!(
+            "Current version {} must be less than target version {}",
+            current_version,
+            target_version
+        ));
     }
-    
+
     // Fetch all releases up to (but not including) current version
     let all_releases = fetch_releases_until(current_version).await?;
-    
+
     // Filter releases between current (exclusive) and target (inclusive)
     let mut releases_in_range = Vec::new();
-    
+
     for release_tag in all_releases {
         if let Some(version) = ReleaseVersion::parse(&release_tag) {
             if version > current && version <= target {
@@ -229,7 +281,7 @@ pub async fn get_releases_between(current_version: &str, target_version: &str) -
             }
         }
     }
-    
+
     // Sort releases in ascending order
     releases_in_range.sort_by(|a, b| {
         let v1 = ReleaseVersion::parse(a);
@@ -239,7 +291,7 @@ pub async fn get_releases_between(current_version: &str, target_version: &str) -
             _ => Ordering::Equal,
         }
     });
-    
+
     Ok(releases_in_range)
 }
 
@@ -419,11 +471,11 @@ pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
 
                 total_size += content.len();
                 saved_count += 1;
-                
+
                 // Extract PR number from filename (pr_XXXX.prdoc)
                 if let Some(pr_num) = extract_pr_number(&file.name) {
                     pr_numbers.push(pr_num);
-                    
+
                     // Try to parse PRDoc content
                     if let Ok(prdoc) = serde_yaml::from_str::<PrDoc>(&content) {
                         // Process audiences
@@ -431,20 +483,27 @@ pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
                             // Handle both single and multiple audiences
                             let audiences: Vec<&str> = match &doc_entry.audience {
                                 AudienceField::Single(s) => vec![s.as_str()],
-                                AudienceField::Multiple(v) => v.iter().map(|s| s.as_str()).collect(),
+                                AudienceField::Multiple(v) => {
+                                    v.iter().map(|s| s.as_str()).collect()
+                                }
                             };
-                            
+
                             for audience in audiences {
-                                let audience_info = audience_counts.entry(audience.to_string())
-                                    .or_insert_with(|| AudienceInfo { count: 0, pr_numbers: vec![] });
+                                let audience_info = audience_counts
+                                    .entry(audience.to_string())
+                                    .or_insert_with(|| AudienceInfo {
+                                        count: 0,
+                                        pr_numbers: vec![],
+                                    });
                                 audience_info.count += 1;
                                 audience_info.pr_numbers.push(pr_num);
                             }
                         }
-                        
+
                         // Process crates
                         for crate_entry in &prdoc.crates {
-                            let crate_info = crate_changes.entry(crate_entry.name.clone())
+                            let crate_info = crate_changes
+                                .entry(crate_entry.name.clone())
                                 .or_insert_with(|| CrateChangeInfo {
                                     total: 0,
                                     major: 0,
@@ -453,10 +512,10 @@ pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
                                     none: 0,
                                     pr_numbers: vec![],
                                 });
-                            
+
                             crate_info.total += 1;
                             crate_info.pr_numbers.push(pr_num);
-                            
+
                             match crate_entry.bump.as_str() {
                                 "major" => crate_info.major += 1,
                                 "minor" => crate_info.minor += 1,
@@ -477,7 +536,7 @@ pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
 
     // Sort PR numbers
     pr_numbers.sort_unstable();
-    
+
     // Create manifest.json
     let manifest = Manifest {
         release: release.to_string(),
@@ -486,17 +545,17 @@ pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
         download_date: chrono::Utc::now().to_rfc3339(),
         total_size_bytes: total_size,
     };
-    
+
     let manifest_path = output_dir.join("manifest.json");
     let manifest_json = serde_json::to_string_pretty(&manifest)?;
     fs::write(&manifest_path, manifest_json)
         .await
         .map_err(|e| anyhow!("Failed to write manifest.json: {}", e))?;
-    
+
     // Create crate_summary.json
     let total_crates = crate_changes.len();
     let total_changes: usize = crate_changes.values().map(|info| info.total).sum();
-    
+
     let crate_summary = CrateSummary {
         summary: CrateSummaryStats {
             total_crates_affected: total_crates,
@@ -504,13 +563,13 @@ pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
         },
         crates: crate_changes,
     };
-    
+
     let crate_summary_path = output_dir.join("crate_summary.json");
     let crate_summary_json = serde_json::to_string_pretty(&crate_summary)?;
     fs::write(&crate_summary_path, crate_summary_json)
         .await
         .map_err(|e| anyhow!("Failed to write crate_summary.json: {}", e))?;
-    
+
     // Create audience_summary.json - now dynamic, includes all found audiences
     let audience_summary_path = output_dir.join("audience_summary.json");
     let audience_summary_json = serde_json::to_string_pretty(&audience_counts)?;
@@ -550,7 +609,12 @@ This directory includes JSON manifest files for efficient analysis:
 These PRDocs document changes, improvements, and new features in the {} release.
 Each file corresponds to a pull request that was included in this release.
 "#,
-        release, release, prdoc_files.len(), saved_count, total_size, release
+        release,
+        release,
+        prdoc_files.len(),
+        saved_count,
+        total_size,
+        release
     );
 
     let readme_path = output_dir.join("README.md");
@@ -560,7 +624,7 @@ Each file corresponds to a pull request that was included in this release.
 
     // Fetch and save GitHub labels
     if let Err(e) = fetch_and_save_labels(&client, &output_dir, &pr_numbers).await {
-        eprintln!("Warning: Failed to fetch GitHub labels: {}", e);
+        eprintln!("Warning: Failed to fetch GitHub labels: {e}");
         // Continue without labels - this is non-blocking
     }
 
@@ -576,8 +640,10 @@ Each file corresponds to a pull request that was included in this release.
 // Helper function to fetch GitHub labels with pagination support
 async fn fetch_github_labels(client: &reqwest::Client) -> Result<Vec<GitHubLabel>> {
     let mut all_labels = Vec::new();
-    let mut next_url = Some("https://api.github.com/repos/paritytech/polkadot-sdk/labels?per_page=100".to_string());
-    
+    let mut next_url = Some(
+        "https://api.github.com/repos/paritytech/polkadot-sdk/labels?per_page=100".to_string(),
+    );
+
     while let Some(url) = next_url {
         let response = client
             .get(&url)
@@ -585,14 +651,14 @@ async fn fetch_github_labels(client: &reqwest::Client) -> Result<Vec<GitHubLabel
             .send()
             .await
             .map_err(|e| anyhow!("Failed to fetch labels: {}", e))?;
-        
+
         if !response.status().is_success() {
             return Err(anyhow!(
                 "GitHub API returned status {} when fetching labels",
                 response.status()
             ));
         }
-        
+
         // Check for pagination Link header
         next_url = None;
         if let Some(link_header) = response.headers().get("link") {
@@ -610,27 +676,27 @@ async fn fetch_github_labels(client: &reqwest::Client) -> Result<Vec<GitHubLabel
                 }
             }
         }
-        
+
         let page_labels: Vec<GitHubLabel> = response
             .json()
             .await
             .map_err(|e| anyhow!("Failed to parse labels response: {}", e))?;
-        
+
         all_labels.extend(page_labels);
     }
-    
+
     Ok(all_labels)
 }
 
 // Fetch labels and save to JSON file
 async fn fetch_and_save_labels(
-    client: &reqwest::Client, 
-    output_dir: &PathBuf,
-    _pr_numbers: &[u32]  // Keeping for potential future use
+    client: &reqwest::Client,
+    output_dir: &Path,
+    _pr_numbers: &[u32], // Keeping for potential future use
 ) -> Result<()> {
     // Fetch all repository labels
     let github_labels = fetch_github_labels(client).await?;
-    
+
     // Create labels metadata with raw GitHub data
     let labels_metadata = LabelsMetadata {
         fetched_at: chrono::Utc::now().to_rfc3339(),
@@ -638,14 +704,14 @@ async fn fetch_and_save_labels(
         total_labels: github_labels.len(),
         labels: github_labels,
     };
-    
+
     // Save as labels.json (simple, descriptive name)
     let labels_path = output_dir.join("labels.json");
     let labels_json = serde_json::to_string_pretty(&labels_metadata)?;
     fs::write(&labels_path, labels_json)
         .await
         .map_err(|e| anyhow!("Failed to write labels.json: {}", e))?;
-    
+
     Ok(())
 }
 
@@ -662,12 +728,12 @@ mod tests {
         assert!(prdocs_result.success);
         assert!(prdocs_result.file_count > 0);
         assert!(prdocs_result.output_dir.exists());
-        
+
         // Check if pr_6463.prdoc was downloaded
         let expected_file = prdocs_result.output_dir.join("pr_6463.prdoc");
         assert!(expected_file.exists());
     }
-    
+
     #[tokio::test]
     async fn test_query_prdocs_stable2412_2() {
         // Test stable2412-2 specifically
@@ -677,15 +743,21 @@ mod tests {
         assert!(prdocs_result.success);
         assert!(prdocs_result.file_count > 0);
         assert!(prdocs_result.output_dir.exists());
-        
+
         // Check if manifest files were created
         let manifest_file = prdocs_result.output_dir.join("manifest.json");
         let crate_summary_file = prdocs_result.output_dir.join("crate_summary.json");
         let audience_summary_file = prdocs_result.output_dir.join("audience_summary.json");
-        
+
         assert!(manifest_file.exists(), "manifest.json should exist");
-        assert!(crate_summary_file.exists(), "crate_summary.json should exist");
-        assert!(audience_summary_file.exists(), "audience_summary.json should exist");
+        assert!(
+            crate_summary_file.exists(),
+            "crate_summary.json should exist"
+        );
+        assert!(
+            audience_summary_file.exists(),
+            "audience_summary.json should exist"
+        );
     }
 
     #[tokio::test]
@@ -710,13 +782,13 @@ crates:
   - name: test-crate
     bump: patch
 "#;
-        
+
         let prdoc: Result<PrDoc, _> = serde_yaml::from_str(yaml_content);
         assert!(prdoc.is_ok(), "Failed to parse string audience format");
-        
+
         let prdoc = prdoc.unwrap();
         assert_eq!(prdoc.doc.len(), 1);
-        
+
         match &prdoc.doc[0].audience {
             AudienceField::Single(s) => assert_eq!(s, "Runtime Dev"),
             AudienceField::Multiple(_) => panic!("Expected single audience, got multiple"),
@@ -737,13 +809,17 @@ crates:
 - name: test-crate
   bump: major
 "#;
-        
+
         let prdoc: Result<PrDoc, _> = serde_yaml::from_str(yaml_content);
-        assert!(prdoc.is_ok(), "Failed to parse array audience format: {:?}", prdoc.err());
-        
+        assert!(
+            prdoc.is_ok(),
+            "Failed to parse array audience format: {:?}",
+            prdoc.err()
+        );
+
         let prdoc = prdoc.unwrap();
         assert_eq!(prdoc.doc.len(), 1);
-        
+
         match &prdoc.doc[0].audience {
             AudienceField::Single(_) => panic!("Expected multiple audiences, got single"),
             AudienceField::Multiple(v) => {
@@ -764,13 +840,17 @@ doc:
     description: Test description
 crates: [ ]
 "#;
-        
+
         let prdoc: Result<PrDoc, _> = serde_yaml::from_str(yaml_content);
-        assert!(prdoc.is_ok(), "Failed to parse inline array audience format: {:?}", prdoc.err());
-        
+        assert!(
+            prdoc.is_ok(),
+            "Failed to parse inline array audience format: {:?}",
+            prdoc.err()
+        );
+
         let prdoc = prdoc.unwrap();
         assert_eq!(prdoc.doc.len(), 1);
-        
+
         match &prdoc.doc[0].audience {
             AudienceField::Single(_) => panic!("Expected multiple audiences, got single"),
             AudienceField::Multiple(v) => {
@@ -785,64 +865,84 @@ crates: [ ]
     async fn test_stable2503_7_specific() {
         // Test downloading stable2503-7 specifically
         let result = query_prdocs("stable2503-7").await;
-        assert!(result.is_ok(), "Failed to download stable2503-7: {:?}", result.err());
-        
+        assert!(
+            result.is_ok(),
+            "Failed to download stable2503-7: {:?}",
+            result.err()
+        );
+
         let prdocs_result = result.unwrap();
         assert!(prdocs_result.success);
         assert_eq!(prdocs_result.file_count, 14); // We know there are 14 files
-        
+
         // Check manifest files
         let manifest_file = prdocs_result.output_dir.join("manifest.json");
         let crate_summary_file = prdocs_result.output_dir.join("crate_summary.json");
         let audience_summary_file = prdocs_result.output_dir.join("audience_summary.json");
-        
-        assert!(manifest_file.exists(), "manifest.json should exist for stable2503-7");
-        assert!(crate_summary_file.exists(), "crate_summary.json should exist for stable2503-7");
-        assert!(audience_summary_file.exists(), "audience_summary.json should exist for stable2503-7");
-        
+
+        assert!(
+            manifest_file.exists(),
+            "manifest.json should exist for stable2503-7"
+        );
+        assert!(
+            crate_summary_file.exists(),
+            "crate_summary.json should exist for stable2503-7"
+        );
+        assert!(
+            audience_summary_file.exists(),
+            "audience_summary.json should exist for stable2503-7"
+        );
+
         // Load and verify audience summary
         let audience_json = std::fs::read_to_string(&audience_summary_file)
             .expect("Failed to read audience_summary.json");
-        let audience_counts: HashMap<String, AudienceInfo> = serde_json::from_str(&audience_json)
-            .expect("Failed to parse audience_summary.json");
-        
+        let audience_counts: HashMap<String, AudienceInfo> =
+            serde_json::from_str(&audience_json).expect("Failed to parse audience_summary.json");
+
         // Ensure we have at least some audiences indexed
         assert!(!audience_counts.is_empty(), "No audiences were indexed");
-        
+
         // Load and verify crate summary
         let crate_json = std::fs::read_to_string(&crate_summary_file)
             .expect("Failed to read crate_summary.json");
-        let crate_data: serde_json::Value = serde_json::from_str(&crate_json)
-            .expect("Failed to parse crate_summary.json");
-        
-        assert!(crate_data.get("summary").is_some(), "Crate summary should have a summary field");
-        assert!(crate_data.get("crates").is_some(), "Crate summary should have a crates field");
+        let crate_data: serde_json::Value =
+            serde_json::from_str(&crate_json).expect("Failed to parse crate_summary.json");
+
+        assert!(
+            crate_data.get("summary").is_some(),
+            "Crate summary should have a summary field"
+        );
+        assert!(
+            crate_data.get("crates").is_some(),
+            "Crate summary should have a crates field"
+        );
     }
 
     #[tokio::test]
     async fn test_audience_indexing_regression() {
         // Regression test for missing audiences in indexing
         // This test checks that all PRDocs in stable2412-1 are properly indexed
-        
+
         let result = query_prdocs("stable2412-1").await;
         assert!(result.is_ok());
         let prdocs_result = result.unwrap();
-        
+
         if prdocs_result.success && prdocs_result.file_count > 0 {
             // Load the audience summary
             let audience_summary_path = prdocs_result.output_dir.join("audience_summary.json");
-            let audience_json = tokio::fs::read_to_string(&audience_summary_path).await
+            let audience_json = tokio::fs::read_to_string(&audience_summary_path)
+                .await
                 .expect("Failed to read audience_summary.json");
-            let audience_counts: HashMap<String, AudienceInfo> = serde_json::from_str(&audience_json)
-                .expect("Failed to parse audience_summary.json");
-            
+            let audience_counts: HashMap<String, AudienceInfo> =
+                serde_json::from_str(&audience_json)
+                    .expect("Failed to parse audience_summary.json");
+
             // PRs that should have audiences (from our analysis)
             let expected_prs_with_audience = vec![
-                6463, 6807, 6825, 6855, 6971, 6973, 7013, 7028, 7050, 
-                7067, 7074, 7090, 7099, 7116, 7133, 7158, 7205, 7222, 
-                7322, 7344
+                6463, 6807, 6825, 6855, 6971, 6973, 7013, 7028, 7050, 7067, 7074, 7090, 7099, 7116,
+                7133, 7158, 7205, 7222, 7322, 7344,
             ];
-            
+
             // Collect all unique PRs that have been indexed
             let mut all_indexed_prs = std::collections::HashSet::new();
             for info in audience_counts.values() {
@@ -850,29 +950,29 @@ crates: [ ]
                     all_indexed_prs.insert(*pr_num);
                 }
             }
-            
+
             // Check that all expected PRs are indexed
             for pr_num in &expected_prs_with_audience {
                 assert!(
-                    all_indexed_prs.contains(pr_num), 
-                    "PR {} is missing from audience index", 
+                    all_indexed_prs.contains(pr_num),
+                    "PR {} is missing from audience index",
                     pr_num
                 );
             }
-            
+
             // Verify specific multi-audience PRs
             // PR 7074 should be in both Node Dev and Runtime Dev
             assert!(audience_counts["Node Dev"].pr_numbers.contains(&7074));
             assert!(audience_counts["Runtime Dev"].pr_numbers.contains(&7074));
-            
+
             // PR 7133 should be in both Node Dev and Node Operator
             assert!(audience_counts["Node Dev"].pr_numbers.contains(&7133));
             assert!(audience_counts["Node Operator"].pr_numbers.contains(&7133));
-            
+
             // PR 7028 should be in both Runtime Dev and Runtime User
             assert!(audience_counts["Runtime Dev"].pr_numbers.contains(&7028));
             assert!(audience_counts["Runtime User"].pr_numbers.contains(&7028));
-            
+
             // PR 7067 should be in both Runtime Dev and Runtime User
             assert!(audience_counts["Runtime Dev"].pr_numbers.contains(&7067));
             assert!(audience_counts["Runtime User"].pr_numbers.contains(&7067));
@@ -884,25 +984,41 @@ crates: [ ]
         // Semantic versions
         assert_eq!(
             ReleaseVersion::parse("1.9.0"),
-            Some(ReleaseVersion::Semantic { major: 1, minor: 9, patch: 0 })
+            Some(ReleaseVersion::Semantic {
+                major: 1,
+                minor: 9,
+                patch: 0
+            })
         );
         assert_eq!(
             ReleaseVersion::parse("v1.9.0"),
-            Some(ReleaseVersion::Semantic { major: 1, minor: 9, patch: 0 })
+            Some(ReleaseVersion::Semantic {
+                major: 1,
+                minor: 9,
+                patch: 0
+            })
         );
-        
+
         // Stable versions without patch
         assert_eq!(
             ReleaseVersion::parse("stable2502"),
-            Some(ReleaseVersion::Stable { year: 2025, month: 2, patch: None })
+            Some(ReleaseVersion::Stable {
+                year: 2025,
+                month: 2,
+                patch: None
+            })
         );
-        
+
         // Stable versions with patch
         assert_eq!(
             ReleaseVersion::parse("stable2503-7"),
-            Some(ReleaseVersion::Stable { year: 2025, month: 3, patch: Some(7) })
+            Some(ReleaseVersion::Stable {
+                year: 2025,
+                month: 3,
+                patch: Some(7)
+            })
         );
-        
+
         // Invalid formats
         assert_eq!(ReleaseVersion::parse("invalid"), None);
         assert_eq!(ReleaseVersion::parse("1.9"), None);
@@ -911,13 +1027,25 @@ crates: [ ]
 
     #[test]
     fn test_version_to_string() {
-        let semantic = ReleaseVersion::Semantic { major: 1, minor: 9, patch: 0 };
+        let semantic = ReleaseVersion::Semantic {
+            major: 1,
+            minor: 9,
+            patch: 0,
+        };
         assert_eq!(semantic.to_string(), "1.9.0");
-        
-        let stable_no_patch = ReleaseVersion::Stable { year: 2025, month: 2, patch: None };
+
+        let stable_no_patch = ReleaseVersion::Stable {
+            year: 2025,
+            month: 2,
+            patch: None,
+        };
         assert_eq!(stable_no_patch.to_string(), "stable2502");
-        
-        let stable_with_patch = ReleaseVersion::Stable { year: 2025, month: 3, patch: Some(7) };
+
+        let stable_with_patch = ReleaseVersion::Stable {
+            year: 2025,
+            month: 3,
+            patch: Some(7),
+        };
         assert_eq!(stable_with_patch.to_string(), "stable2503-7");
     }
 
@@ -930,16 +1058,16 @@ crates: [ ]
         let stable2503 = ReleaseVersion::parse("stable2503").unwrap();
         let stable2503_1 = ReleaseVersion::parse("stable2503-1").unwrap();
         let stable2503_7 = ReleaseVersion::parse("stable2503-7").unwrap();
-        
+
         // Semantic version ordering
         assert!(v1_8_0 < v1_9_0);
         assert!(v1_9_0 < v1_10_0);
-        
+
         // Stable version ordering
         assert!(stable2502 < stable2503);
         assert!(stable2503 < stable2503_1);
         assert!(stable2503_1 < stable2503_7);
-        
+
         // Cross-type ordering (stable came after semantic)
         assert!(v1_10_0 < stable2502);
     }
@@ -950,7 +1078,7 @@ crates: [ ]
         let base = ReleaseVersion::parse("stable2503").unwrap();
         let patch1 = ReleaseVersion::parse("stable2503-1").unwrap();
         let patch7 = ReleaseVersion::parse("stable2503-7").unwrap();
-        
+
         assert!(base < patch1);
         assert!(patch1 < patch7);
         assert!(base < patch7);

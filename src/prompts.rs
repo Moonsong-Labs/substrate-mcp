@@ -19,7 +19,7 @@ Include this disclaimer VERBATIM:
 
 **This is NOT a professional security audit.** This AI-generated analysis:
 - May miss critical vulnerabilities
-- May report false positives  
+- May report false positives
 - Cannot replace human security experts
 - Must be verified by professionals
 
@@ -46,7 +46,7 @@ Security Analysis Complete:
 
 **This is NOT a professional security audit.** This AI-generated analysis:
 - May miss critical vulnerabilities
-- May report false positives  
+- May report false positives
 - Cannot replace human security experts
 - Must be verified by professionals
 
@@ -96,9 +96,9 @@ fn get_optional_arg(
         .map(|s| s.to_string())
 }
 
+use crate::prdoc_analysis_prompts;
 /// Import release prompts
 use crate::release_prompts;
-use crate::prdoc_analysis_prompts;
 
 /// Create a new Prompts instance with all available prompts
 pub fn prompts() -> Vec<SubstratePrompt> {
@@ -271,7 +271,7 @@ pub fn prompts() -> Vec<SubstratePrompt> {
             }),
         },
     ];
-    
+
     // Add release-specific prompts
     for prompt in release_prompts::get_release_prompts() {
         let instructions = prompt.instructions.clone();
@@ -282,84 +282,93 @@ pub fn prompts() -> Vec<SubstratePrompt> {
             handler: Box::new(move |args| {
                 // Convert the prompt instructions into messages
                 let mut processed_instructions = instructions.clone();
-                
+
                 // Replace template variables
                 for (key, value) in args {
                     if let Some(str_value) = value.as_str() {
-                        processed_instructions = processed_instructions.replace(&format!("{{{{{}}}}}", key), str_value);
+                        processed_instructions =
+                            processed_instructions.replace(&format!("{{{{{key}}}}}"), str_value);
                     }
                 }
-                
+
                 Ok(vec![PromptMessage {
                     role: PromptMessageRole::User,
-                    content: PromptMessageContent::Text { text: processed_instructions },
+                    content: PromptMessageContent::Text {
+                        text: processed_instructions,
+                    },
                 }])
             }),
         });
     }
-    
+
+    // Pre-compile regex patterns once, outside the loop
+    let if_regex = regex::Regex::new(
+        r"\{\{#if project_context\}\}([\s\S]*?)\{\{else\}\}([\s\S]*?)\{\{/if\}\}",
+    )
+    .unwrap();
+    let if_only_regex =
+        regex::Regex::new(r"\{\{#if project_context\}\}([\s\S]*?)\{\{/if\}\}").unwrap();
+
     // Add analysis prompts that use parallel agents
     for prompt in prdoc_analysis_prompts::get_analysis_prompts() {
         let instructions = prompt.instructions.clone();
         let requires_parallel = prompt.requires_parallel_agents;
         let default_batch_size = prompt.agent_batch_size.unwrap_or(3);
-        
+        let if_regex_clone = if_regex.clone();
+        let if_only_regex_clone = if_only_regex.clone();
+
         all_prompts.push(SubstratePrompt {
             name: prompt.name.clone(),
             description: prompt.description,
             arguments: prompt.arguments,
             handler: Box::new(move |args| {
                 let mut processed_instructions = instructions.clone();
-                
+
                 // Get user-specified batch size or use default
                 let batch_size = args.get("batch_size")
                     .and_then(|v| v.as_str())
                     .and_then(|s| s.parse::<usize>().ok())
                     .unwrap_or(default_batch_size);
-                
+
                 // Handle conditional blocks for project_context
                 let has_project_context = args.get("project_context").is_some();
-                
+
                 // Process {{#if project_context}} ... {{else}} ... {{/if}} blocks
-                let if_regex = regex::Regex::new(r"\{\{#if project_context\}\}([\s\S]*?)\{\{else\}\}([\s\S]*?)\{\{/if\}\}").unwrap();
-                processed_instructions = if_regex.replace_all(&processed_instructions, |caps: &regex::Captures| {
+                processed_instructions = if_regex_clone.replace_all(&processed_instructions, |caps: &regex::Captures| {
                     if has_project_context {
                         caps.get(1).map_or("", |m| m.as_str()).to_string()
                     } else {
                         caps.get(2).map_or("", |m| m.as_str()).to_string()
                     }
                 }).to_string();
-                
+
                 // Handle {{#if project_context}} ... {{/if}} blocks (without else)
-                let if_only_regex = regex::Regex::new(r"\{\{#if project_context\}\}([\s\S]*?)\{\{/if\}\}").unwrap();
-                processed_instructions = if_only_regex.replace_all(&processed_instructions, |caps: &regex::Captures| {
+                processed_instructions = if_only_regex_clone.replace_all(&processed_instructions, |caps: &regex::Captures| {
                     if has_project_context {
                         caps.get(1).map_or("", |m| m.as_str()).to_string()
                     } else {
                         "".to_string()
                     }
                 }).to_string();
-                
+
                 // Replace template variables
                 for (key, value) in args {
                     if let Some(str_value) = value.as_str() {
-                        processed_instructions = processed_instructions.replace(&format!("{{{{{}}}}}", key), str_value);
+                        processed_instructions = processed_instructions.replace(&format!("{{{{{key}}}}}"), str_value);
                     }
                 }
-                
+
                 // Add batch size to instructions
                 processed_instructions = processed_instructions.replace("{{batch_size}}", &batch_size.to_string());
                 processed_instructions = processed_instructions.replace("{{agent_batch_size}}", &batch_size.to_string());
-                
+
                 // Add parallel processing note if applicable
                 if requires_parallel {
                     processed_instructions = format!(
-                        "**IMPORTANT**: This analysis REQUIRES parallel sub-agent processing with batch size {}.\n\n{}",
-                        batch_size,
-                        processed_instructions
+                        "**IMPORTANT**: This analysis REQUIRES parallel sub-agent processing with batch size {batch_size}.\n\n{processed_instructions}"
                     );
                 }
-                
+
                 Ok(vec![PromptMessage {
                     role: PromptMessageRole::User,
                     content: PromptMessageContent::Text { text: processed_instructions },
@@ -367,7 +376,7 @@ pub fn prompts() -> Vec<SubstratePrompt> {
             }),
         });
     }
-    
+
     all_prompts
 }
 
@@ -838,7 +847,7 @@ fn pallet_incentive_analysis_prompt(
     let mut prompt = format!(
         r#"{SECURITY_DISCLAIMER}
 
-You are an expert in Cryptoeconomics specializing in Substrate-based 
+You are an expert in Cryptoeconomics specializing in Substrate-based
 blockchain systems. Analyze the incentive mechanisms in the specified pallets
 using game theory and mechanism design principles.
 
@@ -895,10 +904,10 @@ pub mod pallet {{
     pub trait Config: frame_system::Config {{
         /// The overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-        
+
         /// Type representing the weight of this pallet
         type WeightInfo: WeightInfo;
-        
+
         // Add other configuration parameters based on <pallet_description>
     }}
 
@@ -938,16 +947,16 @@ pub mod pallet {{
             value: u32,
         ) -> DispatchResult {{
             let who = ensure_signed(origin)?;
-            
+
             // Validation
             ensure!(value > 0, Error::<T>::InvalidInput);
-            
+
             // State changes
             <ExampleStorage<T>>::put(value);
-            
+
             // Emit event
             Self::deposit_event(Event::SomethingHappened {{ who, value }});
-            
+
             Ok(())
         }}
     }}
@@ -1036,13 +1045,13 @@ fn example_extrinsic_works() {{
         // Arrange
         let caller = 1;
         let value = 42;
-        
+
         // Act
         assert_ok!(TemplateModule::example_extrinsic(
             RuntimeOrigin::signed(caller),
             value
         ));
-        
+
         // Assert
         assert_eq!(TemplateModule::example_storage(), value);
         System::assert_last_event(

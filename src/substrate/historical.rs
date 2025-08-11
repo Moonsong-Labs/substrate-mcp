@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct HistoricalEventsQuery {
     /// Start block (negative = relative to current)
     pub from_block: i32,
-    /// End block (negative = relative to current)  
+    /// End block (negative = relative to current)
     pub to_block: Option<i32>,
     /// Optional pallet filter
     pub pallet: Option<String>,
@@ -34,7 +34,7 @@ pub struct HistoricalEvent {
     pub block_hash: String,
     /// Pallet name
     pub pallet: String,
-    /// Event name  
+    /// Event name
     pub event: String,
     /// Event index in block
     pub event_index: u32,
