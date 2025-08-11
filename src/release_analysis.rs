@@ -211,16 +211,15 @@ impl ReleaseAnalyzer {
         let mut entries = fs::read_dir(&pr_data_dir).await?;
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
-            if path.is_dir()
-                && path
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .starts_with("pr-")
-            {
-                if let Ok(data) = self.load_single_pr(&path).await {
-                    pr_data.push(data);
+            if path.is_dir() {
+                if let Some(file_name) = path.file_name() {
+                    if let Some(name_str) = file_name.to_str() {
+                        if name_str.starts_with("pr-") {
+                            if let Ok(data) = self.load_single_pr(&path).await {
+                                pr_data.push(data);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -231,11 +230,11 @@ impl ReleaseAnalyzer {
     async fn load_single_pr(&self, pr_dir: &Path) -> Result<PrData> {
         let pr_num = pr_dir
             .file_name()
-            .unwrap()
+            .ok_or_else(|| anyhow!("Invalid PR directory path"))?
             .to_str()
-            .unwrap()
+            .ok_or_else(|| anyhow!("Invalid UTF-8 in PR directory name"))?
             .strip_prefix("pr-")
-            .unwrap()
+            .ok_or_else(|| anyhow!("PR directory name doesn't start with 'pr-'"))?
             .parse::<u32>()?;
 
         // Load metadata

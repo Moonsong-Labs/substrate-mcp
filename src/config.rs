@@ -16,6 +16,31 @@ pub struct Config {
     pub default_endpoint: String,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            endpoints: vec![
+                RpcEndpoint {
+                    name: "polkadot".to_string(),
+                    url: "wss://rpc.polkadot.io".to_string(),
+                    description: "Polkadot mainnet".to_string(),
+                },
+                RpcEndpoint {
+                    name: "kusama".to_string(),
+                    url: "wss://kusama-rpc.polkadot.io".to_string(),
+                    description: "Kusama network".to_string(),
+                },
+                RpcEndpoint {
+                    name: "westend".to_string(),
+                    url: "wss://westend-rpc.polkadot.io".to_string(),
+                    description: "Westend testnet".to_string(),
+                },
+            ],
+            default_endpoint: "polkadot".to_string(),
+        }
+    }
+}
+
 impl Config {
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = fs::read_to_string(path.as_ref())

@@ -197,7 +197,9 @@ async fn fetch_releases_until(current_version: &str) -> Result<Vec<String>> {
     let current = ReleaseVersion::parse(current_version)
         .ok_or_else(|| anyhow!("Invalid current version format: {}", current_version))?;
 
-    'pages: loop {
+    let mut should_continue = true;
+    
+    while should_continue {
         let url = format!(
             "https://api.github.com/repos/paritytech/polkadot-sdk/releases?per_page=100&page={page}"
         );
@@ -224,7 +226,8 @@ async fn fetch_releases_until(current_version: &str) -> Result<Vec<String>> {
             .map_err(|e| anyhow!("Failed to parse releases: {}", e))?;
 
         if releases.is_empty() {
-            break;
+            should_continue = false;
+            continue;
         }
 
         for release in releases {
@@ -237,14 +240,17 @@ async fn fetch_releases_until(current_version: &str) -> Result<Vec<String>> {
             if let Some(version) = ReleaseVersion::parse(&release.tag_name) {
                 // Check if we've reached the current version
                 if version <= current {
-                    break 'pages;
+                    should_continue = false;
+                    break;
                 }
 
                 all_releases.push(release.tag_name.clone());
             }
         }
 
-        page += 1;
+        if should_continue {
+            page += 1;
+        }
     }
 
     // Cache the results (only sets if not already set by another thread)

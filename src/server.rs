@@ -136,11 +136,12 @@ impl Default for SubstrateService {
 #[tool_router]
 impl SubstrateService {
     pub fn new() -> Self {
+        // Try to load config, fall back to default if it doesn't exist
         let config = Config::load_from_file("rpc_endpoints.json").unwrap_or_else(|e| {
-            log::error!("Failed to load config file 'rpc_endpoints.json': {e}");
-            log::error!("Please ensure rpc_endpoints.json exists in the current directory");
-            log::error!("You can find an example configuration in the repository");
-            std::process::exit(1);
+            log::warn!("Failed to load config file 'rpc_endpoints.json': {e}");
+            log::warn!("Using default configuration with public endpoints");
+            // Return a default config instead of exiting
+            Config::default()
         });
 
         Self {
