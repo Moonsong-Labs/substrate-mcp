@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use tokio::fs;
 
 // GitHub API structures
@@ -180,16 +181,14 @@ impl std::fmt::Display for ReleaseVersion {
     }
 }
 
-// In-memory cache for releases
-static mut RELEASE_CACHE: Option<Vec<String>> = None;
+// Thread-safe in-memory cache for releases
+static RELEASE_CACHE: OnceLock<Vec<String>> = OnceLock::new();
 
 /// Fetch releases from GitHub, stopping when we reach the current version
 async fn fetch_releases_until(current_version: &str) -> Result<Vec<String>> {
     // Check cache first
-    unsafe {
-        if let Some(ref cache) = RELEASE_CACHE {
-            return Ok(cache.clone());
-        }
+    if let Some(cache) = RELEASE_CACHE.get() {
+        return Ok(cache.clone());
     }
 
     let client = reqwest::Client::new();
@@ -248,10 +247,8 @@ async fn fetch_releases_until(current_version: &str) -> Result<Vec<String>> {
         page += 1;
     }
 
-    // Cache the results
-    unsafe {
-        RELEASE_CACHE = Some(all_releases.clone());
-    }
+    // Cache the results (only sets if not already set by another thread)
+    let _ = RELEASE_CACHE.set(all_releases.clone());
 
     Ok(all_releases)
 }
