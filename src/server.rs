@@ -21,7 +21,7 @@ use crate::resources;
 use crate::substrate::client::SubstrateClient;
 use crate::substrate::events::EventFilter;
 use crate::substrate::historical::{query_historical_events, HistoricalEventsQuery};
-use crate::substrate::metadata::{MetadataFilter, get_call_metadata};
+use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::storage::{list_pallet_storage, StorageQuery};
 use crate::substrate::utils::validate_rpc_url;
 
@@ -117,16 +117,6 @@ pub struct QueryHistoricalEventsArgs {
     pub pallet: Option<String>,
     /// Filter by event name (optional)
     pub event: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct GetCallMetadataArgs {
-    /// The RPC URL to connect to
-    pub rpc_url: String,
-    /// The pallet name (e.g., "Balances", "System")
-    pub pallet: String,
-    /// The call name (e.g., "transfer", "remark")
-    pub call: String,
 }
 
 impl Default for SubstrateService {
@@ -568,55 +558,13 @@ impl SubstrateService {
     )]
     pub async fn get_call_metadata(
         &self,
-        Parameters(args): Parameters<GetCallMetadataArgs>,
+        Parameters(properties): Parameters<tools::GetCallMetadataProperties>,
     ) -> Result<CallToolResult, McpError> {
-        // Validate URL
-        if let Err(e) = validate_rpc_url(&args.rpc_url) {
-            return Err(McpError {
-                code: rmcp::model::ErrorCode(-32602),
-                message: format!("Invalid RPC URL: {e}").into(),
-                data: None,
-            });
-        }
-
-        // Connect to the chain using subxt
-        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
-            .await
-            .map_err(|e| McpError {
-                code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to connect to chain: {e}").into(),
-                data: None,
-            })?;
-
-        // Get metadata
-        let metadata = client.metadata();
-
-        // Extract call metadata
-        let call_detail = get_call_metadata(&metadata, &args.pallet, &args.call)
-            .map_err(|e| McpError {
-                code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to get call metadata: {e}").into(),
-                data: None,
-            })?;
-
-        // Convert to JSON
-        let json_result = serde_json::to_string_pretty(&call_detail).map_err(|e| McpError {
-            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-            message: format!("Serialization error: {e}").into(),
-            data: None,
-        })?;
-
-        Ok(CallToolResult {
-            content: vec![Content {
-                annotations: None,
-                raw: RawContent::Text(RawTextContent { text: json_result }),
-            }],
-            is_error: None,
-        })
+        tools::handle_get_call_metadata(properties).await
     }
 
     #[tool(
-        description = "Submit a generic extrinsic to a Substrate chain using dev accounts. Supports any pallet call with arbitrary arguments. Use dev account names like 'alice', 'bob', 'charlie', etc. for signing. Recommend using get_call_metadata first to understand argument format. Arguments must be in scale_value string format - consult the 'substrate:scale-value-format' resource for detailed syntax and examples."
+        description = "Submit a generic extrinsic to a Substrate chain using dev accounts. Supports any pallet call with arbitrary arguments. Use dev account names like 'alice', 'bob', 'charlie', etc. for signing. Recommend using get_call_metadata first to understand argument format. Arguments must be in scale_value string format and will be parsed using scale_value::stringify::from_str - consult the 'substrate:scale-value-format' resource for detailed syntax and examples."
     )]
     pub async fn submit_extrinsic(
         &self,
