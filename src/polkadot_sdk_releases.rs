@@ -198,7 +198,7 @@ async fn fetch_releases_until(current_version: &str) -> Result<Vec<String>> {
         .ok_or_else(|| anyhow!("Invalid current version format: {}", current_version))?;
 
     let mut should_continue = true;
-    
+
     while should_continue {
         let url = format!(
             "https://api.github.com/repos/paritytech/polkadot-sdk/releases?per_page=100&page={page}"
@@ -782,15 +782,15 @@ mod tests {
     #[test]
     fn test_audience_parsing_string_format() {
         // Test case for PR #6825 format (audience as string)
-        let yaml_content = r#"
-title: Test string audience
-doc:
-  - audience: Runtime Dev
-    description: Test description
-crates:
-  - name: test-crate
-    bump: patch
-"#;
+        let yaml_content = indoc::indoc! {"
+            title: Test string audience
+            doc:
+              - audience: Runtime Dev
+                description: Test description
+            crates:
+              - name: test-crate
+                bump: patch
+        "};
 
         let prdoc: Result<PrDoc, _> = serde_yaml::from_str(yaml_content);
         assert!(prdoc.is_ok(), "Failed to parse string audience format");
@@ -807,17 +807,17 @@ crates:
     #[test]
     fn test_audience_parsing_array_format() {
         // Test case for PR #7028 format (audience as array)
-        let yaml_content = r#"
-title: Test array audience
-doc:
-- audience:
-  - Runtime Dev
-  - Runtime User
-  description: Test description
-crates:
-- name: test-crate
-  bump: major
-"#;
+        let yaml_content = indoc::indoc! {"
+            title: Test array audience
+            doc:
+            - audience:
+              - Runtime Dev
+              - Runtime User
+              description: Test description
+            crates:
+            - name: test-crate
+              bump: major
+        "};
 
         let prdoc: Result<PrDoc, _> = serde_yaml::from_str(yaml_content);
         assert!(
@@ -842,13 +842,13 @@ crates:
     #[test]
     fn test_audience_parsing_inline_array_format() {
         // Test case for PR #7074 format (audience as inline array)
-        let yaml_content = r#"
-title: Test inline array audience
-doc:
-  - audience: [ Node Dev, Runtime Dev]
-    description: Test description
-crates: [ ]
-"#;
+        let yaml_content = indoc::indoc! {"
+            title: Test inline array audience
+            doc:
+              - audience: [ Node Dev, Runtime Dev]
+                description: Test description
+            crates: [ ]
+        "};
 
         let prdoc: Result<PrDoc, _> = serde_yaml::from_str(yaml_content);
         assert!(
