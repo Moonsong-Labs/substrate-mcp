@@ -13,9 +13,13 @@ substrate-mcp/
 ├── LICENSE             # Project license
 ├── README.md           # User-facing documentation with installation/usage instructions
 ├── CLAUDE.md           # This file - development guidance
+├── rpc_endpoints.toml  # Configuration file for RPC endpoints (optional)
 └── src/
     ├── main.rs         # Entry point with tokio async runtime
-    └── server.rs       # MCP server implementation with tool routing
+    ├── server.rs       # MCP server implementation with tool routing
+    ├── config.rs       # RPC endpoint configuration management
+    └── substrate/      # Substrate client implementation
+        └── client.rs   # RPC client for interacting with nodes
 
 ## Development Commands
 
@@ -63,9 +67,13 @@ This server follows the standard MCP communication pattern:
 ### Current State
 The server currently has:
 - Basic MCP server infrastructure set up
-- One placeholder tool: `say_hello` that returns "Hello, World! From substrate MCP"
-- Server info indicating it's for "Tools and Prompts to work with Substrate based blockchains"
-- Only tools capability enabled (prompts and resources disabled)
+- Several functional tools:
+  - `get_polkadot_sdk_release_prdocs`: Fetches PR documentation for SDK releases
+  - `chain_storage_bisect`: Finds storage changes between blocks
+  - `list_rpc_endpoints`: Lists configured RPC endpoints
+- Configuration system for RPC endpoints via `rpc_endpoints.toml`
+- Server info indicating it's for Substrate-based blockchain development
+- Both tools and resources capabilities enabled
 - Server name: "substrate-mcp" (version 0.1.0)
 
 ### Adding New Tools
@@ -96,6 +104,16 @@ The project can be installed via:
 - Local build: `cargo build --release`
 
 For Claude Code configuration, see README.md for detailed setup instructions.
+
+## Configuration
+The server supports an optional `rpc_endpoints.toml` configuration file for managing RPC endpoints. If not present, built-in defaults are used. The configuration allows:
+- Named endpoints for easier reference (e.g., use "polkadot" instead of full WSS URL)
+- Custom endpoints for private or specialized nodes
+- Human and LLM-friendly descriptions for each endpoint
+
+Tools that accept RPC URLs can use either:
+- Endpoint names from the config (e.g., "local", "polkadot", "kusama")
+- Direct URLs (http://, https://, ws://, wss://)
 ## Substrate Integration Guidelines
 
 ### Preferred Crates

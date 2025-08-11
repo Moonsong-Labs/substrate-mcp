@@ -12,17 +12,18 @@ use std::future::Future;
 use std::process::Stdio;
 use tokio::process::Command;
 
+use crate::config::Config;
 use crate::polkadot_sdk_releases;
 use crate::prompts;
 use serde::Deserialize;
 
-use crate::config::Config;
 use crate::resources;
 use crate::substrate::client::SubstrateClient;
 use crate::substrate::events::EventFilter;
 use crate::substrate::historical::{query_historical_events, HistoricalEventsQuery};
 use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::storage::{list_pallet_storage, StorageQuery};
+use std::sync::Arc;
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -31,27 +32,61 @@ pub struct StorageBisectArgs {
     pub start_block: u32,
     pub end_block: u32,
     pub key: String,
-    pub rpc_url: Option<String>,
+    pub rpc_url: String,
 }
 
 #[derive(Clone)]
 pub struct SubstrateService {
     tool_router: ToolRouter<Self>,
-    config: Config,
+    rpc_config: Arc<Config>,
+}
+
+/// Validates if a string is a valid RPC URL textually (without connecting)
+fn validate_rpc_url(url: &str) -> Result<(), String> {
+    // Check if it starts with a valid protocol
+    if !url.starts_with("ws://")
+        && !url.starts_with("wss://")
+        && !url.starts_with("http://")
+        && !url.starts_with("https://")
+    {
+        return Err("URL must start with ws://, wss://, http://, or https://".to_string());
+    }
+
+    // Basic URL structure validation
+    if url.len() < 10 {
+        // Minimum: ws://a.b
+        return Err("URL is too short".to_string());
+    }
+
+    // Check for basic URL structure
+    let after_protocol = if let Some(stripped) = url.strip_prefix("ws://") {
+        stripped
+    } else if let Some(stripped) = url.strip_prefix("wss://") {
+        stripped
+    } else if let Some(stripped) = url.strip_prefix("http://") {
+        stripped
+    } else if let Some(stripped) = url.strip_prefix("https://") {
+        stripped
+    } else {
+        return Err("Invalid protocol".to_string());
+    };
+
+    // Must have at least one character after protocol
+    if after_protocol.is_empty() {
+        return Err("URL must have a host after the protocol".to_string());
+    }
+
+    // Check for spaces or invalid characters
+    if url.contains(' ') || url.contains('\n') || url.contains('\t') {
+        return Err("URL contains invalid whitespace characters".to_string());
+    }
+
+    Ok(())
 }
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
 pub struct GetPolkadotSdkReleasePrdocsRequest {
-    /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412').
-    /// Can also be a range using '>': 'stable2502>stable2503-2' to get all releases between them.
-    pub release: String,
-}
-
-#[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
-pub struct AnalyzeReleaseRequest {
-    /// polkadot-sdk release(s) to analyze (must have PR analysis data available).
-    /// Can be a single release or comma-separated list for cross-release analysis.
-    /// Example: "stable2412" or "stable2412,stable2412-1,stable2412-2"
+    /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412')
     pub release: String,
 }
 
@@ -63,8 +98,8 @@ pub struct SubxtExecuteArgs {
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct MetadataFilterArgs {
-    /// The RPC URL to connect to (defaults to public Polkadot endpoint)
-    pub rpc_url: Option<String>,
+    /// The RPC URL to connect to
+    pub rpc_url: String,
     /// Filter by item type (e.g., "pallet", "storage", "call", "event", "constant", "error")
     pub item_type: Option<String>,
     /// Filter by pallet name (supports partial matching)
@@ -77,8 +112,8 @@ pub struct MetadataFilterArgs {
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct EventFilterArgs {
-    /// The RPC URL to connect to (defaults to public Polkadot endpoint)
-    pub rpc_url: Option<String>,
+    /// The RPC URL to connect to
+    pub rpc_url: String,
     /// Filter by pallet name (supports partial matching)
     pub pallet: Option<String>,
     /// Filter by event variant name (supports partial matching)
@@ -93,8 +128,8 @@ pub struct EventFilterArgs {
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct StorageQueryArgs {
-    /// The RPC URL to connect to (defaults to public Polkadot endpoint)
-    pub rpc_url: Option<String>,
+    /// The RPC URL to connect to
+    pub rpc_url: String,
     /// The pallet name
     pub pallet: String,
     /// The storage entry name
@@ -107,16 +142,16 @@ pub struct StorageQueryArgs {
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct ListPalletStorageArgs {
-    /// The RPC URL to connect to (defaults to public Polkadot endpoint)
-    pub rpc_url: Option<String>,
+    /// The RPC URL to connect to
+    pub rpc_url: String,
     /// The pallet name
     pub pallet: String,
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct QueryHistoricalEventsArgs {
-    /// The RPC endpoint to connect to. Can be 'polkadot', 'kusama', 'westend', or a custom endpoint without protocol prefix
-    pub endpoint: Option<String>,
+    /// The RPC endpoint to connect to
+    pub rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
     pub from_block: i32,
     /// End block number (negative = relative to current, defaults to from_block)
@@ -136,176 +171,22 @@ impl Default for SubstrateService {
 #[tool_router]
 impl SubstrateService {
     pub fn new() -> Self {
-        // Try to load config, fall back to default if it doesn't exist
-        let config = Config::load_from_file("rpc_endpoints.json").unwrap_or_else(|e| {
-            log::warn!("Failed to load config file 'rpc_endpoints.json': {e}");
-            log::warn!("Using default configuration with public endpoints");
-            // Return a default config instead of exiting
-            Config::default()
-        });
+        let rpc_config = Arc::new(Config::default());
 
         Self {
             tool_router: Self::tool_router(),
-            config,
+            rpc_config,
         }
     }
 
-    fn get_rpc_url(&self, url_option: Option<String>) -> String {
-        url_option.unwrap_or_else(|| {
-            self.config
-                .get_default_url()
-                .unwrap_or("wss://westend-rpc.polkadot.io")
-                .to_string()
-        })
-    }
-
-    #[tool(
-        description = "Get all documented changes for a given polkadot-sdk release. Downloads PRDoc files to ./polkadot-release-analysis/releases/{release}/pr-docs/ directory in your current working directory.
-
-Files are saved to: ./polkadot-release-analysis/releases/{release}/pr-docs/
-- Individual PRDocs: pr_XXXX.prdoc
-- manifest.json: Basic metadata (release, total PRDocs, PR numbers from filenames, download date)
-- crate_summary.json: Changes grouped by crate with bump levels (major/minor/patch/none) and counts
-- audience_summary.json: Changes grouped by target audience (Runtime Dev, Node Dev, Runtime User, Node Operator)
-
-These manifests enable efficient analysis without parsing all PRDocs individually. After downloading, use standard file tools (Read, Grep, etc.) to explore the PRDocs."
-    )]
+    #[tool(description = "Get all documented changes for a given polkadot-sdk release")]
     pub async fn get_polkadot_sdk_release_prdocs(
         &self,
         Parameters(GetPolkadotSdkReleasePrdocsRequest { release }): Parameters<
             GetPolkadotSdkReleasePrdocsRequest,
         >,
     ) -> Result<CallToolResult, McpError> {
-        // Check if this is a version range
-        if release.contains('>') {
-            // Handle version range: current>target
-            let parts: Vec<&str> = release.split('>').collect();
-            if parts.len() != 2 {
-                return Err(McpError {
-                    code: rmcp::model::ErrorCode::INVALID_PARAMS,
-                    message: "Invalid version range format. Use: 'current>target' (e.g., 'stable2502>stable2503-2')".into(),
-                    data: None,
-                });
-            }
-
-            let current_version = parts[0].trim();
-            let target_version = parts[1].trim();
-
-            // Get all releases in the range
-            let releases =
-                polkadot_sdk_releases::get_releases_between(current_version, target_version)
-                    .await
-                    .map_err(|e| McpError {
-                        code: rmcp::model::ErrorCode(-32603),
-                        message: e.to_string().into(),
-                        data: None,
-                    })?;
-
-            if releases.is_empty() {
-                return Ok(CallToolResult {
-                    content: vec![Content {
-                        annotations: None,
-                        raw: RawContent::Text(RawTextContent {
-                            text: format!(
-                                "No releases found between {current_version} and {target_version}"
-                            ),
-                        }),
-                    }],
-                    is_error: None,
-                });
-            }
-
-            // Download PRDocs for each release
-            let mut total_files = 0;
-            let mut total_size = 0;
-            let mut downloaded_releases = Vec::new();
-
-            for release_version in &releases {
-                match polkadot_sdk_releases::query_prdocs(release_version).await {
-                    Ok(result) => {
-                        if result.success {
-                            total_files += result.file_count;
-                            total_size += result.total_size;
-                            downloaded_releases.push(release_version.clone());
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to download PRDocs for {release_version}: {e}");
-                    }
-                }
-            }
-
-            let response_text = format!(
-                "Downloaded PRDocs for {} releases between {} and {}:\n\nReleases processed: {}\n\nTotal files: {}\nTotal size: {} bytes\n\n📁 PRDocs saved to: ./polkadot-release-analysis/releases/\nEach release has its own subdirectory with pr-docs/\n\nYou can now use standard file operations (LS, Read, Glob, Grep) to explore the PRDocs.",
-                downloaded_releases.len(),
-                current_version,
-                target_version,
-                downloaded_releases.join(", "),
-                total_files,
-                total_size
-            );
-
-            Ok(CallToolResult {
-                content: vec![Content {
-                    annotations: None,
-                    raw: RawContent::Text(RawTextContent {
-                        text: response_text,
-                    }),
-                }],
-                is_error: None,
-            })
-        } else {
-            // Single release
-            let result = polkadot_sdk_releases::query_prdocs(&release)
-                .await
-                .map_err(|e| McpError {
-                    code: rmcp::model::ErrorCode(-32603),
-                    message: e.to_string().into(),
-                    data: None,
-                })?;
-
-            let response_text = if result.success {
-                format!(
-                    "Successfully downloaded {} PRDoc files for release '{}' to:\n{}\n\nTotal size: {} bytes\n\nYou can now use standard file operations (LS, Read, Glob, Grep) to explore the PRDocs.",
-                    result.file_count,
-                    result.release,
-                    result.output_dir.display(),
-                    result.total_size
-                )
-            } else {
-                format!(
-                    "No PRDoc files found for release '{}'. The directory {} was created but is empty.",
-                    result.release,
-                    result.output_dir.display()
-                )
-            };
-
-            Ok(CallToolResult {
-                content: vec![Content {
-                    annotations: None,
-                    raw: RawContent::Text(RawTextContent {
-                        text: response_text,
-                    }),
-                }],
-                is_error: None,
-            })
-        }
-    }
-
-    #[tool(
-        description = "Analyze Polkadot SDK release(s) and return data for generating a comprehensive markdown report with migration guides, breaking changes, security analysis, and PR-by-PR breakdown. IMPORTANT: After using this tool, YOU (the LLM) MUST create a markdown file with the analysis results - this is mandatory unless explicitly told not to. Save the markdown file to ./polkadot-release-analysis/releases/{release}/reports/. This tool expects PRDoc data to be in ./polkadot-release-analysis/releases/{release}/pr-docs/ (use get_polkadot_sdk_release_prdocs first to download). The tool itself returns analysis prompts and data; YOU must execute the analysis and create the report file. Supports single or multiple releases (comma-separated)."
-    )]
-    pub async fn analyze_release(
-        &self,
-        Parameters(AnalyzeReleaseRequest { release }): Parameters<AnalyzeReleaseRequest>,
-    ) -> Result<CallToolResult, McpError> {
-        let base_path = std::env::current_dir().map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to get current directory: {e}").into(),
-            data: None,
-        })?;
-
-        let analysis_path = crate::release_analysis::analyze_polkadot_release(&release, base_path)
+        let response = polkadot_sdk_releases::query_prdocs(&release)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
@@ -313,27 +194,18 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
                 data: None,
             })?;
 
-        // Check if multiple releases were analyzed
-        let releases: Vec<&str> = release.split(',').map(|s| s.trim()).collect();
-        let response_text = if releases.len() > 1 {
-            format!(
-                "Successfully analyzed {} releases: {}. Combined analysis saved to:\n{}\n\nThe analysis includes data for each release:\n- Release summaries with PR counts by category\n- Comprehensive index of all PRs across releases\n- Impact analysis for breaking changes and migrations\n- Cross-release dependency tracking\n- Cumulative change analysis\n\nUse Read to view the full analysis JSON.",
-                releases.len(),
-                releases.join(", "),
-                analysis_path
-            )
-        } else {
-            format!(
-                "Successfully analyzed release '{release}'. Analysis saved to:\n{analysis_path}\n\nThe analysis includes:\n- Release summary with PR counts by category\n- Comprehensive index of all PRs\n- Impact analysis for breaking changes and migrations\n- Categorization by subsystem and audience\n- Change relationships and dependencies\n\nUse Read to view the full analysis JSON."
-            )
-        };
+        // Format the response as JSON string
+        let response_text = serde_json::to_string_pretty(&response)
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to serialize response: {}", e).into(),
+                data: None,
+            })?;
 
         Ok(CallToolResult {
             content: vec![Content {
                 annotations: None,
-                raw: RawContent::Text(RawTextContent {
-                    text: response_text,
-                }),
+                raw: RawContent::Text(RawTextContent { text: response_text }),
             }],
             is_error: None,
         })
@@ -346,14 +218,23 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
         &self,
         Parameters(args): Parameters<StorageBisectArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let url = self.get_rpc_url(args.rpc_url);
-        let chain_name = crate::config::chain_name_from_endpoint(&url, &self.config);
-        log::info!("Connecting to {chain_name} at {url}");
-        let client = SubstrateClient::connect(&url).await.map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: e.to_string().into(),
-            data: None,
-        })?;
+        // Validate URL if provided
+        if let Err(e) = validate_rpc_url(&args.rpc_url) {
+            return Err(McpError {
+                code: rmcp::model::ErrorCode(-32602),
+                message: format!("Invalid RPC URL: {e}").into(),
+                data: None,
+            });
+        }
+
+        log::info!("Connecting to {}", args.rpc_url);
+        let client = SubstrateClient::connect(&args.rpc_url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: e.to_string().into(),
+                data: None,
+            })?;
 
         let result = client
             .find_all_storage_changes(args.start_block, args.end_block, args.key)
@@ -449,10 +330,17 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
         &self,
         Parameters(args): Parameters<MetadataFilterArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let url = self.get_rpc_url(args.rpc_url);
+        // Validate URL if provided
+        if let Err(e) = validate_rpc_url(&args.rpc_url) {
+            return Err(McpError {
+                code: rmcp::model::ErrorCode(-32602),
+                message: format!("Invalid RPC URL: {e}").into(),
+                data: None,
+            });
+        }
 
         // Connect to the chain using subxt
-        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
@@ -501,10 +389,17 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
         &self,
         Parameters(args): Parameters<EventFilterArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let url = self.get_rpc_url(args.rpc_url);
+        // Validate URL if provided
+        if let Err(e) = validate_rpc_url(&args.rpc_url) {
+            return Err(McpError {
+                code: rmcp::model::ErrorCode(-32602),
+                message: format!("Invalid RPC URL: {e}").into(),
+                data: None,
+            });
+        }
 
         // Connect to the chain using subxt
-        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
@@ -551,10 +446,17 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
         &self,
         Parameters(args): Parameters<StorageQueryArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let url = self.get_rpc_url(args.rpc_url);
+        // Validate URL if provided
+        if let Err(e) = validate_rpc_url(&args.rpc_url) {
+            return Err(McpError {
+                code: rmcp::model::ErrorCode(-32602),
+                message: format!("Invalid RPC URL: {e}").into(),
+                data: None,
+            });
+        }
 
         // Connect to the chain using subxt
-        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
@@ -600,10 +502,17 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
         &self,
         Parameters(args): Parameters<ListPalletStorageArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let url = self.get_rpc_url(args.rpc_url);
+        // Validate URL if provided
+        if let Err(e) = validate_rpc_url(&args.rpc_url) {
+            return Err(McpError {
+                code: rmcp::model::ErrorCode(-32602),
+                message: format!("Invalid RPC URL: {e}").into(),
+                data: None,
+            });
+        }
 
         // Connect to the chain using subxt
-        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
@@ -643,39 +552,25 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
         &self,
         Parameters(args): Parameters<QueryHistoricalEventsArgs>,
     ) -> Result<CallToolResult, McpError> {
-        // Handle endpoint parameter - if it's a known network name, use the full URL from config
-        // Otherwise, prepend wss:// to the endpoint
-        let url = match args.endpoint.as_deref() {
-            Some(name) => {
-                // Check if it's a known endpoint name in config
-                if let Some(endpoint_url) = self.config.get_endpoint_url(name) {
-                    endpoint_url.to_string()
-                } else {
-                    // Handle different protocol schemes for custom endpoints
-                    if name.starts_with("ws://") || name.starts_with("wss://") {
-                        // WebSocket URLs are used as-is
-                        name.to_string()
-                    } else if name.starts_with("http://") {
-                        // Convert HTTP to WSS
-                        name.replace("http://", "wss://")
-                    } else if name.starts_with("https://") {
-                        // Convert HTTPS to WSS
-                        name.replace("https://", "wss://")
-                    } else {
-                        // Assume it's a hostname and prepend wss://
-                        format!("wss://{name}")
-                    }
-                }
-            }
-            None => self.get_rpc_url(None),
-        };
+        // Validate URL if provided
+        if let Err(e) = validate_rpc_url(&args.rpc_url) {
+            return Err(McpError {
+                code: rmcp::model::ErrorCode(-32602),
+                message: format!("Invalid RPC URL: {e}").into(),
+                data: None,
+            });
+        }
 
-        // Connect to the chain using subxt for metadata
-        let client = OnlineClient::<PolkadotConfig>::from_url(&url)
+        // Connect to the chain using subxt
+        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to connect to chain with URL '{url}': {e}").into(),
+                message: format!(
+                    "Failed to connect to chain with URL '{}': {e}",
+                    args.rpc_url
+                )
+                .into(),
                 data: None,
             })?;
 
@@ -688,7 +583,7 @@ These manifests enable efficient analysis without parsing all PRDocs individuall
         };
 
         // Query historical events
-        let result = query_historical_events(query, &client, &url)
+        let result = query_historical_events(query, &client, &args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
@@ -778,3 +673,4 @@ impl ServerHandler for SubstrateService {
         }
     }
 }
+

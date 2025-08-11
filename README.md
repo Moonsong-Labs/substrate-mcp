@@ -158,6 +158,38 @@ The Substrate MCP server provides several specialized prompts for Substrate deve
 **Arguments**:
 - `target_pallet` (required): Pallet to make the analysis for
 
+## Configuration
+
+### RPC Endpoints
+
+The server uses a configuration file (`rpc_endpoints.toml`) to manage RPC endpoints for different Substrate-based networks. This file is optional - if not present, the server will use built-in defaults.
+
+To customize endpoints, create an `rpc_endpoints.toml` file in the same directory where you run the MCP server:
+
+```toml
+[[endpoints]]
+name = "local"
+url = "http://127.0.0.1:9944"
+description = "Local development node"
+
+[[endpoints]]
+name = "polkadot"
+url = "wss://rpc.polkadot.io"
+description = "Polkadot mainnet"
+
+[[endpoints]]
+name = "my-custom-node"
+url = "ws://my-node.example.com:9944"
+description = "My custom Substrate node"
+```
+
+You can then use endpoint names instead of URLs in tools:
+- Use `"polkadot"` instead of `"wss://rpc.polkadot.io"`
+- Use `"local"` instead of `"http://127.0.0.1:9944"`
+- Direct URLs are still supported for endpoints not in the config
+
+Use the `list_rpc_endpoints` tool to see all available configured endpoints.
+
 ## License
 
 [LICENSE](LICENSE)
