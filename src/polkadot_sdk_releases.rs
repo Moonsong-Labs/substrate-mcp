@@ -635,7 +635,7 @@ Each file corresponds to a pull request that was included in this release.
         .map_err(|e| anyhow!("Failed to write RELEASE_SUMMARY.md: {}", e))?;
 
     // Fetch and save GitHub labels
-    if let Err(e) = fetch_and_save_labels(&client, &output_dir, &pr_numbers).await {
+    if let Err(e) = fetch_and_save_github_labels(&client, &output_dir, &pr_numbers).await {
         eprintln!("Warning: Failed to fetch GitHub labels: {e}");
         // Continue without labels - this is non-blocking
     }
