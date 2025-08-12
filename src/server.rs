@@ -23,7 +23,6 @@ use crate::substrate::extrinsic::{query_extrinsics, ExtrinsicsQuery};
 use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::runtime::list_runtime_changes;
 use crate::substrate::storage::{list_pallet_storage, query_storage, StorageQuery};
-use crate::substrate::utils::validate_rpc_url;
 
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
