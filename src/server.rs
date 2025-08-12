@@ -78,7 +78,7 @@ pub struct QueryHistoricalStorageProperties {
     pub rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
     pub from_block: i32,
-    /// End block number (negative = relative to current, defaults to from_block if not specified)
+    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
     pub to_block: Option<i32>,
     /// The pallet name
     pub pallet: String,
@@ -100,7 +100,7 @@ pub struct ListPalletStorageArgs {
 pub struct QueryHistoricalEventsArgs {
     /// The RPC endpoint to connect to
     pub rpc_url: String,
-    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
     pub from_block: i32,
     /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
     pub to_block: Option<i32>,
@@ -130,7 +130,7 @@ pub struct QueryHistoricalExtrinsicsProperties {
 pub struct ListRuntimeChangesProperties {
     /// The RPC endpoint to connect to
     pub rpc_url: String,
-    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
     pub from_block: i32,
     /// End block number (negative = relative to current, defaults to current block. Leaving this blank will return a single block equal to from_block)
     pub to_block: Option<i32>,
@@ -332,7 +332,7 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys. Use this to read chain state like account balances, staking info, or governance proposals. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is not specified, will query only from_block."
+        description = "Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys. Use this to read chain state like account balances, staking info, or governance proposals. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters."
     )]
     pub async fn query_historical_storage(
         &self,
@@ -423,7 +423,7 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query events from historical blocks. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters. Uses hybrid approach: RPC for historical access, subxt for decoding."
+        description = "Query events from historical blocks. Uses hybrid approach: RPC for historical access, subxt for decoding. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters."
     )]
     pub async fn query_historical_events(
         &self,
@@ -476,7 +476,7 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query extrinsics from historical blocks. Supports filtering by pallet, call name, and signer address. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters. Returns decoded transaction data including signer, call info, and arguments."
+        description = "Query extrinsics from historical blocks. Supports filtering by pallet, call name, and signer address. Returns decoded transaction data including signer, call info, and arguments. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters."
     )]
     pub async fn query_historical_extrinsics(
         &self,
@@ -530,7 +530,7 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "List all runtime changes (upgrades) in a block range with detailed information including events, storage changes, and transactions for each upgrade block. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block. "
+        description = "List all runtime changes (upgrades) in a block range with detailed information including events, storage changes, and transactions for each upgrade block. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters."
     )]
     pub async fn list_runtime_changes(
         &self,
