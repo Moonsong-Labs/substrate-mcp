@@ -29,8 +29,6 @@ pub struct ExtrinsicsResult {
     pub extrinsics: Vec<Extrinsic>,
     /// Number of blocks queried
     pub blocks_queried: u32,
-    /// Current block height
-    pub current_block: u32,
 }
 
 /// A extrinsic with decoded data
@@ -64,20 +62,11 @@ pub async fn query_extrinsics(
     subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
 ) -> Result<ExtrinsicsResult> {
+    // Get block range from query parameters
+    let (from, to) = utils::get_block_range(query.from_block, query.to_block, subxt_client).await?;
+
     // Create RPC client for historical queries
     let rpc_client = utils::RpcClient::new(rpc_url).await?;
-
-    // Get current block number
-    let latest_block = subxt_client.blocks().at_latest().await?;
-    let current_block = latest_block.header().number;
-
-    // Calculate actual block range
-    let from = utils::calculate_block_number(query.from_block, current_block);
-
-    let to = match query.to_block {
-        Some(b) => utils::calculate_block_number(b, current_block),
-        None => from, // Default to single block if not specified
-    };
 
     let mut all_extrinsics = Vec::new();
     let blocks_queried = to - from + 1;
@@ -131,7 +120,6 @@ pub async fn query_extrinsics(
     Ok(ExtrinsicsResult {
         extrinsics: all_extrinsics,
         blocks_queried,
-        current_block,
     })
 }
 

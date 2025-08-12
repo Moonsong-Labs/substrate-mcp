@@ -23,8 +23,6 @@ pub struct RuntimeUpgradeResult {
     pub upgrades: Vec<RuntimeUpgrade>,
     /// Number of blocks queried
     pub blocks_queried: u32,
-    /// Current block height
-    pub current_block: u32,
 }
 
 /// A runtime upgrade occurrence
@@ -99,20 +97,11 @@ pub async fn query_runtime_upgrades(
     subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
 ) -> Result<RuntimeUpgradeResult> {
+    // Get block range from query parameters
+    let (from, to) = utils::get_block_range(query.from_block, query.to_block, subxt_client).await?;
+
     // Create RPC client for historical queries
     let rpc_client = utils::RpcClient::new(rpc_url).await?;
-
-    // Get current block number
-    let latest_block = subxt_client.blocks().at_latest().await?;
-    let current_block = latest_block.header().number;
-
-    // Calculate actual block range
-    let from = utils::calculate_block_number(query.from_block, current_block);
-
-    let to = match query.to_block {
-        Some(b) => utils::calculate_block_number(b, current_block),
-        None => current_block,
-    };
 
     let mut upgrades = Vec::new();
     let blocks_queried = to - from + 1;
@@ -185,7 +174,6 @@ pub async fn query_runtime_upgrades(
     Ok(RuntimeUpgradeResult {
         upgrades,
         blocks_queried,
-        current_block,
     })
 }
 

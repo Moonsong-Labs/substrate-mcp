@@ -57,8 +57,6 @@ pub struct HistoricalEventsResult {
     pub events: Vec<Event>,
     /// Number of blocks queried
     pub blocks_queried: u32,
-    /// Current block height
-    pub current_block: u32,
 }
 
 /// A historical event with decoded data
@@ -116,20 +114,11 @@ pub async fn query_historical_events(
     subxt_client: &subxt::OnlineClient<subxt::PolkadotConfig>,
     rpc_url: &str,
 ) -> Result<HistoricalEventsResult> {
+    // Get block range from query parameters
+    let (from, to) = utils::get_block_range(query.from_block, query.to_block, subxt_client).await?;
+
     // Create WebSocket RPC client for historical queries
     let rpc_client = utils::RpcClient::new(rpc_url).await?;
-
-    // Get current block number
-    let latest_block = subxt_client.blocks().at_latest().await?;
-    let current_block = latest_block.header().number;
-
-    // Calculate actual block range
-    let from = utils::calculate_block_number(query.from_block, current_block);
-
-    let to = match query.to_block {
-        Some(b) => utils::calculate_block_number(b, current_block),
-        None => current_block, // Default to current block if not specified
-    };
 
     let mut all_events = Vec::new();
     let blocks_queried = to - from + 1;
@@ -168,7 +157,6 @@ pub async fn query_historical_events(
     Ok(HistoricalEventsResult {
         events: all_events,
         blocks_queried,
-        current_block,
     })
 }
 
