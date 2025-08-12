@@ -18,19 +18,6 @@ use subxt::PolkadotConfig;
 /// # Returns
 ///
 /// A tuple `(from, to)` containing the absolute block numbers for the range.
-///
-/// # Examples
-///
-/// ```
-/// // Get the last 10 blocks
-/// let range = get_block_range(-10, Some(0), &client).await?;
-///
-/// // Get a single block from 5 blocks ago
-/// let range = get_block_range(-5, None, &client).await?;
-///
-/// // Get blocks 100 to 200
-/// let range = get_block_range(100, Some(200), &client).await?;
-/// ```
 pub async fn get_block_range(
     from_block: i32,
     to_block: Option<i32>,
