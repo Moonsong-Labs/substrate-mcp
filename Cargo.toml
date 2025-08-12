@@ -15,6 +15,7 @@ toml = "0.8"
 anyhow = "1"
 reqwest = { version = "0.12", features = ["json"] }
 chrono = { version = "0.4", features = ["serde"] }
+dirs = "5.0"
 
 # For RPC client functionality
 jsonrpsee = { version = "0.20", features = ["http-client", "ws-client", "macros"] }

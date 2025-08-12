@@ -453,7 +453,7 @@ Use get_polkadot_sdk_release_prdocs with release: "{current_version}>{target_ver
 This will automatically:
 1. Determine all releases between {current_version} (exclusive) and {target_version} (inclusive)
 2. Download PRDocs for each intermediate release
-3. Organize them in ./polkadot-release-analysis/releases/[release]/pr-docs/
+3. Organize them in ~/.substrate-mcp/[project]/releases/[release]/pr-docs/
 
 ## Version Naming Conventions
 1. **Semantic versions**: Follow standard semver (e.g., 1.2.3)

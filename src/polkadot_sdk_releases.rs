@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use tokio::fs;
@@ -393,12 +394,68 @@ fn extract_pr_number(filename: &str) -> Option<u32> {
     None
 }
 
+/// Find the project root directory by looking for .git or workspace Cargo.toml
+fn find_project_root() -> Option<PathBuf> {
+    let current_dir = env::current_dir().ok()?;
+    let mut dir = current_dir.as_path();
+    
+    loop {
+        // Check for .git directory (most reliable indicator)
+        if dir.join(".git").exists() {
+            return Some(dir.to_path_buf());
+        }
+        
+        // Check for Cargo.toml with workspace section
+        let cargo_toml = dir.join("Cargo.toml");
+        if cargo_toml.exists() {
+            // Try to read and check if it's a workspace
+            if let Ok(contents) = std::fs::read_to_string(&cargo_toml) {
+                if contents.contains("[workspace]") {
+                    return Some(dir.to_path_buf());
+                }
+            }
+            // If we found a Cargo.toml but no .git above it, this might be the root
+            // Check if there's a parent with Cargo.toml
+            if let Some(parent) = dir.parent() {
+                if !parent.join("Cargo.toml").exists() {
+                    return Some(dir.to_path_buf());
+                }
+            } else {
+                // No parent, this must be root
+                return Some(dir.to_path_buf());
+            }
+        }
+        
+        // Move up one directory
+        match dir.parent() {
+            Some(parent) => dir = parent,
+            None => return None,
+        }
+    }
+}
+
+/// Get the project name from the project root path
+fn get_project_name() -> String {
+    find_project_root()
+        .and_then(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_else(|| "default".to_string())
+}
+
 pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
     let client = reqwest::Client::new();
 
-    // Create directory in current working directory
-    let output_dir = PathBuf::from(".")
-        .join("polkadot-release-analysis")
+    // Get project name from the current project root
+    let project_name = get_project_name();
+    
+    // Create directory under ~/.substrate-mcp/{project}/releases/{release}/pr-docs
+    let home_dir = dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
+    let output_dir = home_dir
+        .join(".substrate-mcp")
+        .join(project_name)
         .join("releases")
         .join(release)
         .join("pr-docs");

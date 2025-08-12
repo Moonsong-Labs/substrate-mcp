@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
@@ -148,6 +149,57 @@ pub struct ComplementaryGroup {
     pub relationship_type: String,
 }
 
+/// Find the project root directory by looking for .git or workspace Cargo.toml
+fn find_project_root() -> Option<PathBuf> {
+    let current_dir = env::current_dir().ok()?;
+    let mut dir = current_dir.as_path();
+    
+    loop {
+        // Check for .git directory (most reliable indicator)
+        if dir.join(".git").exists() {
+            return Some(dir.to_path_buf());
+        }
+        
+        // Check for Cargo.toml with workspace section
+        let cargo_toml = dir.join("Cargo.toml");
+        if cargo_toml.exists() {
+            // Try to read and check if it's a workspace
+            if let Ok(contents) = std::fs::read_to_string(&cargo_toml) {
+                if contents.contains("[workspace]") {
+                    return Some(dir.to_path_buf());
+                }
+            }
+            // If we found a Cargo.toml but no .git above it, this might be the root
+            // Check if there's a parent with Cargo.toml
+            if let Some(parent) = dir.parent() {
+                if !parent.join("Cargo.toml").exists() {
+                    return Some(dir.to_path_buf());
+                }
+            } else {
+                // No parent, this must be root
+                return Some(dir.to_path_buf());
+            }
+        }
+        
+        // Move up one directory
+        match dir.parent() {
+            Some(parent) => dir = parent,
+            None => return None,
+        }
+    }
+}
+
+/// Get the project name from the project root path
+fn get_project_name() -> String {
+    find_project_root()
+        .and_then(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_else(|| "default".to_string())
+}
+
 // Analysis implementation
 pub struct ReleaseAnalyzer {
     base_path: PathBuf,
@@ -193,10 +245,13 @@ impl ReleaseAnalyzer {
     async fn load_pr_data(&self, release: &str) -> Result<Vec<PrData>> {
         let mut pr_data = Vec::new();
 
-        // Load from polkadot-release-analysis directory
+        // Get project name from the current project root
+        let project_name = get_project_name();
+
+        // Load from ~/.substrate-mcp/{project}/releases/{release}/pr-docs directory
         let pr_data_dir = self
             .base_path
-            .join("polkadot-release-analysis")
+            .join(project_name)
             .join("releases")
             .join(release)
             .join("pr-docs");
@@ -630,8 +685,16 @@ fn extract_crate_name(file_path: &str) -> Option<String> {
 }
 
 // Export function for analysis
-pub async fn analyze_polkadot_release(release: &str, base_path: PathBuf) -> Result<String> {
-    let analyzer = ReleaseAnalyzer::new(base_path);
+pub async fn analyze_polkadot_release(release: &str, base_path: Option<PathBuf>) -> Result<String> {
+    // Use provided base_path or default to ~/.substrate-mcp
+    let base = match base_path {
+        Some(path) => path,
+        None => {
+            let home_dir = dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
+            home_dir.join(".substrate-mcp")
+        }
+    };
+    let analyzer = ReleaseAnalyzer::new(base);
 
     // Check if multiple releases are requested (comma-separated)
     let releases: Vec<&str> = release.split(',').map(|s| s.trim()).collect();
@@ -650,10 +713,13 @@ pub async fn analyze_polkadot_release(release: &str, base_path: PathBuf) -> Resu
             return Err(anyhow!("Failed to analyze any of the requested releases"));
         }
 
+        // Get project name from the current project root
+        let project_name = get_project_name();
+
         // Save individual and combined analyses
         let output_dir = analyzer
             .base_path
-            .join("polkadot-release-analysis")
+            .join(project_name)
             .join("comparisons")
             .join(format!("{}_combined", releases.join("_")));
         fs::create_dir_all(&output_dir).await?;
@@ -668,10 +734,13 @@ pub async fn analyze_polkadot_release(release: &str, base_path: PathBuf) -> Resu
         // Single release analysis (existing behavior)
         let analysis = analyzer.analyze_release(release).await?;
 
+        // Get project name from the current project root
+        let project_name = get_project_name();
+
         // Save analysis
         let output_dir = analyzer
             .base_path
-            .join("polkadot-release-analysis")
+            .join(project_name)
             .join("releases")
             .join(release)
             .join("reports");

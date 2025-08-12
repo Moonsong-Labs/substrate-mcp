@@ -1,8 +1,9 @@
 use indoc::indoc;
 use rmcp::model::PromptArgument;
 
-/// Base directory where polkadot release analysis data is stored
-const RELEASE_ANALYSIS_BASE_DIR: &str = "./polkadot-release-analysis/releases";
+/// Base directory where polkadot release analysis data is stored  
+/// Note: {project} is determined from the current project's root directory name
+const RELEASE_ANALYSIS_BASE_DIR: &str = "~/.substrate-mcp/{project}/releases";
 
 /// Analysis prompt structure for PRDoc analysis
 pub struct AnalysisPrompt {
@@ -167,7 +168,7 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                    - If comparing versions (e.g., from X to Y), fetch all intermediate releases using: "X>Y"
                    - If multiple specific releases requested, download each one
                 2. Download the release(s) using get_polkadot_sdk_release_prdocs tool
-                   - Files will be saved to: `{}/{{{{release}}}}/pr-docs/`
+                   - Files will be saved to: `~/.substrate-mcp/{{{{project}}}}/releases/{{{{release}}}}/pr-docs/`
                 3. Get complete inventory of all PRDocs (use LS on the pr-docs directory)
                 4. Determine if single or multi-pass approach is needed
                 5. Plan batches of size {{batch_size}} (or 3 if not specified)
@@ -681,21 +682,22 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
 
                 **STANDARD DIRECTORY STRUCTURE - YOU MUST USE THESE EXACT PATHS:**
                 ```
-                ./polkadot-release-analysis/             # Root directory in current working directory
-                └── releases/                        # All release data
-                    └── {{release}}/                   # e.g., stable2412-1/
-                        ├── pr-docs/                 # Downloaded PRDoc files
-                        │   ├── pr_XXXX.prdoc       # Individual PRDoc files
-                        │   ├── manifest.json       # Release metadata
-                        │   ├── crate_summary.json  # Crate changes summary
-                        │   └── audience_summary.json # Audience categorization
-                        └── reports/                 # Analysis reports for this release
-                            └── analysis-{{timestamp}}.md # e.g., analysis-2024-01-15T10-30-00Z.md
+                ~/.substrate-mcp/                      # Base directory for all substrate-mcp data  
+                └── {{project}}/                      # Project directory (current project's root dir name)
+                    └── releases/                     # All release data for this project
+                        └── {{release}}/               # e.g., stable2412-1/
+                            ├── pr-docs/               # Downloaded PRDoc files
+                            │   ├── pr_XXXX.prdoc     # Individual PRDoc files
+                            │   ├── manifest.json     # Release metadata
+                            │   ├── crate_summary.json # Crate changes summary
+                            │   └── audience_summary.json # Audience categorization
+                            └── reports/               # Analysis reports for this release
+                                └── analysis-{{timestamp}}.md # e.g., analysis-2024-01-15T10-30-00Z.md
                 ```
 
                 **STEPS YOU (THE LLM) MUST FOLLOW:**
-                1. **YOU CREATE THE DIRECTORY** (if it doesn't exist): `{}/{{{{release}}}}/reports/`
-                2. **YOU SAVE THE REPORT** to: `{}/{{{{release}}}}/reports/analysis-[timestamp].md`
+                1. **YOU CREATE THE DIRECTORY** (if it doesn't exist): `~/.substrate-mcp/{{{{project}}}}/releases/{{{{release}}}}/reports/`
+                2. **YOU SAVE THE REPORT** to: `~/.substrate-mcp/{{{{project}}}}/releases/{{{{release}}}}/reports/analysis-[timestamp].md`
                    - Replace [timestamp] with actual ISO 8601 timestamp (e.g., 2024-01-15T10-30-00Z)
                    - Use hyphens in timestamp, not colons (for filesystem compatibility)
                 3. **YOU VERIFY THE FILE** was created successfully
@@ -738,7 +740,7 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 ✓ Did you verify the file was created successfully?
                 ✓ Did you print BOTH the directory path AND the clickable file path?
                 ✓ Did you analyze ALL PRDocs from {}/{{{{release}}}}/pr-docs/?
-            "#, base_dir, base_dir, base_dir, base_dir, base_dir, base_dir, base_dir, base_dir, base_dir),
+            "#, base_dir, base_dir, base_dir, base_dir, base_dir, base_dir),
         },
 
         // Keep existing prompts temporarily for backward compatibility
