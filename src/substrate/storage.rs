@@ -1,12 +1,15 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use subxt::dynamic::{self, Value};
+use subxt::utils::AccountId32 as SubxtAccountId32;
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
+use crate::substrate::utils;
+
 /// Represents a storage entry value
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorageEntry {
+pub struct Storage {
     /// The pallet name
     pub pallet: String,
     /// The storage entry name
@@ -22,61 +25,76 @@ pub struct StorageEntry {
 /// Query parameters for storage entries
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageQuery {
+    /// Start block (negative = relative to current)
+    pub from_block: i32,
+    /// End block (negative = relative to current)  
+    pub to_block: Option<i32>,
     /// The pallet name
     pub pallet: String,
     /// The storage entry name
     pub entry: String,
     /// Optional keys for map-type storage (as JSON array)
     pub keys: Option<Vec<serde_json::Value>>,
-    /// Block number to query at (None for latest)
-    pub at_block: Option<u32>,
 }
 
-impl StorageQuery {
-    /// Execute the storage query
-    pub async fn execute(&self, client: &OnlineClient<PolkadotConfig>) -> Result<StorageEntry> {
-        // Get metadata
-        let metadata = client.metadata();
+/// Result of storage query
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StorageResult {
+    /// Storage found
+    pub storage: Vec<Storage>,
+    /// Number of blocks queried
+    pub blocks_queried: u32,
+}
 
-        // Find the pallet
-        let pallet = metadata
-            .pallet_by_name(&self.pallet)
-            .ok_or_else(|| anyhow::anyhow!("Pallet '{}' not found", self.pallet))?;
+pub async fn query_storage(
+    query: StorageQuery,
+    subxt_client: &OnlineClient<PolkadotConfig>,
+    rpc_url: &str,
+) -> Result<StorageResult> {
+    // Get block range from query parameters
+    let (from, to) = utils::get_block_range(query.from_block, query.to_block, subxt_client).await?;
 
-        // Find the storage entry
-        let storage = pallet
-            .storage()
-            .ok_or_else(|| anyhow::anyhow!("Pallet '{}' has no storage", self.pallet))?;
+    // Get metadata
+    let metadata = subxt_client.metadata();
 
-        let _entry = storage.entry_by_name(&self.entry).ok_or_else(|| {
-            anyhow::anyhow!(
-                "Storage entry '{}' not found in pallet '{}'",
-                self.entry,
-                self.pallet
-            )
-        })?;
+    // Find the pallet
+    let pallet = metadata
+        .pallet_by_name(&query.pallet)
+        .ok_or_else(|| anyhow::anyhow!("Pallet '{}' not found", query.pallet))?;
 
-        // Build the storage address dynamically
-        let storage_address = dynamic::storage(&self.pallet, &self.entry, self.build_keys()?);
+    // Find the storage entry
+    let storage = pallet
+        .storage()
+        .ok_or_else(|| anyhow::anyhow!("Pallet '{}' has no storage", query.pallet))?;
 
-        // Get the block to query
-        let block = if let Some(block_num) = self.at_block {
-            // For specific block number, we need to get the hash
-            // This is a simplified approach - in production, use proper RPC methods
-            let latest = client.blocks().at_latest().await?;
-            let hash = if block_num == latest.number() {
-                latest.hash()
-            } else {
-                // For historical blocks, we'd need to use RPC methods
-                return Err(anyhow::anyhow!(
-                    "Historical block query not yet implemented for block {}",
-                    block_num
-                ));
-            };
-            client.blocks().at(hash).await?
-        } else {
-            client.blocks().at_latest().await?
-        };
+    let _entry = storage.entry_by_name(&query.entry).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Storage entry '{}' not found in pallet '{}'",
+            query.entry,
+            query.pallet
+        )
+    })?;
+
+    // Build the storage address dynamically
+    let storage_address = dynamic::storage(&query.pallet, &query.entry, build_keys(&query.keys)?);
+
+    // Create RPC client for historical queries
+    let rpc_client = utils::RpcClient::new(rpc_url).await?;
+
+    let mut all_storages = Vec::new();
+    let blocks_queried = to - from + 1;
+
+    // Query each block
+    for block_num in from..=to {
+        // Get block hash
+        let block_hash: Option<subxt::utils::H256> = rpc_client
+            .request("chain_getBlockHash", vec![block_num])
+            .await?;
+
+        let block_hash =
+            block_hash.ok_or_else(|| anyhow::anyhow!("Block {} not found", block_num))?;
+
+        let block = subxt_client.blocks().at(block_hash).await?;
 
         // Fetch the storage value
         let result = block.storage().fetch(&storage_address).await?;
@@ -106,79 +124,55 @@ impl StorageQuery {
 
         // Get the storage key - for now just indicate the query params
         // A full implementation would encode the actual storage key
-        let key = format!("{}.{}", self.pallet, self.entry);
+        let key = format!("{}.{}", query.pallet, query.entry);
 
-        Ok(StorageEntry {
-            pallet: self.pallet.clone(),
-            entry: self.entry.clone(),
+        all_storages.push(Storage {
+            pallet: query.pallet.clone(),
+            entry: query.entry.clone(),
             key,
             value,
-            at_block: self.at_block.or(Some(block.number())),
+            at_block: Some(block_num),
         })
     }
 
-    /// Build keys for the storage query
-    fn build_keys(&self) -> Result<Vec<Value>> {
-        match &self.keys {
-            Some(keys) => {
-                // Convert JSON values to dynamic Values
-                // This is a simplified implementation
-                Ok(keys
-                    .iter()
-                    .map(|k| match k {
-                        serde_json::Value::String(s) => Value::string(s),
-                        serde_json::Value::Number(n) => {
-                            if let Some(u) = n.as_u64() {
-                                Value::u128(u as u128)
-                            } else {
-                                Value::i128(n.as_i64().unwrap_or(0) as i128)
-                            }
+    Ok(StorageResult {
+        storage: all_storages,
+        blocks_queried,
+    })
+}
+
+/// Build keys for the storage query
+fn build_keys(keys: &Option<Vec<serde_json::Value>>) -> Result<Vec<Value>> {
+    match &keys {
+        Some(keys) => {
+            // Convert JSON values to dynamic Values
+            Ok(keys
+                .iter()
+                .map(|k| match k {
+                    serde_json::Value::String(s) => {
+                        // Try to decode as SS58 address first
+                        if let Ok(account_id) = s.parse::<SubxtAccountId32>() {
+                            // Create a composite value with the AccountId32 bytes
+                            let bytes: &[u8] = account_id.as_ref();
+                            Value::from_bytes(bytes)
+                        } else {
+                            // If it's a String and not SS58, then convert directly
+                            Value::string(s)
                         }
-                        serde_json::Value::Bool(b) => Value::bool(*b),
-                        _ => Value::string(k.to_string()),
-                    })
-                    .collect())
-            }
-            None => Ok(vec![]),
+                    }
+                    serde_json::Value::Number(n) => {
+                        if let Some(u) = n.as_u64() {
+                            Value::u128(u as u128)
+                        } else {
+                            Value::i128(n.as_i64().unwrap_or(0) as i128)
+                        }
+                    }
+                    serde_json::Value::Bool(b) => Value::bool(*b),
+                    _ => Value::string(k.to_string()),
+                })
+                .collect())
         }
-    }
-}
-
-/// Query multiple storage entries in a single batch
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BatchStorageQuery {
-    /// List of storage queries to execute
-    pub queries: Vec<StorageQuery>,
-}
-
-impl BatchStorageQuery {
-    /// Execute all storage queries
-    #[allow(dead_code)]
-    pub async fn execute(
-        &self,
-        client: &OnlineClient<PolkadotConfig>,
-    ) -> Result<Vec<StorageEntry>> {
-        let mut results = Vec::new();
-
-        for query in &self.queries {
-            match query.execute(client).await {
-                Ok(entry) => results.push(entry),
-                Err(e) => {
-                    // Include error in result
-                    results.push(StorageEntry {
-                        pallet: query.pallet.clone(),
-                        entry: query.entry.clone(),
-                        key: String::new(),
-                        value: serde_json::json!({
-                            "error": e.to_string()
-                        }),
-                        at_block: query.at_block,
-                    });
-                }
-            }
-        }
-
-        Ok(results)
+        None => Ok(vec![]),
     }
 }
 
