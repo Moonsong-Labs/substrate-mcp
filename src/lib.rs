@@ -1,4 +1,3 @@
-pub mod config;
 pub mod polkadot_sdk_releases;
 pub mod prdoc_analysis_prompts;
 pub mod prompts;

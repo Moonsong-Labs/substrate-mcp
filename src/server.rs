@@ -12,7 +12,6 @@ use std::future::Future;
 use std::process::Stdio;
 use tokio::process::Command;
 
-use crate::config::Config;
 use crate::polkadot_sdk_releases;
 use crate::prompts;
 use serde::Deserialize;
@@ -23,7 +22,6 @@ use crate::substrate::events::EventFilter;
 use crate::substrate::historical::{query_historical_events, HistoricalEventsQuery};
 use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::storage::{list_pallet_storage, StorageQuery};
-use std::sync::Arc;
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -38,7 +36,6 @@ pub struct StorageBisectArgs {
 #[derive(Clone)]
 pub struct SubstrateService {
     tool_router: ToolRouter<Self>,
-    rpc_config: Arc<Config>,
 }
 
 /// Validates if a string is a valid RPC URL textually (without connecting)
@@ -171,11 +168,8 @@ impl Default for SubstrateService {
 #[tool_router]
 impl SubstrateService {
     pub fn new() -> Self {
-        let rpc_config = Arc::new(Config::default());
-
         Self {
             tool_router: Self::tool_router(),
-            rpc_config,
         }
     }
 
