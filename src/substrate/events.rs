@@ -52,7 +52,7 @@ pub struct HistoricalEventsQuery {
 
 /// Result of historical events query
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoricalEventsResult {
+pub struct HistoricalEventsQueryResult {
     /// Events found
     pub events: Vec<Event>,
     /// Number of blocks queried
@@ -113,7 +113,7 @@ pub async fn query_historical_events(
     query: HistoricalEventsQuery,
     subxt_client: &subxt::OnlineClient<subxt::PolkadotConfig>,
     rpc_url: &str,
-) -> Result<HistoricalEventsResult> {
+) -> Result<HistoricalEventsQueryResult> {
     // Get block range from query parameters
     let (from, to) = utils::get_block_range(query.from_block, query.to_block, subxt_client).await?;
 
@@ -154,7 +154,7 @@ pub async fn query_historical_events(
         }
     }
 
-    Ok(HistoricalEventsResult {
+    Ok(HistoricalEventsQueryResult {
         events: all_events,
         blocks_queried,
     })
