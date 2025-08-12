@@ -18,6 +18,8 @@ pub struct ExtrinsicsQuery {
     pub pallet: Option<String>,
     /// Optional call name filter
     pub call: Option<String>,
+    /// Optional flag to return only signed or unsigned extrinsics
+    pub is_signed: Option<bool>,
     /// Optional signer address filter
     pub signer: Option<String>,
 }
@@ -95,6 +97,13 @@ pub async fn query_extrinsics(
                     continue;
                 }
             };
+
+            // Check is_signed parameter
+            if let Some(is_signed) = query.is_signed {
+                if is_signed ^ extrinsic.is_signed() {
+                    continue;
+                }
+            }
 
             // Decode extrinsic using proper subxt APIs
             match process_extrinsic(

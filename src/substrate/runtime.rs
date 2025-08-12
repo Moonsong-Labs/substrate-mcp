@@ -199,6 +199,7 @@ async fn fetch_upgrade_details_at_block(
         to_block: Some(upgrade.block_number as i32),
         pallet: None,
         call: None,
+        is_signed: None,
         signer: None,
     };
 

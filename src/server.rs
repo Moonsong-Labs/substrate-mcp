@@ -124,6 +124,8 @@ pub struct QueryExtrinsicsProperties {
     pub pallet: Option<String>,
     /// Filter by call name (optional)
     pub call: Option<String>,
+    /// Flag that returns only signed or unsigned extrinsics (optional, returns all extrinsics if blank)
+    pub is_signed: Option<bool>,
     /// Filter by signer address (optional)
     pub signer: Option<String>,
 }
@@ -524,6 +526,7 @@ impl SubstrateService {
             to_block: args.to_block,
             pallet: args.pallet,
             call: args.call,
+            is_signed: args.is_signed,
             signer: args.signer,
         };
 
