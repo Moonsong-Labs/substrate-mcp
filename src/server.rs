@@ -18,12 +18,10 @@ use serde::Deserialize;
 
 use crate::resources;
 use crate::substrate::events::{query_historical_events, EventFilter, HistoricalEventsQuery};
-use crate::substrate::extrinsic::{query_historical_extrinsics, HistoricalExtrinsicsQuery};
+use crate::substrate::extrinsic::{query_extrinsics, ExtrinsicsQuery};
 use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::runtime::list_runtime_changes;
-use crate::substrate::storage::{
-    list_pallet_storage, query_historical_storage, HistoricalStorageQuery,
-};
+use crate::substrate::storage::{list_pallet_storage, query_storage, StorageQuery};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -420,7 +418,7 @@ impl SubstrateService {
             })?;
 
         // Create query
-        let query = HistoricalStorageQuery {
+        let query = StorageQuery {
             from_block: args.from_block,
             to_block: args.to_block,
             pallet: args.pallet,
@@ -429,7 +427,7 @@ impl SubstrateService {
         };
 
         // Query historical storage
-        let result = query_historical_storage(query, &client, &args.rpc_url)
+        let result = query_storage(query, &client, &args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
@@ -595,7 +593,7 @@ impl SubstrateService {
             })?;
 
         // Create query
-        let query = HistoricalExtrinsicsQuery {
+        let query = ExtrinsicsQuery {
             from_block: args.from_block,
             to_block: args.to_block,
             pallet: args.pallet,
@@ -603,8 +601,8 @@ impl SubstrateService {
             signer: args.signer,
         };
 
-        // Query historical transactions
-        let result = query_historical_extrinsics(query, &client, &args.rpc_url)
+        // Query extrinsics
+        let result = query_extrinsics(query, &client, &args.rpc_url)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),

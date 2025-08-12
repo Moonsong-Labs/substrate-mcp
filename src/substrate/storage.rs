@@ -9,7 +9,7 @@ use crate::substrate::utils;
 
 /// Represents a storage entry value
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoricalStorage {
+pub struct Storage {
     /// The pallet name
     pub pallet: String,
     /// The storage entry name
@@ -24,7 +24,7 @@ pub struct HistoricalStorage {
 
 /// Query parameters for storage entries
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoricalStorageQuery {
+pub struct StorageQuery {
     /// Start block (negative = relative to current)
     pub from_block: i32,
     /// End block (negative = relative to current)  
@@ -37,22 +37,22 @@ pub struct HistoricalStorageQuery {
     pub keys: Option<Vec<serde_json::Value>>,
 }
 
-/// Result of historical extrinsics query
+/// Result of storage query
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoricalStorageResult {
+pub struct StorageResult {
     /// Storage found
-    pub storage: Vec<HistoricalStorage>,
+    pub storage: Vec<Storage>,
     /// Number of blocks queried
     pub blocks_queried: u32,
     /// Current block height
     pub current_block: u32,
 }
 
-pub async fn query_historical_storage(
-    query: HistoricalStorageQuery,
+pub async fn query_storage(
+    query: StorageQuery,
     subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
-) -> Result<HistoricalStorageResult> {
+) -> Result<StorageResult> {
     // Get current block number
     let latest_block = subxt_client.blocks().at_latest().await?;
     let current_block = latest_block.header().number;
@@ -137,7 +137,7 @@ pub async fn query_historical_storage(
         // A full implementation would encode the actual storage key
         let key = format!("{}.{}", query.pallet, query.entry);
 
-        all_storages.push(HistoricalStorage {
+        all_storages.push(Storage {
             pallet: query.pallet.clone(),
             entry: query.entry.clone(),
             key,
@@ -146,7 +146,7 @@ pub async fn query_historical_storage(
         })
     }
 
-    Ok(HistoricalStorageResult {
+    Ok(StorageResult {
         storage: all_storages,
         blocks_queried,
         current_block,

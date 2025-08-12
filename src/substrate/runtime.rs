@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
+use crate::substrate::events::{query_historical_events, Event, HistoricalEventsQuery};
+use crate::substrate::extrinsic::{query_extrinsics, Extrinsic, ExtrinsicsQuery};
 use crate::substrate::utils;
 
 /// Query runtime upgrades from historical blocks
@@ -50,11 +52,11 @@ pub struct RuntimeUpgradeDetails {
     /// The runtime upgrade info
     pub upgrade: RuntimeUpgrade,
     /// Events in the upgrade block
-    pub events: Vec<crate::substrate::events::HistoricalEvent>,
+    pub events: Vec<Event>,
     /// Storage changes in the upgrade block
     pub storage_changes: Vec<StorageChange>,
     /// Transactions in the upgrade block
-    pub transactions: Vec<crate::substrate::extrinsic::HistoricalExtrinsic>,
+    pub transactions: Vec<Extrinsic>,
 }
 
 /// A storage change in the upgrade block
@@ -194,19 +196,17 @@ async fn fetch_upgrade_details_at_block(
     rpc_url: &str,
 ) -> Result<RuntimeUpgradeDetails> {
     // Get all events in the upgrade block
-    let events_query = crate::substrate::events::HistoricalEventsQuery {
+    let events_query = HistoricalEventsQuery {
         from_block: upgrade.block_number as i32,
         to_block: Some(upgrade.block_number as i32),
         pallet: None,
         event: None,
     };
 
-    let events =
-        crate::substrate::events::query_historical_events(events_query, subxt_client, rpc_url)
-            .await?;
+    let events = query_historical_events(events_query, subxt_client, rpc_url).await?;
 
     // Get all transactions in the upgrade block
-    let tx_query = crate::substrate::extrinsic::HistoricalExtrinsicsQuery {
+    let tx_query = ExtrinsicsQuery {
         from_block: upgrade.block_number as i32,
         to_block: Some(upgrade.block_number as i32),
         pallet: None,
@@ -214,9 +214,7 @@ async fn fetch_upgrade_details_at_block(
         signer: None,
     };
 
-    let transactions =
-        crate::substrate::extrinsic::query_historical_extrinsics(tx_query, subxt_client, rpc_url)
-            .await?;
+    let transactions = query_extrinsics(tx_query, subxt_client, rpc_url).await?;
 
     // Get storage changes (focusing on important system storage)
     let storage_changes =

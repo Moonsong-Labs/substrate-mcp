@@ -7,9 +7,9 @@ use subxt::PolkadotConfig;
 
 use crate::substrate::utils;
 
-/// Query extrinsics from historical blocks
+/// Query extrinsics from blocks
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoricalExtrinsicsQuery {
+pub struct ExtrinsicsQuery {
     /// Start block (negative = relative to current)
     pub from_block: i32,
     /// End block (negative = relative to current)  
@@ -22,20 +22,20 @@ pub struct HistoricalExtrinsicsQuery {
     pub signer: Option<String>,
 }
 
-/// Result of historical extrinsics query
+/// Result of extrinsics query
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoricalExtrinsicsResult {
+pub struct ExtrinsicsResult {
     /// Extrinsics found
-    pub extrinsics: Vec<HistoricalExtrinsic>,
+    pub extrinsics: Vec<Extrinsic>,
     /// Number of blocks queried
     pub blocks_queried: u32,
     /// Current block height
     pub current_block: u32,
 }
 
-/// A historical extrinsic with decoded data
+/// A extrinsic with decoded data
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoricalExtrinsic {
+pub struct Extrinsic {
     /// Block number
     pub block_number: u32,
     /// Block hash
@@ -58,12 +58,12 @@ pub struct HistoricalExtrinsic {
     pub fee: Option<String>,
 }
 
-/// Query historical extrinsics using jsonrpsee for RPC and subxt for proper decoding
-pub async fn query_historical_extrinsics(
-    query: HistoricalExtrinsicsQuery,
+/// Query extrinsics using jsonrpsee for RPC and subxt for proper decoding
+pub async fn query_extrinsics(
+    query: ExtrinsicsQuery,
     subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
-) -> Result<HistoricalExtrinsicsResult> {
+) -> Result<ExtrinsicsResult> {
     // Create RPC client for historical queries
     let rpc_client = utils::RpcClient::new(rpc_url).await?;
 
@@ -128,7 +128,7 @@ pub async fn query_historical_extrinsics(
         }
     }
 
-    Ok(HistoricalExtrinsicsResult {
+    Ok(ExtrinsicsResult {
         extrinsics: all_extrinsics,
         blocks_queried,
         current_block,
@@ -144,7 +144,7 @@ async fn process_extrinsic(
     pallet_filter: &Option<String>,
     call_filter: &Option<String>,
     signer_filter: &Option<String>,
-) -> Result<Option<HistoricalExtrinsic>> {
+) -> Result<Option<Extrinsic>> {
     // Get metadata from the client
     let metadata = subxt_client.metadata();
 
@@ -246,7 +246,7 @@ async fn process_extrinsic(
     // Check events for success/failure and fees
     let (success, fee) = check_extrinsic_events(block, extrinsic_index).await?;
 
-    Ok(Some(HistoricalExtrinsic {
+    Ok(Some(Extrinsic {
         block_number,
         block_hash,
         extrinsic_index,

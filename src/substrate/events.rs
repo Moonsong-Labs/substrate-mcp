@@ -54,7 +54,7 @@ pub struct HistoricalEventsQuery {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoricalEventsResult {
     /// Events found
-    pub events: Vec<HistoricalEvent>,
+    pub events: Vec<Event>,
     /// Number of blocks queried
     pub blocks_queried: u32,
     /// Current block height
@@ -63,7 +63,7 @@ pub struct HistoricalEventsResult {
 
 /// A historical event with decoded data
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoricalEvent {
+pub struct Event {
     /// Block number
     pub block_number: u32,
     /// Block hash
@@ -180,7 +180,7 @@ async fn decode_events_with_subxt(
     client: &subxt::OnlineClient<subxt::PolkadotConfig>,
     pallet_filter: &Option<String>,
     event_filter: &Option<String>,
-) -> Result<Vec<HistoricalEvent>> {
+) -> Result<Vec<Event>> {
     use subxt::events::Events;
 
     // Remove 0x prefix and decode hex
@@ -229,7 +229,7 @@ async fn decode_events_with_subxt(
             }
         };
 
-        decoded_events.push(HistoricalEvent {
+        decoded_events.push(Event {
             block_number,
             block_hash: block_hash.to_string(),
             pallet: event.pallet_name().to_string(),
