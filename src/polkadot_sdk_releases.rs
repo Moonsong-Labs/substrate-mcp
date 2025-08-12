@@ -586,8 +586,10 @@ pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
         .await
         .map_err(|e| anyhow!("Failed to write audience_summary.json: {}", e))?;
 
-    // Create a README.md with summary information
-    let readme_content = format!(
+    // Create a release summary documentation file that provides
+    // an overview of all downloaded PRDocs and manifest files.
+    // This serves as an index/guide for users exploring the release data.
+    let summary_content = format!(
         r#"# Polkadot SDK {} Release PRDocs
 
 This directory contains the PRDoc (Pull Request Documentation) files for the Polkadot SDK {} release.
@@ -612,6 +614,7 @@ This directory includes JSON manifest files for efficient analysis:
 - `crate_summary.json` - Breakdown of changes by crate and severity
 - `audience_summary.json` - Changes grouped by target audience
 - `labels.json` - Complete GitHub label definitions from the repository
+- `RELEASE_SUMMARY.md` - This file, providing an overview of the release data
 
 ## Usage
 
@@ -626,10 +629,10 @@ Each file corresponds to a pull request that was included in this release.
         release
     );
 
-    let readme_path = output_dir.join("README.md");
-    fs::write(&readme_path, readme_content)
+    let summary_path = output_dir.join("RELEASE_SUMMARY.md");
+    fs::write(&summary_path, summary_content)
         .await
-        .map_err(|e| anyhow!("Failed to write README.md: {}", e))?;
+        .map_err(|e| anyhow!("Failed to write RELEASE_SUMMARY.md: {}", e))?;
 
     // Fetch and save GitHub labels
     if let Err(e) = fetch_and_save_labels(&client, &output_dir, &pr_numbers).await {
