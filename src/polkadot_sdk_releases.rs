@@ -701,7 +701,7 @@ async fn fetch_github_labels(client: &reqwest::Client) -> Result<Vec<GitHubLabel
 }
 
 // Fetch labels and save to JSON file
-async fn fetch_and_save_labels(
+async fn fetch_and_save_github_labels(
     client: &reqwest::Client,
     output_dir: &Path,
     _pr_numbers: &[u32], // Keeping for potential future use
