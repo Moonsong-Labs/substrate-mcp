@@ -423,7 +423,7 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query events from historical blocks. Uses hybrid approach: RPC for historical access, subxt for decoding. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters. Maximum block range is 100 blocks."
+        description = "Query events from historical blocks. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters. Maximum block range is 100 blocks."
     )]
     pub async fn query_historical_events(
         &self,
