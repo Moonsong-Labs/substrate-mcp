@@ -73,7 +73,7 @@ pub struct EventFilterArgs {
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct QueryHistoricalStorageProperties {
+pub struct QueryStorageProperties {
     /// The RPC URL to connect to
     pub rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
@@ -111,7 +111,7 @@ pub struct QueryHistoricalEventsArgs {
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct QueryHistoricalExtrinsicsProperties {
+pub struct QueryExtrinsicsProperties {
     /// The RPC endpoint to connect to
     pub rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
@@ -334,9 +334,9 @@ impl SubstrateService {
     #[tool(
         description = "Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys. Use this to read chain state like account balances, staking info, or governance proposals. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters."
     )]
-    pub async fn query_historical_storage(
+    pub async fn query_storage(
         &self,
-        Parameters(args): Parameters<QueryHistoricalStorageProperties>,
+        Parameters(args): Parameters<QueryStorageProperties>,
     ) -> Result<CallToolResult, McpError> {
         // Connect to the chain using subxt
         let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
@@ -476,11 +476,11 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query extrinsics from historical blocks. Supports filtering by pallet, call name, and signer address. Returns decoded transaction data including signer, call info, and arguments. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters."
+        description = "Query extrinsics from blocks. Supports filtering by pallet, call name, and signer address. Returns decoded transaction data including signer, call info, and arguments. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters."
     )]
-    pub async fn query_historical_extrinsics(
+    pub async fn query_extrinsics(
         &self,
-        Parameters(args): Parameters<QueryHistoricalExtrinsicsProperties>,
+        Parameters(args): Parameters<QueryExtrinsicsProperties>,
     ) -> Result<CallToolResult, McpError> {
         // Connect to the chain using subxt
         let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
