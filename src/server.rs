@@ -18,23 +18,15 @@ use crate::tools;
 use serde::Deserialize;
 
 use crate::resources;
-use crate::substrate::client::SubstrateClient;
-use crate::substrate::events::EventFilter;
-use crate::substrate::historical::{query_historical_events, HistoricalEventsQuery};
+use crate::substrate::events::{query_historical_events, EventFilter, HistoricalEventsQuery};
+use crate::substrate::extrinsic::{query_extrinsics, ExtrinsicsQuery};
 use crate::substrate::metadata::MetadataFilter;
-use crate::substrate::storage::{list_pallet_storage, StorageQuery};
+use crate::substrate::runtime::list_runtime_changes;
+use crate::substrate::storage::{list_pallet_storage, query_storage, StorageQuery};
 use crate::substrate::utils::validate_rpc_url;
 
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct StorageBisectArgs {
-    pub start_block: u32,
-    pub end_block: u32,
-    pub key: String,
-    pub rpc_url: String,
-}
 
 #[derive(Clone)]
 pub struct SubstrateService {
@@ -84,17 +76,19 @@ pub struct EventFilterArgs {
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct StorageQueryArgs {
+pub struct QueryStorageProperties {
     /// The RPC URL to connect to
     pub rpc_url: String,
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
+    pub from_block: i32,
+    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
+    pub to_block: Option<i32>,
     /// The pallet name
     pub pallet: String,
     /// The storage entry name
     pub entry: String,
-    /// Optional keys for map-type storage (as JSON array)
+    /// Optional keys for map-type storage (as JSON array). Supports SS58 addresses which will be automatically decoded to AccountId32
     pub keys: Option<Vec<serde_json::Value>>,
-    /// Block number to query at (None for latest)
-    pub at_block: Option<u32>,
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -109,14 +103,40 @@ pub struct ListPalletStorageArgs {
 pub struct QueryHistoricalEventsArgs {
     /// The RPC endpoint to connect to
     pub rpc_url: String,
-    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago)
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
     pub from_block: i32,
-    /// End block number (negative = relative to current, defaults to from_block)
+    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
     pub to_block: Option<i32>,
     /// Filter by pallet name (optional)
     pub pallet: Option<String>,
     /// Filter by event name (optional)
     pub event: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct QueryExtrinsicsProperties {
+    /// The RPC endpoint to connect to
+    pub rpc_url: String,
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
+    pub from_block: i32,
+    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
+    pub to_block: Option<i32>,
+    /// Filter by pallet name (optional)
+    pub pallet: Option<String>,
+    /// Filter by call name (optional)
+    pub call: Option<String>,
+    /// Filter by signer address (optional)
+    pub signer: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct ListRuntimeChangesProperties {
+    /// The RPC endpoint to connect to
+    pub rpc_url: String,
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
+    pub from_block: i32,
+    /// End block number (negative = relative to current, defaults to current block. Leaving this blank will return a single block equal to from_block)
+    pub to_block: Option<i32>,
 }
 
 impl Default for SubstrateService {
@@ -155,59 +175,6 @@ impl SubstrateService {
             }],
             is_error: None,
         })
-    }
-
-    #[tool(
-        description = "Find all storage changes between two blocks on a Substrate chain for a specific key"
-    )]
-    pub async fn chain_storage_bisect(
-        &self,
-        Parameters(args): Parameters<StorageBisectArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        // Validate URL if provided
-        if let Err(e) = validate_rpc_url(&args.rpc_url) {
-            return Err(McpError {
-                code: rmcp::model::ErrorCode(-32602),
-                message: format!("Invalid RPC URL: {e}").into(),
-                data: None,
-            });
-        }
-
-        log::info!("Connecting to {}", args.rpc_url);
-        let client = SubstrateClient::connect(&args.rpc_url)
-            .await
-            .map_err(|e| McpError {
-                code: rmcp::model::ErrorCode(-32603),
-                message: e.to_string().into(),
-                data: None,
-            })?;
-
-        let result = client
-            .find_all_storage_changes(args.start_block, args.end_block, args.key)
-            .await;
-
-        match result {
-            Ok(changes) => {
-                let json_result = serde_json::to_string_pretty(&changes).map_err(|e| McpError {
-                    code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-                    message: format!("Serialization error: {e}").into(),
-                    data: None,
-                })?;
-
-                Ok(CallToolResult {
-                    content: vec![Content {
-                        annotations: None,
-                        raw: RawContent::Text(RawTextContent { text: json_result }),
-                    }],
-                    is_error: None,
-                })
-            }
-            Err(e) => Err(McpError {
-                code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-                message: format!("Storage changes error: {e}").into(),
-                data: None,
-            }),
-        }
     }
 
     #[tool(
@@ -276,15 +243,6 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<MetadataFilterArgs>,
     ) -> Result<CallToolResult, McpError> {
-        // Validate URL if provided
-        if let Err(e) = validate_rpc_url(&args.rpc_url) {
-            return Err(McpError {
-                code: rmcp::model::ErrorCode(-32602),
-                message: format!("Invalid RPC URL: {e}").into(),
-                data: None,
-            });
-        }
-
         // Connect to the chain using subxt
         let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
             .await
@@ -335,15 +293,6 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<EventFilterArgs>,
     ) -> Result<CallToolResult, McpError> {
-        // Validate URL if provided
-        if let Err(e) = validate_rpc_url(&args.rpc_url) {
-            return Err(McpError {
-                code: rmcp::model::ErrorCode(-32602),
-                message: format!("Invalid RPC URL: {e}").into(),
-                data: None,
-            });
-        }
-
         // Connect to the chain using subxt
         let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
             .await
@@ -386,21 +335,12 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys. Use this to read chain state like account balances, staking info, or governance proposals."
+        description = "Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys. Use this to read chain state like account balances, staking info, or governance proposals. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters. Maximum block range is 100 blocks."
     )]
     pub async fn query_storage(
         &self,
-        Parameters(args): Parameters<StorageQueryArgs>,
+        Parameters(args): Parameters<QueryStorageProperties>,
     ) -> Result<CallToolResult, McpError> {
-        // Validate URL if provided
-        if let Err(e) = validate_rpc_url(&args.rpc_url) {
-            return Err(McpError {
-                code: rmcp::model::ErrorCode(-32602),
-                message: format!("Invalid RPC URL: {e}").into(),
-                data: None,
-            });
-        }
-
         // Connect to the chain using subxt
         let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
             .await
@@ -412,18 +352,21 @@ impl SubstrateService {
 
         // Create query
         let query = StorageQuery {
+            from_block: args.from_block,
+            to_block: args.to_block,
             pallet: args.pallet,
             entry: args.entry,
             keys: args.keys,
-            at_block: args.at_block,
         };
 
-        // Execute query
-        let result = query.execute(&client).await.map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to query storage: {e}").into(),
-            data: None,
-        })?;
+        // Query historical storage
+        let result = query_storage(query, &client, &args.rpc_url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to query historical storage: {e}").into(),
+                data: None,
+            })?;
 
         // Convert to JSON
         let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
@@ -448,15 +391,6 @@ impl SubstrateService {
         &self,
         Parameters(args): Parameters<ListPalletStorageArgs>,
     ) -> Result<CallToolResult, McpError> {
-        // Validate URL if provided
-        if let Err(e) = validate_rpc_url(&args.rpc_url) {
-            return Err(McpError {
-                code: rmcp::model::ErrorCode(-32602),
-                message: format!("Invalid RPC URL: {e}").into(),
-                data: None,
-            });
-        }
-
         // Connect to the chain using subxt
         let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
             .await
@@ -492,21 +426,12 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query events from historical blocks. Supports relative block numbers (e.g., -10 for 10 blocks ago). Uses hybrid approach: RPC for historical access, subxt for decoding."
+        description = "Query events from historical blocks. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters. Maximum block range is 100 blocks."
     )]
     pub async fn query_historical_events(
         &self,
         Parameters(args): Parameters<QueryHistoricalEventsArgs>,
     ) -> Result<CallToolResult, McpError> {
-        // Validate URL if provided
-        if let Err(e) = validate_rpc_url(&args.rpc_url) {
-            return Err(McpError {
-                code: rmcp::model::ErrorCode(-32602),
-                message: format!("Invalid RPC URL: {e}").into(),
-                data: None,
-            });
-        }
-
         // Connect to the chain using subxt
         let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
             .await
@@ -561,6 +486,105 @@ impl SubstrateService {
         Parameters(properties): Parameters<tools::SubmitExtrinsicProperties>,
     ) -> Result<CallToolResult, McpError> {
         tools::handle_submit_dev_extrinsic(properties).await
+    }
+
+    #[tool(
+        description = "Query extrinsics from blocks. Supports filtering by pallet, call name, and signer address. Returns decoded transaction data including signer, call info, and arguments. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters. Maximum block range is 100 blocks."
+    )]
+    pub async fn query_extrinsics(
+        &self,
+        Parameters(args): Parameters<QueryExtrinsicsProperties>,
+    ) -> Result<CallToolResult, McpError> {
+        // Connect to the chain using subxt
+        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!(
+                    "Failed to connect to chain with URL '{}': {e}",
+                    args.rpc_url
+                )
+                .into(),
+                data: None,
+            })?;
+
+        // Create query
+        let query = ExtrinsicsQuery {
+            from_block: args.from_block,
+            to_block: args.to_block,
+            pallet: args.pallet,
+            call: args.call,
+            signer: args.signer,
+        };
+
+        // Query extrinsics
+        let result = query_extrinsics(query, &client, &args.rpc_url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to query historical transactions: {e}").into(),
+                data: None,
+            })?;
+
+        // Convert to JSON
+        let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+            message: format!("Serialization error: {e}").into(),
+            data: None,
+        })?;
+
+        Ok(CallToolResult {
+            content: vec![Content {
+                annotations: None,
+                raw: RawContent::Text(RawTextContent { text: json_result }),
+            }],
+            is_error: None,
+        })
+    }
+
+    #[tool(
+        description = "List all runtime changes (upgrades) in a block range with detailed information including events, storage changes, and transactions for each upgrade block. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters. Maximum block range is 100 blocks."
+    )]
+    pub async fn list_runtime_changes(
+        &self,
+        Parameters(args): Parameters<ListRuntimeChangesProperties>,
+    ) -> Result<CallToolResult, McpError> {
+        // Connect to the chain using subxt
+        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!(
+                    "Failed to connect to chain with URL '{}': {e}",
+                    args.rpc_url
+                )
+                .into(),
+                data: None,
+            })?;
+
+        // List runtime changes
+        let result = list_runtime_changes(args.from_block, args.to_block, &client, &args.rpc_url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to list runtime changes: {e}").into(),
+                data: None,
+            })?;
+
+        // Convert to JSON
+        let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+            message: format!("Serialization error: {e}").into(),
+            data: None,
+        })?;
+
+        Ok(CallToolResult {
+            content: vec![Content {
+                annotations: None,
+                raw: RawContent::Text(RawTextContent { text: json_result }),
+            }],
+            is_error: None,
+        })
     }
 }
 

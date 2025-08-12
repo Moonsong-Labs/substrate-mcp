@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
+use crate::substrate::utils;
+
 /// Represents a decoded event from the chain
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecodedEvent {
@@ -35,6 +37,45 @@ pub struct EventFilter {
     pub limit: Option<usize>,
 }
 
+/// Query events from historical blocks using a hybrid approach
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HistoricalEventsQuery {
+    /// Start block (negative = relative to current)
+    pub from_block: i32,
+    /// End block (negative = relative to current)  
+    pub to_block: Option<i32>,
+    /// Optional pallet filter
+    pub pallet: Option<String>,
+    /// Optional event name filter
+    pub event: Option<String>,
+}
+
+/// Result of historical events query
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HistoricalEventsQueryResult {
+    /// Events found
+    pub events: Vec<Event>,
+    /// Number of blocks queried
+    pub blocks_queried: u32,
+}
+
+/// A historical event with decoded data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Event {
+    /// Block number
+    pub block_number: u32,
+    /// Block hash
+    pub block_hash: String,
+    /// Pallet name
+    pub pallet: String,
+    /// Event name  
+    pub event: String,
+    /// Event index in block
+    pub event_index: u32,
+    /// Decoded event data (as JSON)
+    pub data: serde_json::Value,
+}
+
 impl EventFilter {
     /// Query events from the chain based on the filter criteria
     pub async fn query_events(
@@ -52,7 +93,7 @@ impl EventFilter {
         let to = self.to_block.unwrap_or(latest_number);
 
         // Create a historical query
-        let _query = crate::substrate::historical::HistoricalEventsQuery {
+        let _query = HistoricalEventsQuery {
             from_block: from as i32,
             to_block: Some(to as i32),
             pallet: self.pallet.clone(),
@@ -65,112 +106,133 @@ impl EventFilter {
             "Historical block hash retrieval not yet implemented. Please use the query_historical_events tool instead."
         ))
     }
-
-    /// Check if an event matches the filter criteria
-    #[allow(dead_code)]
-    fn matches_event(&self, pallet: &str, variant: &str) -> bool {
-        // Check pallet filter
-        if let Some(ref filter_pallet) = self.pallet {
-            if !pallet
-                .to_lowercase()
-                .contains(&filter_pallet.to_lowercase())
-            {
-                return false;
-            }
-        }
-
-        // Check variant filter
-        if let Some(ref filter_variant) = self.variant {
-            if !variant
-                .to_lowercase()
-                .contains(&filter_variant.to_lowercase())
-            {
-                return false;
-            }
-        }
-
-        true
-    }
-
-    /// Convert event data to JSON
-    #[allow(dead_code)]
-    fn event_to_json<T>(&self, event: &subxt::events::EventDetails<T>) -> serde_json::Value
-    where
-        T: subxt::Config,
-    {
-        // Get the decoded field values
-        match event.field_values() {
-            Ok(fields) => {
-                // Convert scale_value types to proper JSON
-                let json_fields = crate::substrate::scale_utils::composite_to_json(&fields);
-                serde_json::json!({
-                    "pallet": event.pallet_name(),
-                    "variant": event.variant_name(),
-                    "fields": json_fields
-                })
-            }
-            Err(e) => {
-                // If decoding fails, return error info
-                serde_json::json!({
-                    "pallet": event.pallet_name(),
-                    "variant": event.variant_name(),
-                    "error": format!("Failed to decode fields: {}", e)
-                })
-            }
-        }
-    }
 }
 
-/// Query events from a specific block
-#[allow(dead_code)]
-pub async fn get_block_events(
-    client: &OnlineClient<PolkadotConfig>,
-    block_number: Option<u32>,
-) -> Result<Vec<DecodedEvent>> {
-    // For now, only support querying the latest block
-    if block_number.is_some() {
-        return Err(anyhow::anyhow!(
-            "Historical block query not yet implemented. Please use the query_historical_events tool for historical data."
-        ));
+/// Query historical events using substrate-api-client for RPC and subxt for decoding
+pub async fn query_historical_events(
+    query: HistoricalEventsQuery,
+    subxt_client: &subxt::OnlineClient<subxt::PolkadotConfig>,
+    rpc_url: &str,
+) -> Result<HistoricalEventsQueryResult> {
+    // Get block range from query parameters
+    let (from, to) = utils::get_block_range(query.from_block, query.to_block, subxt_client).await?;
+
+    // Create WebSocket RPC client for historical queries
+    let rpc_client = utils::RpcClient::new(rpc_url).await?;
+
+    let mut all_events = Vec::new();
+    let blocks_queried = to - from + 1;
+
+    // Query each block
+    for block_num in from..=to {
+        // Get block hash
+        let block_hash: String = rpc_client
+            .request("chain_getBlockHash", vec![block_num])
+            .await?;
+
+        // Get storage key for System.Events
+        let storage_key = get_events_storage_key();
+
+        // Get events at this block
+        let events_data: Option<String> = rpc_client
+            .request("state_getStorage", (storage_key, &block_hash))
+            .await?;
+
+        if let Some(events_hex) = events_data {
+            // Decode events using subxt metadata
+            let events = decode_events_with_subxt(
+                &events_hex,
+                &block_hash,
+                block_num,
+                subxt_client,
+                &query.pallet,
+                &query.event,
+            )
+            .await?;
+
+            all_events.extend(events);
+        }
     }
 
-    let block = client.blocks().at_latest().await?;
+    Ok(HistoricalEventsQueryResult {
+        events: all_events,
+        blocks_queried,
+    })
+}
 
-    let events = block.events().await?;
-    let block_number = block.number();
-    let block_hash = format!("0x{}", hex::encode(block.hash().as_ref()));
+/// Decode events using subxt's metadata
+async fn decode_events_with_subxt(
+    events_hex: &str,
+    block_hash: &str,
+    block_number: u32,
+    client: &subxt::OnlineClient<subxt::PolkadotConfig>,
+    pallet_filter: &Option<String>,
+    event_filter: &Option<String>,
+) -> Result<Vec<Event>> {
+    use subxt::events::Events;
 
-    let mut results = Vec::new();
+    // Remove 0x prefix and decode hex
+    let bytes = hex::decode(&events_hex[2..])?;
+
+    // Get metadata from subxt client
+    let metadata = client.metadata();
+
+    // Decode events using subxt
+    let events = Events::<subxt::PolkadotConfig>::decode_from(bytes, metadata.clone());
+
+    let mut decoded_events = Vec::new();
+
+    // Process each event
     for (idx, event) in events.iter().enumerate() {
         let event = event?;
 
+        // Apply filters
+        if let Some(ref pallet) = pallet_filter {
+            if !event.pallet_name().eq_ignore_ascii_case(pallet) {
+                continue;
+            }
+        }
+
+        if let Some(ref event_name) = event_filter {
+            if !event.variant_name().eq_ignore_ascii_case(event_name) {
+                continue;
+            }
+        }
+
+        // Decode event data
         let data = match event.field_values() {
             Ok(fields) => {
+                // Convert to proper JSON representation
                 let json_fields = crate::substrate::scale_utils::composite_to_json(&fields);
                 serde_json::json!({
-                    "pallet": event.pallet_name(),
-                    "variant": event.variant_name(),
-                    "fields": json_fields
+                    "fields": json_fields,
+                    "decoded": true
                 })
             }
             Err(e) => {
                 serde_json::json!({
-                    "pallet": event.pallet_name(),
-                    "variant": event.variant_name(),
-                    "error": format!("Failed to decode fields: {}", e)
+                    "error": format!("Failed to decode: {}", e),
+                    "decoded": false
                 })
             }
         };
 
-        results.push(DecodedEvent {
-            pallet: event.pallet_name().to_string(),
-            variant: event.variant_name().to_string(),
+        decoded_events.push(Event {
             block_number,
-            block_hash: block_hash.clone(),
+            block_hash: block_hash.to_string(),
+            pallet: event.pallet_name().to_string(),
+            event: event.variant_name().to_string(),
             event_index: idx as u32,
             data,
         });
     }
 
-    Ok(results)
+    Ok(decoded_events)
+}
+
+/// Get the storage key for System.Events
+fn get_events_storage_key() -> String {
+    // System.Events storage key is well-known
+    // twox128("System") + twox128("Events")
+    "0x26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7".to_string()
 }
