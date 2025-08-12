@@ -1,6 +1,9 @@
 use indoc::indoc;
 use rmcp::model::PromptArgument;
 
+/// Base directory where polkadot release analysis data is stored
+const RELEASE_ANALYSIS_BASE_DIR: &str = "./polkadot-release-analysis/releases";
+
 /// Analysis prompt structure for PRDoc analysis
 pub struct AnalysisPrompt {
     pub name: String,
@@ -13,6 +16,8 @@ pub struct AnalysisPrompt {
 
 /// Get all PRDoc analysis prompts that leverage parallel sub-agents
 pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
+    let base_dir = RELEASE_ANALYSIS_BASE_DIR;
+    
     vec![
         // Generic parallel analysis prompt
         AnalysisPrompt {
@@ -42,7 +47,7 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
             ],
             requires_parallel_agents: true,
             agent_batch_size: Some(3), // Default, overridden by user's batch_size
-            instructions: indoc! {r#"
+            instructions: format!(r#"
                 # Parallel Release Analysis Framework
 
                 You MUST analyze EVERY PRDoc in release {{release}} using parallel processing for efficiency.
@@ -65,11 +70,11 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                    - Example pattern to identify:
                      ```rust
                      construct_runtime!(
-                         pub enum Runtime {
-                             System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-                             Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+                         pub enum Runtime {{
+                             System: frame_system::{{Pallet, Call, Config, Storage, Event<T>}},
+                             Balances: pallet_balances::{{Pallet, Call, Storage, Config<T>, Event<T>}},
                              // Storage component = on-chain state that may need migrations
-                         }
+                         }}
                      );
                      ```
 
@@ -149,11 +154,11 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
 
                 ### 📂 Data Locations (CRITICAL - READ THIS!)
 
-                **PRDoc Input Data**: `./polkadot-release-analysis/releases/{{release}}/pr-docs/`
+                **PRDoc Input Data**: `{}/{{{{release}}}}/pr-docs/`
                 - This is where get_polkadot_sdk_release_prdocs saves files
                 - Contains: pr_XXXX.prdoc files + summary JSONs
 
-                **Report Output Location**: `./polkadot-release-analysis/releases/{{release}}/reports/`
+                **Report Output Location**: `{}/{{{{release}}}}/reports/`
                 - You MUST create this directory if it doesn't exist
                 - Save report as: `analysis-[ISO-8601-timestamp].md`
 
@@ -162,7 +167,7 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                    - If comparing versions (e.g., from X to Y), fetch all intermediate releases using: "X>Y"
                    - If multiple specific releases requested, download each one
                 2. Download the release(s) using get_polkadot_sdk_release_prdocs tool
-                   - Files will be saved to: `./polkadot-release-analysis/releases/{release}/pr-docs/`
+                   - Files will be saved to: `{}/{{{{release}}}}/pr-docs/`
                 3. Get complete inventory of all PRDocs (use LS on the pr-docs directory)
                 4. Determine if single or multi-pass approach is needed
                 5. Plan batches of size {{batch_size}} (or 3 if not specified)
@@ -678,19 +683,19 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 ```
                 ./polkadot-release-analysis/             # Root directory in current working directory
                 └── releases/                        # All release data
-                    └── {release}/                   # e.g., stable2412-1/
+                    └── {{release}}/                   # e.g., stable2412-1/
                         ├── pr-docs/                 # Downloaded PRDoc files
                         │   ├── pr_XXXX.prdoc       # Individual PRDoc files
                         │   ├── manifest.json       # Release metadata
                         │   ├── crate_summary.json  # Crate changes summary
                         │   └── audience_summary.json # Audience categorization
                         └── reports/                 # Analysis reports for this release
-                            └── analysis-{timestamp}.md # e.g., analysis-2024-01-15T10-30-00Z.md
+                            └── analysis-{{timestamp}}.md # e.g., analysis-2024-01-15T10-30-00Z.md
                 ```
 
                 **STEPS YOU (THE LLM) MUST FOLLOW:**
-                1. **YOU CREATE THE DIRECTORY** (if it doesn't exist): `./polkadot-release-analysis/releases/{{release}}/reports/`
-                2. **YOU SAVE THE REPORT** to: `./polkadot-release-analysis/releases/{{release}}/reports/analysis-[timestamp].md`
+                1. **YOU CREATE THE DIRECTORY** (if it doesn't exist): `{}/{{{{release}}}}/reports/`
+                2. **YOU SAVE THE REPORT** to: `{}/{{{{release}}}}/reports/analysis-[timestamp].md`
                    - Replace [timestamp] with actual ISO 8601 timestamp (e.g., 2024-01-15T10-30-00Z)
                    - Use hyphens in timestamp, not colons (for filesystem compatibility)
                 3. **YOU VERIFY THE FILE** was created successfully
@@ -708,8 +713,8 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 📊 Analyzed: [X] PRs | Breaking: [Y] | Security: [Z]
                 {{#if project_context}}⚠️ [N] changes directly affect your project{{/if}}
 
-                📁 Report directory: ./polkadot-release-analysis/releases/{{release}}/reports/
-                📄 Report file: ./polkadot-release-analysis/releases/{{release}}/reports/analysis-[timestamp].md
+                📁 Report directory: {}/{{{{release}}}}/reports/
+                📄 Report file: {}/{{{{release}}}}/reports/analysis-[timestamp].md
                     ^^^ Click the path above to open in your editor
 
                 💡 Open the report for detailed migration guides and code examples
@@ -728,12 +733,12 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 Remember: The markdown file is the PRIMARY deliverable. Console output is secondary.
 
                 ## FINAL CHECKLIST (YOU MUST COMPLETE ALL):
-                ✓ Did you create the ./polkadot-release-analysis/releases/{{release}}/reports/ directory?
+                ✓ Did you create the {}/{{{{release}}}}/reports/ directory?
                 ✓ Did you save the markdown report to the EXACT path specified above?
                 ✓ Did you verify the file was created successfully?
                 ✓ Did you print BOTH the directory path AND the clickable file path?
-                ✓ Did you analyze ALL PRDocs from ./polkadot-release-analysis/releases/{{release}}/pr-docs/?
-            "#}.to_string(),
+                ✓ Did you analyze ALL PRDocs from {}/{{{{release}}}}/pr-docs/?
+            "#, base_dir, base_dir, base_dir, base_dir, base_dir, base_dir, base_dir, base_dir, base_dir),
         },
 
         // Keep existing prompts temporarily for backward compatibility
