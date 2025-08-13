@@ -2,8 +2,6 @@ pub mod polkadot_sdk_releases;
 pub mod prdoc_analysis_prompts;
 pub mod prompts;
 pub mod public_endpoints;
-pub mod release_analysis;
-pub mod release_prompts;
 pub mod resources;
 pub mod server;
 pub mod substrate;

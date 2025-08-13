@@ -97,8 +97,6 @@ fn get_optional_arg(
 }
 
 use crate::prdoc_analysis_prompts;
-/// Import release prompts
-use crate::release_prompts;
 
 /// Create a new Prompts instance with all available prompts
 pub fn prompts() -> Vec<SubstratePrompt> {
@@ -271,35 +269,6 @@ pub fn prompts() -> Vec<SubstratePrompt> {
             }),
         },
     ];
-
-    // Add release-specific prompts
-    for prompt in release_prompts::get_release_prompts() {
-        let instructions = prompt.instructions.clone();
-        all_prompts.push(SubstratePrompt {
-            name: prompt.name,
-            description: prompt.description,
-            arguments: prompt.arguments,
-            handler: Box::new(move |args| {
-                // Convert the prompt instructions into messages
-                let mut processed_instructions = instructions.clone();
-
-                // Replace template variables
-                for (key, value) in args {
-                    if let Some(str_value) = value.as_str() {
-                        processed_instructions =
-                            processed_instructions.replace(&format!("{{{{{key}}}}}"), str_value);
-                    }
-                }
-
-                Ok(vec![PromptMessage {
-                    role: PromptMessageRole::User,
-                    content: PromptMessageContent::Text {
-                        text: processed_instructions,
-                    },
-                }])
-            }),
-        });
-    }
 
     // Pre-compile regex patterns once, outside the loop
     let if_regex = regex::Regex::new(
