@@ -7,7 +7,7 @@ fn is_byte_array<T>(values: &[Value<T>]) -> Option<Vec<u8>> {
     if values.is_empty() {
         return None;
     }
-    
+
     let mut bytes = Vec::with_capacity(values.len());
     for value in values {
         match &value.value {
@@ -34,16 +34,14 @@ pub fn composite_to_json<T>(composite: &Composite<T>) -> serde_json::Value {
             // Special handling for single-element arrays that contain byte arrays
             // This handles cases like [H160], [H256] which are wrapped arrays
             if values.len() == 1 {
-                if let ValueDef::Composite(inner) = &values[0].value {
-                    if let Composite::Unnamed(inner_values) = inner {
-                        if let Some(bytes) = is_byte_array(inner_values) {
-                            // Return the hex string directly, not wrapped in an array
-                            return json!(format!("0x{}", hex::encode(bytes)));
-                        }
+                if let ValueDef::Composite(Composite::Unnamed(inner_values)) = &values[0].value {
+                    if let Some(bytes) = is_byte_array(inner_values) {
+                        // Return the hex string directly, not wrapped in an array
+                        return json!(format!("0x{}", hex::encode(bytes)));
                     }
                 }
             }
-            
+
             // Check if this is a byte array (common for addresses, hashes, etc.)
             if let Some(bytes) = is_byte_array(values) {
                 // Convert byte array to hex string
