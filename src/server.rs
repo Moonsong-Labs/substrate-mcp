@@ -173,14 +173,14 @@ impl SubstrateService {
         }
     }
 
-    #[tool(description = "Get all documented changes for a given polkadot-sdk release")]
-    pub async fn get_polkadot_sdk_release_prdocs(
+    #[tool(description = "Fetches all PRDocs for a release from GitHub and generates analysis summaries (manifest, crate changes, audience breakdown)")]
+    pub async fn fetch_release_prdocs(
         &self,
         Parameters(GetPolkadotSdkReleasePrdocsRequest { release }): Parameters<
             GetPolkadotSdkReleasePrdocsRequest,
         >,
     ) -> Result<CallToolResult, McpError> {
-        let response = polkadot_sdk_releases::query_prdocs(&release)
+        let response = polkadot_sdk_releases::fetch_release_prdocs(&release)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),

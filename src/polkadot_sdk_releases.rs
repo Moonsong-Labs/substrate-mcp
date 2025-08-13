@@ -170,7 +170,7 @@ fn get_project_name() -> String {
         .unwrap_or_else(|| "default".to_string())
 }
 
-pub async fn query_prdocs(release: &str) -> Result<PrdocsResult> {
+pub async fn fetch_release_prdocs(release: &str) -> Result<PrdocsResult> {
     let client = reqwest::Client::new();
 
     // Get project name from the current project root
@@ -514,9 +514,9 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_query_prdocs_valid_release() {
+    async fn test_fetch_release_prdocs_valid_release() {
         // This test requires network access
-        let result = query_prdocs("stable2412-1").await;
+        let result = fetch_release_prdocs("stable2412-1").await;
         assert!(result.is_ok());
         let prdocs_result = result.unwrap();
         assert!(prdocs_result.success);
@@ -529,9 +529,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_query_prdocs_stable2412_2() {
+    async fn test_fetch_release_prdocs_stable2412_2() {
         // Test stable2412-2 specifically
-        let result = query_prdocs("stable2412-2").await;
+        let result = fetch_release_prdocs("stable2412-2").await;
         assert!(result.is_ok());
         let prdocs_result = result.unwrap();
         assert!(prdocs_result.success);
@@ -555,8 +555,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_query_prdocs_invalid_release() {
-        let result = query_prdocs("nonexistent-release").await;
+    async fn test_fetch_release_prdocs_invalid_release() {
+        let result = fetch_release_prdocs("nonexistent-release").await;
         // Should return Ok with success=false or an error
         match result {
             Ok(prdocs_result) => assert!(!prdocs_result.success),
@@ -658,7 +658,7 @@ mod tests {
     #[tokio::test]
     async fn test_stable2503_7_specific() {
         // Test downloading stable2503-7 specifically
-        let result = query_prdocs("stable2503-7").await;
+        let result = fetch_release_prdocs("stable2503-7").await;
         assert!(
             result.is_ok(),
             "Failed to download stable2503-7: {:?}",
@@ -717,7 +717,7 @@ mod tests {
         // Regression test for missing audiences in indexing
         // This test checks that all PRDocs in stable2412-1 are properly indexed
 
-        let result = query_prdocs("stable2412-1").await;
+        let result = fetch_release_prdocs("stable2412-1").await;
         assert!(result.is_ok());
         let prdocs_result = result.unwrap();
 

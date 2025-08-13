@@ -167,7 +167,7 @@ pub fn get_analysis_prompts() -> Vec<AnalysisPrompt> {
                 1. Check if analyzing multiple releases or upgrading across versions
                    - If comparing versions (e.g., from X to Y), fetch all intermediate releases using: "X>Y"
                    - If multiple specific releases requested, download each one
-                2. Download the release(s) using get_polkadot_sdk_release_prdocs tool
+                2. Download the release(s) using fetch_release_prdocs tool
                    - Files will be saved to: `~/.substrate-mcp/{{{{project}}}}/releases/{{{{release}}}}/pr-docs/`
                 3. Get complete inventory of all PRDocs (use LS on the pr-docs directory)
                 4. Determine if single or multi-pass approach is needed

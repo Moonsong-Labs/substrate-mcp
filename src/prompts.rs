@@ -407,7 +407,7 @@ fn release_comparison_prompt(
         r#"Compare changes between Polkadot SDK versions {current_version} and {target_version}.
 
 ## Tools and Resources
-- Use substrate_mcp's `get_polkadot_sdk_release_prdocs` tool to fetch release documentation
+- Use substrate_mcp's `fetch_release_prdocs` tool to fetch release documentation
   - NEW: The tool now supports version ranges! Use: `{current_version}>{target_version}` to fetch all releases between them automatically
   - Example: `stable2502>stable2503-2` will download PRDocs for stable2503, stable2503-1, and stable2503-2
 - Reference the polkadot-sdk repository: https://github.com/paritytech/polkadot-sdk
@@ -416,7 +416,7 @@ fn release_comparison_prompt(
 ## Fetching PRDocs
 First, fetch all relevant PRDocs using the version range feature:
 ```
-Use get_polkadot_sdk_release_prdocs with release: "{current_version}>{target_version}"
+Use fetch_release_prdocs with release: "{current_version}>{target_version}"
 ```
 
 This will automatically:
