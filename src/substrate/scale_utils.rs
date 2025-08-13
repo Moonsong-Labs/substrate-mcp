@@ -1,6 +1,25 @@
 use scale_value::{Composite, Primitive, Value, ValueDef, Variant};
 use serde_json::json;
 
+/// Check if a composite is a byte array (all elements are u8 primitives)
+fn is_byte_array<T>(values: &[Value<T>]) -> Option<Vec<u8>> {
+    // Empty arrays should not be treated as byte arrays
+    if values.is_empty() {
+        return None;
+    }
+    
+    let mut bytes = Vec::with_capacity(values.len());
+    for value in values {
+        match &value.value {
+            ValueDef::Primitive(Primitive::U128(n)) if *n <= 255 => {
+                bytes.push(*n as u8);
+            }
+            _ => return None,
+        }
+    }
+    Some(bytes)
+}
+
 /// Convert a scale_value::Composite to a serde_json::Value
 pub fn composite_to_json<T>(composite: &Composite<T>) -> serde_json::Value {
     match composite {
@@ -12,8 +31,28 @@ pub fn composite_to_json<T>(composite: &Composite<T>) -> serde_json::Value {
             serde_json::Value::Object(map)
         }
         Composite::Unnamed(values) => {
-            let array: Vec<_> = values.iter().map(value_to_json).collect();
-            serde_json::Value::Array(array)
+            // Special handling for single-element arrays that contain byte arrays
+            // This handles cases like [H160], [H256] which are wrapped arrays
+            if values.len() == 1 {
+                if let ValueDef::Composite(inner) = &values[0].value {
+                    if let Composite::Unnamed(inner_values) = inner {
+                        if let Some(bytes) = is_byte_array(inner_values) {
+                            // Return the hex string directly, not wrapped in an array
+                            return json!(format!("0x{}", hex::encode(bytes)));
+                        }
+                    }
+                }
+            }
+            
+            // Check if this is a byte array (common for addresses, hashes, etc.)
+            if let Some(bytes) = is_byte_array(values) {
+                // Convert byte array to hex string
+                json!(format!("0x{}", hex::encode(bytes)))
+            } else {
+                // Regular array processing
+                let array: Vec<_> = values.iter().map(value_to_json).collect();
+                serde_json::Value::Array(array)
+            }
         }
     }
 }
