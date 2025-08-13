@@ -406,32 +406,38 @@ fn release_comparison_prompt(
     let mut prompt = format!(
         r#"Compare changes between Polkadot SDK versions {current_version} and {target_version}.
 
-## Tools and Resources
-- Use substrate_mcp's `fetch_release_prdocs` tool to fetch release documentation
-  - NEW: The tool now supports version ranges! Use: `{current_version}>{target_version}` to fetch all releases between them automatically
-  - Example: `stable2502>stable2503-2` will download PRDocs for stable2503, stable2503-1, and stable2503-2
-- Reference the polkadot-sdk repository: https://github.com/paritytech/polkadot-sdk
-- PRDocs contain release notes with breaking changes, new features, and important updates
+## Getting Release Data
 
-## Fetching PRDocs
-First, fetch all relevant PRDocs using the version range feature:
+### Fetching PRDocs
+The `fetch_release_prdocs` tool downloads and analyzes Pull Request Documentation (PRDocs) from the polkadot-sdk repository.
+
+**For single release:**
 ```
-Use fetch_release_prdocs with release: "{current_version}>{target_version}"
+fetch_release_prdocs with release: "stable2503-1"
 ```
 
-This will automatically:
-1. Determine all releases between {current_version} (exclusive) and {target_version} (inclusive)
-2. Download PRDocs for each intermediate release
-3. Organize them in ~/.substrate-mcp/[project]/releases/[release]/pr-docs/
+**For version range (fetches all intermediate releases):**
+```
+fetch_release_prdocs with release: "{current_version}>{target_version}"
+```
+Example: `stable2502>stable2503-2` fetches stable2503, stable2503-1, and stable2503-2
 
-## Version Naming Conventions
-1. **Semantic versions**: Follow standard semver (e.g., 1.2.3)
-2. **Stable releases**: Format `stableYYMM[-patch]`
-   - YYMM represents year and month (e.g., 2503 = March 2025)
-   - Optional -X suffix for patches (e.g., stable2503-1)
+The tool will:
+1. Download all PRDocs from GitHub for the specified release(s)
+2. Generate analysis summaries (manifest.json, crate_summary.json, audience_summary.json)
+3. Organize files in `~/.substrate-mcp/[project]/releases/[release]/pr-docs/`
 
-Stable releases were implemented later than semantic versions so oldest stable
-release comes after newer semantic versioned release."#,
+### Version Format Guide
+- **Semantic versions**: Standard format like `1.9.0`, `1.10.2`
+- **Stable releases**: Format `stableYYMM[-patch]` where:
+  - YYMM = year and month (e.g., 2503 = March 2025)
+  - Optional patch suffix (e.g., stable2503-1, stable2503-2)
+  
+Note: Stable releases began after semantic versioning, so v1.x.x releases predate stable releases.
+
+### Resources
+- Repository: https://github.com/paritytech/polkadot-sdk
+- PRDocs contain: breaking changes, new features, migrations, and bug fixes"#,
     );
 
     if let Some(specific_changes) = &specific_changes {
