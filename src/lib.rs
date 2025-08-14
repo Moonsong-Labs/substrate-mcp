@@ -4,3 +4,4 @@ pub mod public_endpoints;
 pub mod resources;
 pub mod server;
 pub mod substrate;
+pub mod tools;

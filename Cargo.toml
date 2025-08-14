@@ -25,7 +25,7 @@ env_logger = "0.11"
 # Subxt for advanced chain interaction
 subxt = { version = "0.37", features = ["substrate-compat"] }
 subxt-signer = { version = "0.37" }
-scale-value = "0.16"
-scale-info = "2.10"
+scale-value = { version = "0.16", features = ["from-string"] }
+scale-info = "2.11"
 sp-core = "33.0"
 

@@ -14,6 +14,7 @@ use tokio::process::Command;
 
 use crate::polkadot_sdk_releases;
 use crate::prompts;
+use crate::tools;
 use serde::Deserialize;
 
 use crate::resources;
@@ -22,6 +23,7 @@ use crate::substrate::extrinsic::{query_extrinsics, ExtrinsicsQuery};
 use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::runtime::list_runtime_changes;
 use crate::substrate::storage::{list_pallet_storage, query_storage, StorageQuery};
+
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -473,6 +475,16 @@ impl SubstrateService {
             }],
             is_error: None,
         })
+    }
+
+    #[tool(
+        description = "Submit a generic extrinsic to a Substrate chain using dev accounts. Supports any pallet call with arbitrary arguments. Use dev account names like 'alice', 'bob', 'charlie', etc. for signing. Recommend using filter_metadata first to understand argument format. Arguments must be in scale_value string format and will be parsed using scale_value::stringify::from_str - consult the 'substrate:scale-value-format' resource for detailed syntax and examples."
+    )]
+    pub async fn submit_dev_extrinsic(
+        &self,
+        Parameters(properties): Parameters<tools::SubmitExtrinsicProperties>,
+    ) -> Result<CallToolResult, McpError> {
+        tools::handle_submit_dev_extrinsic(properties).await
     }
 
     #[tool(
