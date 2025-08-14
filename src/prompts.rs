@@ -1015,14 +1015,17 @@ fn create_analyze_release_prompt() -> SubstratePrompt {
         handler: Box::new(|args| {
             let release = get_required_arg(args, "release")?;
             let focus = get_optional_arg(args, "focus");
-            
+
             analyze_release_prompt(release, focus)
         }),
     }
 }
 
 /// Handler for the analyze_release prompt
-fn analyze_release_prompt(release: String, focus: Option<String>) -> Result<Vec<PromptMessage>, McpError> {
+fn analyze_release_prompt(
+    release: String,
+    focus: Option<String>,
+) -> Result<Vec<PromptMessage>, McpError> {
     let mut prompt = format!(
         r#"
 # Analyze Polkadot SDK Release Impact on Your Project
@@ -1096,8 +1099,10 @@ This profile becomes the lens through which EVERY PR is evaluated:
 
 ## Analysis Strategy Selection
 
-Based on the user's request: {}"#, focus.as_deref().unwrap_or("Comprehensive analysis"));
-    
+Based on the user's request: {}"#,
+        focus.as_deref().unwrap_or("Comprehensive analysis")
+    );
+
     prompt.push_str(r#"
 
 First, determine the optimal execution strategy:

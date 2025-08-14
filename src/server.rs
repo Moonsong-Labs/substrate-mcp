@@ -152,7 +152,9 @@ impl SubstrateService {
         }
     }
 
-    #[tool(description = "Fetches and analyzes a Polkadot SDK release - downloads PRDocs and generates summaries (manifest, crate changes, audience breakdown)")]
+    #[tool(
+        description = "Fetches and analyzes a Polkadot SDK release - downloads PRDocs and generates summaries (manifest, crate changes, audience breakdown)"
+    )]
     pub async fn fetch_and_analyze_release(
         &self,
         Parameters(FetchAndAnalyzeReleaseRequest { release }): Parameters<
@@ -168,17 +170,18 @@ impl SubstrateService {
             })?;
 
         // Format the response as JSON string
-        let response_text = serde_json::to_string_pretty(&response)
-            .map_err(|e| McpError {
-                code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to serialize response: {e}").into(),
-                data: None,
-            })?;
+        let response_text = serde_json::to_string_pretty(&response).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: format!("Failed to serialize response: {e}").into(),
+            data: None,
+        })?;
 
         Ok(CallToolResult {
             content: vec![Content {
                 annotations: None,
-                raw: RawContent::Text(RawTextContent { text: response_text }),
+                raw: RawContent::Text(RawTextContent {
+                    text: response_text,
+                }),
             }],
             is_error: None,
         })
@@ -660,4 +663,3 @@ impl ServerHandler for SubstrateService {
         }
     }
 }
-

@@ -123,13 +123,13 @@ fn extract_pr_number(filename: &str) -> Option<u32> {
 fn find_project_root() -> Option<PathBuf> {
     let current_dir = env::current_dir().ok()?;
     let mut dir = current_dir.as_path();
-    
+
     loop {
         // Check for .git directory (most reliable indicator)
         if dir.join(".git").exists() {
             return Some(dir.to_path_buf());
         }
-        
+
         // Check for Cargo.toml with workspace section
         let cargo_toml = dir.join("Cargo.toml");
         if cargo_toml.exists() {
@@ -150,7 +150,7 @@ fn find_project_root() -> Option<PathBuf> {
                 return Some(dir.to_path_buf());
             }
         }
-        
+
         // Move up one directory
         match dir.parent() {
             Some(parent) => dir = parent,
@@ -175,7 +175,7 @@ pub async fn fetch_and_analyze_release(release: &str) -> Result<PrdocsResult> {
 
     // Get project name from the current project root
     let project_name = get_project_name();
-    
+
     // Create directory under ~/.substrate-mcp/{project}/releases/{release}/pr-docs
     let home_dir = dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
     let output_dir = home_dir
