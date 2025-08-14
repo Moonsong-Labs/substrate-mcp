@@ -171,7 +171,7 @@ impl SubstrateService {
         let response_text = serde_json::to_string_pretty(&response)
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to serialize response: {}", e).into(),
+                message: format!("Failed to serialize response: {e}").into(),
                 data: None,
             })?;
 
