@@ -39,7 +39,7 @@ cargo install subxt-cli
 - **`subxt_execute`** - Use subxt CLI to decode and explore Substrate blockchain data. Useful for analyzing chain metadata, generating type-safe Rust code, and understanding runtime APIs.
 
 ### Documentation
-- **`get_polkadot_sdk_release_prdocs`** - Downloads all PRDoc files for a given polkadot-sdk release to a local directory. Files are saved to `~/.substrate-mcp/prdocs/prdocs-{release}/` and the tool returns the path for further exploration with file operations.
+- **`fetch_and_analyze_release`** - Fetches and analyzes a Polkadot SDK release by downloading all PRDoc files and generating analysis summaries (manifest, crate changes, audience breakdown). Files are saved to `~/.substrate-mcp/{project}/releases/{release}/pr-docs/` and the tool returns the path for further exploration.
 
 ## Usage with Claude Code
 

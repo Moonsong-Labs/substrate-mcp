@@ -66,7 +66,7 @@ This server follows the standard MCP communication pattern:
 The server currently has:
 - Basic MCP server infrastructure set up
 - Several functional tools:
-  - `get_polkadot_sdk_release_prdocs`: Fetches PR documentation for SDK releases
+  - `fetch_and_analyze_release`: Fetches and analyzes Polkadot SDK releases (downloads PRDocs and generates summaries)
   - `chain_storage_bisect`: Finds storage changes between blocks
 - Server info indicating it's for Substrate-based blockchain development
 - Both tools and resources capabilities enabled

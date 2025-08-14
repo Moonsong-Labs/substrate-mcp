@@ -335,17 +335,17 @@ fn release_comparison_prompt(
 
 ## Getting Release Data
 
-### Fetching PRDocs
-The `fetch_release_prdocs` tool downloads and analyzes Pull Request Documentation (PRDocs) from the polkadot-sdk repository.
+### Fetching and Analyzing Releases
+The `fetch_and_analyze_release` tool downloads and analyzes Pull Request Documentation (PRDocs) from the polkadot-sdk repository.
 
 **For single release:**
 ```
-fetch_release_prdocs with release: "stable2503-1"
+fetch_and_analyze_release with release: "stable2503-1"
 ```
 
 **For version range (fetches all intermediate releases):**
 ```
-fetch_release_prdocs with release: "{current_version}>{target_version}"
+fetch_and_analyze_release with release: "{current_version}>{target_version}"
 ```
 Example: `stable2502>stable2503-2` fetches stable2503, stable2503-1, and stable2503-2
 
@@ -1120,7 +1120,7 @@ First, determine the optimal execution strategy:
 ### 📂 Data Locations (CRITICAL - READ THIS!)
 
 **PRDoc Input Data**: `~/.substrate-mcp/{{{{project}}}}/releases/{{release}}/pr-docs/`
-- This is where get_polkadot_sdk_release_prdocs saves files
+- This is where fetch_and_analyze_release saves files
 - Contains: pr_XXXX.prdoc files + summary JSONs
 
 **Report Output Location**: `~/.substrate-mcp/{{{{project}}}}/releases/{{release}}/reports/`
@@ -1131,7 +1131,7 @@ First, determine the optimal execution strategy:
 1. Check if analyzing multiple releases or upgrading across versions
    - If comparing versions (e.g., from X to Y), fetch all intermediate releases using: "X>Y"
    - If multiple specific releases requested, download each one
-2. Download the release(s) using fetch_release_prdocs tool
+2. Download the release(s) using fetch_and_analyze_release tool
    - Files will be saved to: `~/.substrate-mcp/{{project}}/releases/{release}/pr-docs/`
 3. Get complete inventory of all PRDocs (use LS on the pr-docs directory)
 4. Determine if single or multi-pass approach is needed
