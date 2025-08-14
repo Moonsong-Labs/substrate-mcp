@@ -23,42 +23,6 @@ For the `subxt_execute` tool, install the subxt CLI:
 cargo install subxt-cli
 ```
 
-## Configuration
-
-### RPC Endpoints
-The server uses a `rpc_endpoints.json` configuration file to manage RPC endpoints. This file is automatically created with default endpoints if it doesn't exist.
-
-The configuration includes:
-- **Network name**: Human and LLM-friendly identifier (e.g., "polkadot", "kusama")
-- **URL**: WebSocket endpoint URL
-- **Description**: Detailed description of the network
-
-Example configuration:
-```json
-{
-  "endpoints": [
-    {
-      "name": "polkadot",
-      "url": "wss://rpc.polkadot.io",
-      "description": "Polkadot mainnet - The main Polkadot relay chain"
-    },
-    {
-      "name": "westend",
-      "url": "wss://westend-rpc.polkadot.io",
-      "description": "Westend testnet - Public test network for Polkadot"
-    },
-    {
-      "name": "local",
-      "url": "ws://localhost:9944",
-      "description": "Local development node - Substrate node running on your machine"
-    }
-  ],
-  "default_endpoint": "westend"
-}
-```
-
-You can customize this file to add your own endpoints or modify existing ones.
-
 ## Available Tools
 
 ### Event Querying
@@ -75,7 +39,7 @@ You can customize this file to add your own endpoints or modify existing ones.
 - **`subxt_execute`** - Use subxt CLI to decode and explore Substrate blockchain data. Useful for analyzing chain metadata, generating type-safe Rust code, and understanding runtime APIs.
 
 ### Documentation
-- **`get_polkadot_sdk_release_prdocs`** - Get all documented changes for a given polkadot-sdk release.
+- **`fetch_and_analyze_release`** - Fetches and analyzes a Polkadot SDK release by downloading all PRDoc files and generating analysis summaries (manifest, crate changes, audience breakdown). Files are saved to `~/.substrate-mcp/{project}/releases/{release}/pr-docs/` and the tool returns the path for further exploration.
 
 ## Usage with Claude Code
 

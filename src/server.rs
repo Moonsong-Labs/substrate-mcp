@@ -33,7 +33,7 @@ pub struct SubstrateService {
 }
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
-pub struct GetPolkadotSdkReleasePrdocsRequest {
+pub struct FetchAndAnalyzeReleaseRequest {
     /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412')
     pub release: String,
 }
@@ -152,14 +152,16 @@ impl SubstrateService {
         }
     }
 
-    #[tool(description = "Get all documented changes for a given polkadot-sdk release")]
-    pub async fn get_polkadot_sdk_release_prdocs(
+    #[tool(
+        description = "Fetches and analyzes a Polkadot SDK release - downloads PRDocs and generates summaries (manifest, crate changes, audience breakdown)"
+    )]
+    pub async fn fetch_and_analyze_release(
         &self,
-        Parameters(GetPolkadotSdkReleasePrdocsRequest { release }): Parameters<
-            GetPolkadotSdkReleasePrdocsRequest,
+        Parameters(FetchAndAnalyzeReleaseRequest { release }): Parameters<
+            FetchAndAnalyzeReleaseRequest,
         >,
     ) -> Result<CallToolResult, McpError> {
-        let response = polkadot_sdk_releases::query_prdocs(&release)
+        let response = polkadot_sdk_releases::fetch_and_analyze_release(&release)
             .await
             .map_err(|e| McpError {
                 code: rmcp::model::ErrorCode(-32603),
@@ -167,10 +169,19 @@ impl SubstrateService {
                 data: None,
             })?;
 
+        // Format the response as JSON string
+        let response_text = serde_json::to_string_pretty(&response).map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: format!("Failed to serialize response: {e}").into(),
+            data: None,
+        })?;
+
         Ok(CallToolResult {
             content: vec![Content {
                 annotations: None,
-                raw: RawContent::Text(RawTextContent { text: response }),
+                raw: RawContent::Text(RawTextContent {
+                    text: response_text,
+                }),
             }],
             is_error: None,
         })

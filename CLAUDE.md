@@ -15,7 +15,9 @@ substrate-mcp/
 ├── CLAUDE.md           # This file - development guidance
 └── src/
     ├── main.rs         # Entry point with tokio async runtime
-    └── server.rs       # MCP server implementation with tool routing
+    ├── server.rs       # MCP server implementation with tool routing
+    └── substrate/      # Substrate client implementation
+        └── client.rs   # RPC client for interacting with nodes
 
 ## Development Commands
 
@@ -63,9 +65,11 @@ This server follows the standard MCP communication pattern:
 ### Current State
 The server currently has:
 - Basic MCP server infrastructure set up
-- One placeholder tool: `say_hello` that returns "Hello, World! From substrate MCP"
-- Server info indicating it's for "Tools and Prompts to work with Substrate based blockchains"
-- Only tools capability enabled (prompts and resources disabled)
+- Several functional tools:
+  - `fetch_and_analyze_release`: Fetches and analyzes Polkadot SDK releases (downloads PRDocs and generates summaries)
+  - `chain_storage_bisect`: Finds storage changes between blocks
+- Server info indicating it's for Substrate-based blockchain development
+- Both tools and resources capabilities enabled
 - Server name: "substrate-mcp" (version 0.1.0)
 
 ### Adding New Tools
@@ -96,6 +100,7 @@ The project can be installed via:
 - Local build: `cargo build --release`
 
 For Claude Code configuration, see README.md for detailed setup instructions.
+
 ## Substrate Integration Guidelines
 
 ### Preferred Crates
