@@ -825,7 +825,7 @@ To fill in missing blanks, also check kitchensink pallet: https://github.com/par
    - Test all error conditions
    - Test edge cases and boundaries
    - Test event emissions
-   - Make sure tests compile when run from the workspace
+   - Make sure tests pass when run from the workspace
 
 ## References
 - Basic pallet structure: https://docs.polkadot.com/develop/parachains/customize-parachain/make-custom-pallet/
