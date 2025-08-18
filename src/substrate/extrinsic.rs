@@ -18,8 +18,6 @@ pub struct ExtrinsicsQuery {
     pub pallet: Option<String>,
     /// Optional call name filter
     pub call: Option<String>,
-    /// Optional flag to return only signed or unsigned extrinsics
-    pub is_signed: Option<bool>,
     /// Optional signer address filter
     pub signer: Option<String>,
 }
@@ -57,6 +55,9 @@ pub struct Extrinsic {
     /// Fee paid (if available)
     pub fee: Option<String>,
 }
+
+// Create a configurable set of inherent pallets
+const COMMON_INHERENT_PALLETS: &[&str] = &["Timestamp", "ParaInherent", "ParachainSystem"];
 
 /// Query extrinsics using jsonrpsee for RPC and subxt for proper decoding
 pub async fn query_extrinsics(
@@ -97,13 +98,6 @@ pub async fn query_extrinsics(
                     continue;
                 }
             };
-
-            // Check is_signed parameter
-            if let Some(is_signed) = query.is_signed {
-                if is_signed ^ extrinsic.is_signed() {
-                    continue;
-                }
-            }
 
             // Decode extrinsic using proper subxt APIs
             match process_extrinsic(
@@ -177,6 +171,12 @@ async fn process_extrinsic(
     } else {
         format!("Call{call_index}")
     };
+
+    // If pallet is an inherent, exclude it
+    if !extrinsic.is_signed() && COMMON_INHERENT_PALLETS.contains(&pallet_name) {
+        log::debug!("Filtering inherent: {}.{}", pallet_name, call_name);
+        return Ok(None); // Filter out this inherent
+    }
 
     // Apply pallet filter
     if let Some(ref pallet) = pallet_filter {
