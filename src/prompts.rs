@@ -794,9 +794,8 @@ adapt this pallet to that flow and give instructions on how get proper pallet
 
 ### Pallet Structure 
 Check existing pallets in the workspace and and do a best effort to 
-follo that structure. 
-If there are no other pallets, you can take inspiration from frame pallets, for example
-pallet_treasury: https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/treasury. 
+follow that structure. 
+To fill in missing blanks, also check kitchensink pallet: https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/examples/kitchensink
 
 
 ## Implementation Guidelines
@@ -826,7 +825,7 @@ pallet_treasury: https://github.com/paritytech/polkadot-sdk/tree/master/substrat
    - Test all error conditions
    - Test edge cases and boundaries
    - Test event emissions
-   - Make sure tests compile and pass
+   - Make sure tests pass when run from the workspace
 
 ## References
 - Basic pallet structure: https://docs.polkadot.com/develop/parachains/customize-parachain/make-custom-pallet/
