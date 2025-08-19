@@ -87,20 +87,51 @@ pub async fn handle_submit_dev_extrinsic(
             data: None,
         })?;
 
-    // Wait for the transaction to be finalized
-    let tx_in_block = tx_progress
-        .wait_for_finalized()
+    // Wait for the transaction to be finalized and check for success
+    let tx_events = tx_progress
+        .wait_for_finalized_success()
         .await
         .map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to wait for transaction finalization: {e}").into(),
+            message: format!("Transaction failed: {e}").into(),
             data: None,
         })?;
 
+    let mut events_info = Vec::new();
+    for event in tx_events.iter() {
+        let event = event.map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: format!("Failed to decode event: {e}").into(),
+            data: None,
+        })?;
+
+        let fields = event.field_values().map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: format!("Failed to decode event fields: {e}").into(),
+            data: None,
+        })?;
+
+        let value = scale_value::Value {
+            value: scale_value::ValueDef::Composite(fields),
+            context: 0,
+        };
+        let fields_str = scale_value::stringify::to_string(&value);
+
+        // Concatenate event name with the fields data
+        let event_data = format!(
+            "  - {}.{}: {}",
+            event.pallet_name(),
+            event.variant_name(),
+            fields_str
+        );
+
+        events_info.push(event_data);
+    }
+
     let result = format!(
-        "Transaction finalized. Hash: {:?}, Block hash: {:?}",
-        tx_in_block.extrinsic_hash(),
-        tx_in_block.block_hash()
+        "Transaction successful!\nHash: {:?}\nEvents emitted:\n{}",
+        tx_events.extrinsic_hash(),
+        events_info.join("\n")
     );
 
     Ok(CallToolResult {

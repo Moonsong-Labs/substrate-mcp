@@ -29,6 +29,9 @@ cargo install subxt-cli
 - **`query_events`** - Query and filter blockchain events within a specified block range. Supports filtering by pallet and event name with partial matching.
 - **`query_historical_events`** - Query events from historical blocks. Supports relative block numbers (e.g., -10 for 10 blocks ago).
 
+### Extrinsic Operations
+- **`submit_dev_extrinsic`** - Submit an extrinsic to a Substrate chain using dev accounts (alice, bob, charlie, etc.).
+
 ### Storage Querying
 - **`query_storage`** - Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys.
 - **`list_pallet_storage`** - List all storage entries available in a specific pallet.
