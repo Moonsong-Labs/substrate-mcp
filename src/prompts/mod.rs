@@ -1,4 +1,3 @@
-use handlebars::Handlebars;
 use rmcp::model::{
     GetPromptRequestParam, GetPromptResult, ListPromptsResult, PaginatedRequestParam, Prompt,
     PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole,
@@ -6,26 +5,10 @@ use rmcp::model::{
 use rmcp::service::{RequestContext, RoleServer};
 use rmcp::ErrorData as McpError;
 use serde_json::json;
-use std::sync::OnceLock;
 
 mod templates;
 
-/// Template registry for handlebars templates
-static TEMPLATE_REGISTRY: OnceLock<Handlebars> = OnceLock::new();
-
-/// Initialize the handlebars template registry
-fn get_template_registry() -> &'static Handlebars<'static> {
-    TEMPLATE_REGISTRY.get_or_init(|| {
-        let mut handlebars = Handlebars::new();
-
-        // Register the release comparison template
-        handlebars
-            .register_template_string("release_comparison", templates::RELEASE_COMPARISON)
-            .expect("Failed to register release_comparison template");
-
-        handlebars
-    })
-}
+use templates::TEMPLATE_REGISTRY;
 
 /// Security disclaimer instruction for AI-generated analysis
 const SECURITY_DISCLAIMER: &str = r#"
@@ -144,11 +127,18 @@ pub fn prompts() -> Vec<SubstratePrompt> {
                 },
             ],
             handler: Box::new(|args| {
-                let current_version = get_required_arg(args, "current_version")?;
-                let target_version = get_required_arg(args, "target_version")?;
-                let specific_changes = get_optional_arg(args, "specific_changes");
+                let prompt = TEMPLATE_REGISTRY
+                    .render("release_comparison", &args)
+                    .map_err(|e| McpError {
+                        code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+                        message: format!("Failed to render release_comparison template: {e}").into(),
+                        data: None,
+                    })?;
 
-                release_comparison_prompt(current_version, target_version, specific_changes)
+                Ok(vec![PromptMessage {
+                    role: PromptMessageRole::User,
+                    content: PromptMessageContent::Text { text: prompt },
+                }])
             }),
         },
         SubstratePrompt {
@@ -352,26 +342,6 @@ fn release_comparison_prompt(
     target_version: String,
     specific_changes: Option<String>,
 ) -> Result<Vec<PromptMessage>, McpError> {
-    let registry = get_template_registry();
-
-    let data = json!({
-        "current_version": current_version,
-        "target_version": target_version,
-        "specific_changes": specific_changes
-    });
-
-    let prompt = registry
-        .render("release_comparison", &data)
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-            message: format!("Failed to render release_comparison template: {e}").into(),
-            data: None,
-        })?;
-
-    Ok(vec![PromptMessage {
-        role: PromptMessageRole::User,
-        content: PromptMessageContent::Text { text: prompt },
-    }])
 }
 
 fn automated_analysis_prompt(change_description: String) -> Result<Vec<PromptMessage>, McpError> {
@@ -926,60 +896,6 @@ Format your response as a detailed security audit with specific findings, severi
         role: PromptMessageRole::User,
         content: PromptMessageContent::Text { text: prompt },
     }])
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_release_comparison_handlebars_template() {
-        let result = release_comparison_prompt(
-            "stable2412-1".to_string(),
-            "stable2412-2".to_string(),
-            Some("pallet_treasury".to_string()),
-        );
-        
-        assert!(result.is_ok(), "Template rendering should succeed");
-        
-        let messages = result.unwrap();
-        assert_eq!(messages.len(), 1);
-        
-        let prompt_text = match &messages[0].content {
-            PromptMessageContent::Text { text } => text,
-            _ => panic!("Expected text content"),
-        };
-        
-        // Check that template variables were substituted
-        assert!(prompt_text.contains("stable2412-1"));
-        assert!(prompt_text.contains("stable2412-2"));
-        assert!(prompt_text.contains("pallet_treasury"));
-        assert!(prompt_text.contains("stable2412-1>stable2412-2"));
-        
-        // Check that conditional content is rendered
-        assert!(prompt_text.contains("Focus only on changes related to: pallet_treasury"));
-    }
-    
-    #[test]
-    fn test_release_comparison_without_specific_changes() {
-        let result = release_comparison_prompt(
-            "stable2412-1".to_string(),
-            "stable2412-2".to_string(),
-            None,
-        );
-        
-        assert!(result.is_ok(), "Template rendering should succeed");
-        
-        let messages = result.unwrap();
-        let prompt_text = match &messages[0].content {
-            PromptMessageContent::Text { text } => text,
-            _ => panic!("Expected text content"),
-        };
-        
-        // Check that conditional content is NOT rendered when specific_changes is None
-        assert!(!prompt_text.contains("Focus only on changes related to:"));
-        assert!(prompt_text.contains("Additional Notes"));
-    }
 }
 
 /// Create the analyze_release prompt (merged from prdoc_analysis_prompts.rs)

@@ -1,5 +1,5 @@
 /// Release comparison handlebars template
-pub const RELEASE_COMPARISON: &str = r#"Compare changes between Polkadot SDK versions {{current_version}} and {{target_version}}.
+pub const PROMPT: &str = r#"Compare changes between Polkadot SDK versions {{current_version}} and {{target_version}}.
 
 ## Getting Release Data
 
