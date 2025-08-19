@@ -1,9 +1,31 @@
+use handlebars::Handlebars;
 use rmcp::model::{
     GetPromptRequestParam, GetPromptResult, ListPromptsResult, PaginatedRequestParam, Prompt,
     PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole,
 };
 use rmcp::service::{RequestContext, RoleServer};
 use rmcp::ErrorData as McpError;
+use serde_json::json;
+use std::sync::OnceLock;
+
+mod templates;
+
+/// Template registry for handlebars templates
+static TEMPLATE_REGISTRY: OnceLock<Handlebars> = OnceLock::new();
+
+/// Initialize the handlebars template registry
+fn get_template_registry() -> &'static Handlebars<'static> {
+    TEMPLATE_REGISTRY.get_or_init(|| {
+        let mut handlebars = Handlebars::new();
+
+        // Register the release comparison template
+        handlebars
+            .register_template_string("release_comparison", templates::RELEASE_COMPARISON)
+            .expect("Failed to register release_comparison template");
+
+        handlebars
+    })
+}
 
 /// Security disclaimer instruction for AI-generated analysis
 const SECURITY_DISCLAIMER: &str = r#"
@@ -330,109 +352,21 @@ fn release_comparison_prompt(
     target_version: String,
     specific_changes: Option<String>,
 ) -> Result<Vec<PromptMessage>, McpError> {
-    let mut prompt = format!(
-        r#"Compare changes between Polkadot SDK versions {current_version} and {target_version}.
+    let registry = get_template_registry();
 
-## Getting Release Data
+    let data = json!({
+        "current_version": current_version,
+        "target_version": target_version,
+        "specific_changes": specific_changes
+    });
 
-### Fetching and Analyzing Releases
-The `fetch_and_analyze_release` tool downloads and analyzes Pull Request Documentation (PRDocs) from the polkadot-sdk repository.
-
-**For single release:**
-```
-fetch_and_analyze_release with release: "stable2503-1"
-```
-
-**For version range (fetches all intermediate releases):**
-```
-fetch_and_analyze_release with release: "{current_version}>{target_version}"
-```
-Example: `stable2502>stable2503-2` fetches stable2503, stable2503-1, and stable2503-2
-
-The tool will:
-1. Download all PRDocs from GitHub for the specified release(s)
-2. Generate analysis summaries (manifest.json, crate_summary.json, audience_summary.json)
-3. Organize files in `~/.substrate-mcp/[project]/releases/[release]/pr-docs/`
-
-### Version Format Guide
-- **Semantic versions**: Standard format like `1.9.0`, `1.10.2`
-- **Stable releases**: Format `stableYYMM[-patch]` where:
-  - YYMM = year and month (e.g., 2503 = March 2025)
-  - Optional patch suffix (e.g., stable2503-1, stable2503-2)
-  
-Note: Stable releases began after semantic versioning, so v1.x.x releases predate stable releases.
-
-### Resources
-- Repository: https://github.com/paritytech/polkadot-sdk
-- PRDocs contain: breaking changes, new features, migrations, and bug fixes"#,
-    );
-
-    if let Some(specific_changes) = &specific_changes {
-        prompt.push_str(&format!(
-            r#"
-
-## Filtered Analysis
-Focus only on changes related to: {specific_changes}
-Filter PRDocs and code changes to match these criteria."#
-        ));
-    }
-
-    prompt.push_str(
-        r#"
-
-## Output Format
-
-```markdown
-### Changes by Category
-
-#### 🚨 Breaking Changes
-Changes requiring code updates:
-- **[Component]**: Description of breaking change
-  - Migration guide: Steps to update
-  - Affected versions: [version list]
-
-#### ✨ New Features
-New functionality added:
-- **[Component]**: Feature description
-  - First available in: [version]
-
-#### 🐛 Bug Fixes
-Issues resolved:
-- **[Component]**: Fix description
-  - Fixed in: [version]
-
-#### 🔧 Improvements
-Performance and quality improvements:
-- **[Component]**: Improvement description
-
-### Detailed Version Progression
-For each version in sequence:
-
-**[Version Number]**
-- Release date: [if available]
-- Key changes:
-  - [Change 1]
-  - [Change 2]
-- Full PRDoc reference: [link or doc ID]
-
-### Migration Recommendations
-Based on the changes between versions:
-1. **High Priority**: [Critical updates needed]
-2. **Medium Priority**: [Recommended updates]
-3. **Low Priority**: [Optional improvements]"#,
-    );
-
-    if specific_changes.is_none() {
-        prompt.push_str(
-            r#"
-
-### Additional Notes
-- Changes not covered by PRDocs may exist in the codebase
-- Review CHANGELOG.md files for complete details"#,
-        );
-    }
-
-    prompt.push_str("\n```");
+    let prompt = registry
+        .render("release_comparison", &data)
+        .map_err(|e| McpError {
+            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
+            message: format!("Failed to render release_comparison template: {e}").into(),
+            data: None,
+        })?;
 
     Ok(vec![PromptMessage {
         role: PromptMessageRole::User,
@@ -992,6 +926,60 @@ Format your response as a detailed security audit with specific findings, severi
         role: PromptMessageRole::User,
         content: PromptMessageContent::Text { text: prompt },
     }])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_release_comparison_handlebars_template() {
+        let result = release_comparison_prompt(
+            "stable2412-1".to_string(),
+            "stable2412-2".to_string(),
+            Some("pallet_treasury".to_string()),
+        );
+        
+        assert!(result.is_ok(), "Template rendering should succeed");
+        
+        let messages = result.unwrap();
+        assert_eq!(messages.len(), 1);
+        
+        let prompt_text = match &messages[0].content {
+            PromptMessageContent::Text { text } => text,
+            _ => panic!("Expected text content"),
+        };
+        
+        // Check that template variables were substituted
+        assert!(prompt_text.contains("stable2412-1"));
+        assert!(prompt_text.contains("stable2412-2"));
+        assert!(prompt_text.contains("pallet_treasury"));
+        assert!(prompt_text.contains("stable2412-1>stable2412-2"));
+        
+        // Check that conditional content is rendered
+        assert!(prompt_text.contains("Focus only on changes related to: pallet_treasury"));
+    }
+    
+    #[test]
+    fn test_release_comparison_without_specific_changes() {
+        let result = release_comparison_prompt(
+            "stable2412-1".to_string(),
+            "stable2412-2".to_string(),
+            None,
+        );
+        
+        assert!(result.is_ok(), "Template rendering should succeed");
+        
+        let messages = result.unwrap();
+        let prompt_text = match &messages[0].content {
+            PromptMessageContent::Text { text } => text,
+            _ => panic!("Expected text content"),
+        };
+        
+        // Check that conditional content is NOT rendered when specific_changes is None
+        assert!(!prompt_text.contains("Focus only on changes related to:"));
+        assert!(prompt_text.contains("Additional Notes"));
+    }
 }
 
 /// Create the analyze_release prompt (merged from prdoc_analysis_prompts.rs)
