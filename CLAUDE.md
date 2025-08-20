@@ -97,8 +97,6 @@ Each prompt module follows this pattern:
 use rmcp::model::PromptArgument;
 use super::SubstratePromptDefinition;
 
-const TEMPLATE: &str = r#"Your prompt template with {{variables}}"#;
-
 pub fn prompt_definition() -> SubstratePromptDefinition {
     SubstratePromptDefinition {
         name: "prompt_name".to_string(),
@@ -113,6 +111,8 @@ pub fn prompt_definition() -> SubstratePromptDefinition {
         template: TEMPLATE.to_string(),
     }
 }
+
+const TEMPLATE: &str = r#"Your prompt template with {{variables}}"#;
 ```
 
 #### Key Components
