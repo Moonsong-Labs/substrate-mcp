@@ -1,6 +1,6 @@
 use rmcp::model::PromptArgument;
 
-use super::SubstratePrompt;
+use super::SubstratePromptDefinition;
 
 /// Economic security prompt template
 const TEMPLATE: &str = r#"{{security_disclaimer}}
@@ -71,8 +71,8 @@ Format your response as a structured economic security report with specific calc
 
 {{security_disclaimer}}"#;
 
-pub fn prompt() -> SubstratePrompt {
-    SubstratePrompt {
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
         name: "economic_security".to_string(),
         description: "Do an economic security analysis on a specific subsystem".to_string(),
         arguments: vec![
@@ -90,4 +90,3 @@ pub fn prompt() -> SubstratePrompt {
         template: TEMPLATE.to_string(),
     }
 }
-

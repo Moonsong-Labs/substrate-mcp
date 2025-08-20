@@ -1,6 +1,6 @@
 use rmcp::model::PromptArgument;
 
-use super::SubstratePrompt;
+use super::SubstratePromptDefinition;
 
 /// Weight analysis prompt template
 const TEMPLATE: &str = r#"{{security_disclaimer}}
@@ -70,8 +70,8 @@ Format your response as a detailed security audit with specific findings, severi
 
 {{security_disclaimer}}"#;
 
-pub fn prompt() -> SubstratePrompt {
-    SubstratePrompt {
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
         name: "weight_analysis".to_string(),
         description: "Weight-based system breakdown analysis under extreme conditions".to_string(),
         arguments: vec![PromptArgument {
@@ -82,4 +82,3 @@ pub fn prompt() -> SubstratePrompt {
         template: TEMPLATE.to_string(),
     }
 }
-

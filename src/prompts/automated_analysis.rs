@@ -1,6 +1,6 @@
 use rmcp::model::PromptArgument;
 
-use super::SubstratePrompt;
+use super::SubstratePromptDefinition;
 
 /// Automated analysis prompt template
 const TEMPLATE: &str = r#"{{security_disclaimer}}
@@ -154,8 +154,8 @@ Additionally review:
 
 {{security_disclaimer}}"#;
 
-pub fn prompt() -> SubstratePrompt {
-    SubstratePrompt {
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
         name: "automated_analysis".to_string(),
         description: "Template for automated code and runtime analysis".to_string(),
         arguments: vec![
@@ -168,4 +168,3 @@ pub fn prompt() -> SubstratePrompt {
         template: TEMPLATE.to_string(),
     }
 }
-

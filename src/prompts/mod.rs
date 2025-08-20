@@ -20,7 +20,7 @@ mod threat_modeling;
 mod weight_analysis;
 
 /// Metadata for a single prompt with its template
-pub struct SubstratePrompt {
+pub struct SubstratePromptDefinition {
     pub name: String,
     pub description: String,
     pub arguments: Vec<PromptArgument>,
@@ -28,23 +28,23 @@ pub struct SubstratePrompt {
 }
 
 /// Create a new Prompts instance with all available prompts
-pub fn prompts() -> Vec<SubstratePrompt> {
+pub fn prompt_definitions() -> Vec<SubstratePromptDefinition> {
     vec![
-        release_comparison::prompt(),
-        automated_analysis::prompt(),
-        code_security_audit::prompt(),
-        economic_security::prompt(),
-        incentive_analysis::prompt(),
-        scaffold_pallet::prompt(),
-        threat_modeling::prompt(),
-        weight_analysis::prompt(),
-        analyze_release::prompt(),
+        release_comparison::prompt_definition(),
+        automated_analysis::prompt_definition(),
+        code_security_audit::prompt_definition(),
+        economic_security::prompt_definition(),
+        incentive_analysis::prompt_definition(),
+        scaffold_pallet::prompt_definition(),
+        threat_modeling::prompt_definition(),
+        weight_analysis::prompt_definition(),
+        analyze_release::prompt_definition(),
     ]
 }
 
 /// Get the list of all available prompts
 fn list_prompts() -> Vec<Prompt> {
-    prompts()
+    prompt_definitions()
         .iter()
         .map(|p| Prompt {
             name: p.name.clone(),
@@ -55,8 +55,8 @@ fn list_prompts() -> Vec<Prompt> {
 }
 
 /// Get a specific prompt by name
-fn get_substrate_prompt(name: &str) -> Option<SubstratePrompt> {
-    prompts().into_iter().find(|p| p.name == name)
+fn get_prompt_definition(name: &str) -> Option<SubstratePromptDefinition> {
+    prompt_definitions().into_iter().find(|p| p.name == name)
 }
 
 /// Handle list_prompts request
@@ -75,7 +75,7 @@ pub async fn handle_get_prompt(
     request: GetPromptRequestParam,
     _context: RequestContext<RoleServer>,
 ) -> Result<GetPromptResult, McpError> {
-    let prompt_def = get_substrate_prompt(&request.name).ok_or_else(|| McpError {
+    let prompt_def = get_prompt_definition(&request.name).ok_or_else(|| McpError {
         code: rmcp::model::ErrorCode::INVALID_PARAMS,
         message: format!("Unknown prompt: {}", request.name).into(),
         data: None,

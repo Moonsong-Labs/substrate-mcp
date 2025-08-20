@@ -1,6 +1,6 @@
 use rmcp::model::PromptArgument;
 
-use super::SubstratePrompt;
+use super::SubstratePromptDefinition;
 
 /// Analyze release prompt template
 const TEMPLATE: &str = r#"
@@ -665,8 +665,8 @@ Remember: The markdown file is the PRIMARY deliverable. Console output is second
 ✓ Did you analyze ALL PRDocs from ~/.substrate-mcp/{project}/releases/{{release}}/pr-docs/?
 "#;
 
-pub fn prompt() -> SubstratePrompt {
-    SubstratePrompt {
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
         name: "analyze_release".to_string(),
         description: "Analyzes how Polkadot SDK release changes impact your project using parallel processing".to_string(),
         arguments: vec![

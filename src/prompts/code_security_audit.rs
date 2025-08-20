@@ -1,6 +1,6 @@
 use rmcp::model::PromptArgument;
 
-use super::SubstratePrompt;
+use super::SubstratePromptDefinition;
 
 const TEMPLATE: &str = r#"You are a Systems Security Expert specializing in Substrate-based blockchain
 security. Perform a comprehensive security audit following industry-standard
@@ -35,8 +35,8 @@ Perform comprehensive analysis with emphasis on:
 
 {{security_disclaimer}}"#;
 
-pub fn prompt() -> SubstratePrompt {
-    SubstratePrompt {
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
         name: "code_security_audit".to_string(),
         description: "Audit specific component for common code-related vulnerabilities".to_string(),
         arguments: vec![PromptArgument {

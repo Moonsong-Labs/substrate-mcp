@@ -1,6 +1,6 @@
 use rmcp::model::PromptArgument;
 
-use super::SubstratePrompt;
+use super::SubstratePromptDefinition;
 
 /// Incentive analysis prompt template
 const TEMPLATE: &str = r#"{{security_disclaimer}}
@@ -18,8 +18,8 @@ using game theory and mechanism design principles.
 
 {{security_disclaimer}}"#;
 
-pub fn prompt() -> SubstratePrompt {
-    SubstratePrompt {
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
         name: "incentive_analysis".to_string(),
         description: "Analyze economic viability of incentives".to_string(),
         arguments: vec![
@@ -41,4 +41,3 @@ pub fn prompt() -> SubstratePrompt {
         template: TEMPLATE.to_string(),
     }
 }
-

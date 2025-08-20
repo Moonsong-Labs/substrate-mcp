@@ -1,6 +1,6 @@
 use rmcp::model::PromptArgument;
 
-use super::SubstratePrompt;
+use super::SubstratePromptDefinition;
 
 /// Threat modeling prompt template
 const TEMPLATE: &str = r#"{{security_disclaimer}}
@@ -61,8 +61,8 @@ Format your response as a structured security report with clear sections and act
 
 {{security_disclaimer}}"#;
 
-pub fn prompt() -> SubstratePrompt {
-    SubstratePrompt {
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
         name: "threat_modeling".to_string(),
         description: "Do threat modeling of a specific part of the system".to_string(),
         arguments: vec![
@@ -80,4 +80,3 @@ pub fn prompt() -> SubstratePrompt {
         template: TEMPLATE.to_string(),
     }
 }
-

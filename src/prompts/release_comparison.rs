@@ -1,6 +1,6 @@
 use rmcp::model::PromptArgument;
 
-use super::SubstratePrompt;
+use super::SubstratePromptDefinition;
 
 /// Release comparison prompt template
 const TEMPLATE: &str = r#"Compare changes between Polkadot SDK versions {{current_version}} and {{target_version}}.
@@ -93,8 +93,8 @@ Based on the changes between versions:
 {{/unless}}
 ```"#;
 
-pub fn prompt() -> SubstratePrompt {
-    SubstratePrompt {
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
         name: "release_comparison".to_string(),
         description: "List changes between two polkadot-sdk release versions".to_string(),
         arguments: vec![
@@ -117,4 +117,3 @@ pub fn prompt() -> SubstratePrompt {
         template: TEMPLATE.to_string(),
     }
 }
-
