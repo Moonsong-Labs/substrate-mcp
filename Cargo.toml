@@ -33,4 +33,5 @@ subxt-signer = { version = "0.37" }
 scale-value = { version = "0.16", features = ["from-string"] }
 scale-info = "2.11"
 sp-core = "33.0"
+tokio-util = "0.7.16"
 
