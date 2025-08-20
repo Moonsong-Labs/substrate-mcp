@@ -7,8 +7,7 @@ const TEMPLATE: &str = r#"{{security_disclaimer}}
 
 Perform a comprehensive security threat model analysis of the following Substrate subsystem:
 
-**Subsystem**: {{system_description}}
-**Context**: {{extra_context}}
+**System**: {{system_description}}
 
 Please analyze the code and provide a detailed threat model covering:
 
@@ -69,11 +68,6 @@ pub fn prompt_definition() -> SubstratePromptDefinition {
             PromptArgument {
                 name: "system_description".to_string(),
                 description: Some("Description of the system to make the analysis for (all pallets, a specific group/flow, node, etc)".to_string()),
-                required: Some(true),
-            },
-            PromptArgument {
-                name: "extra_context".to_string(),
-                description: Some("Extra context to provide for analysis".to_string()),
                 required: Some(true),
             },
         ],

@@ -6,13 +6,9 @@ use super::SubstratePromptDefinition;
 const TEMPLATE: &str = r#"{{security_disclaimer}}
 
 You are an expert in Cryptoeconomics specializing in Substrate-based
-blockchain systems. Analyze the incentive mechanisms in the specified pallets
-using game theory and mechanism design principles.
+blockchain systems. Analyze the specified incentive mechanisms using game theory and mechanism design principles.
 
-## Target Pallets
-{{target_pallets}}
-
-## Analysis Framework
+## Analysis Specifications
 
 {{analysis_specifications}}
 
@@ -32,9 +28,7 @@ pub fn prompt_definition() -> SubstratePromptDefinition {
             },
             PromptArgument {
                 name: "analysis_specifications".to_string(),
-                description: Some(
-                    "Specific things to look out for during the analysis".to_string(),
-                ),
+                description: Some("Specify incentive mechanism to analyze".to_string()),
                 required: Some(true),
             },
         ],

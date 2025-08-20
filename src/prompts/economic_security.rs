@@ -8,7 +8,6 @@ const TEMPLATE: &str = r#"{{security_disclaimer}}
 Perform a comprehensive economic security assessment of the following Substrate subsystem:
 
 **Subsystem**: {{system_description}}
-**Context**: {{extra_context}}
 
 Please analyze the code and economic design to provide a detailed assessment covering:
 
@@ -79,11 +78,6 @@ pub fn prompt_definition() -> SubstratePromptDefinition {
             PromptArgument {
                 name: "system_description".to_string(),
                 description: Some("Description of the system to make the analysis for (all pallets, a specific group/flow, etc)".to_string()),
-                required: Some(true),
-            },
-            PromptArgument {
-                name: "extra_context".to_string(),
-                description: Some("Extra context to provide for analysis".to_string()),
                 required: Some(true),
             },
         ],
