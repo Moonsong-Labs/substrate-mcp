@@ -1,9 +1,7 @@
 use rmcp::model::PromptArgument;
 
 use super::SubstratePrompt;
-use super::security_disclaimer::SECURITY_DISCLAIMER
 
-/// Code security audit prompt template
 const TEMPLATE: &str = r#"You are a Systems Security Expert specializing in Substrate-based blockchain
 security. Perform a comprehensive security audit following industry-standard
 practices and Substrate-specific considerations.
@@ -49,4 +47,3 @@ pub fn prompt() -> SubstratePrompt {
         template: TEMPLATE.to_string(),
     }
 }
-

@@ -55,7 +55,7 @@ fn list_prompts() -> Vec<Prompt> {
 }
 
 /// Get a specific prompt by name
-fn get_prompt(name: &str) -> Option<SubstratePrompt> {
+fn get_substrate_prompt(name: &str) -> Option<SubstratePrompt> {
     prompts().into_iter().find(|p| p.name == name)
 }
 
@@ -75,7 +75,7 @@ pub async fn handle_get_prompt(
     request: GetPromptRequestParam,
     _context: RequestContext<RoleServer>,
 ) -> Result<GetPromptResult, McpError> {
-    let prompt_def = get_prompt(&request.name).ok_or_else(|| McpError {
+    let prompt_def = get_substrate_prompt(&request.name).ok_or_else(|| McpError {
         code: rmcp::model::ErrorCode::INVALID_PARAMS,
         message: format!("Unknown prompt: {}", request.name).into(),
         data: None,
