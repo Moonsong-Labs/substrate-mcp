@@ -73,7 +73,7 @@ pub struct Event {
     /// Event index in block
     pub event_index: u32,
     /// Decoded event data (as JSON)
-    pub data: serde_json::Value,
+    pub data: String,
 }
 
 impl EventFilter {
@@ -201,20 +201,8 @@ async fn decode_events_with_subxt(
 
         // Decode event data
         let data = match event.field_values() {
-            Ok(fields) => {
-                // Convert to proper JSON representation
-                let json_fields = crate::substrate::scale_utils::composite_to_json(&fields);
-                serde_json::json!({
-                    "fields": json_fields,
-                    "decoded": true
-                })
-            }
-            Err(e) => {
-                serde_json::json!({
-                    "error": format!("Failed to decode: {}", e),
-                    "decoded": false
-                })
-            }
+            Ok(fields) => utils::stringify_composite(&fields)?,
+            Err(e) => format!("Failed to decode call arguments: {e}"),
         };
 
         decoded_events.push(Event {

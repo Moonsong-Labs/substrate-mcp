@@ -8,9 +8,6 @@ pub mod events;
 /// Storage module for querying chain storage
 pub mod storage;
 
-/// Utilities for converting scale values to JSON
-pub mod scale_utils;
-
 /// Extrinsic module for querying chain extrinsics
 pub mod extrinsic;
 

@@ -5448,6 +5448,7 @@ dependencies = [
  "handlebars",
  "hex",
  "indoc",
+ "itertools 0.10.5",
  "jsonrpsee 0.20.4",
  "log",
  "parity-scale-codec",

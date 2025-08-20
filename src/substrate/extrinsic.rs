@@ -1,4 +1,5 @@
 use anyhow::Result;
+use scale_value::{Composite, Primitive, ValueDef};
 use serde::{Deserialize, Serialize};
 use sp_core::crypto::Ss58Codec;
 use subxt::blocks::{Block, ExtrinsicDetails};
@@ -49,7 +50,7 @@ pub struct Extrinsic {
     /// Call name  
     pub call: String,
     /// Call arguments (as JSON)
-    pub args: serde_json::Value,
+    pub args: String,
     /// Whether the extrinsic was successful
     pub success: bool,
     /// Fee paid (if available)
@@ -238,7 +239,10 @@ async fn process_extrinsic(
     let block_hash = format!("0x{}", hex::encode(block.hash()));
 
     // Decode call arguments
-    let args = decode_call_args(extrinsic)?;
+    let args = match extrinsic.field_values() {
+        Ok(fields) => utils::stringify_composite(&fields)?,
+        Err(e) => format!("Failed to decode call arguments: {e}"),
+    };
 
     // Check events for success/failure and fees
     let (success, fee) = check_extrinsic_events(block, extrinsic_index).await?;
@@ -255,27 +259,6 @@ async fn process_extrinsic(
         success,
         fee,
     }))
-}
-
-/// Decode call arguments to JSON
-fn decode_call_args(
-    extrinsic: &ExtrinsicDetails<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-) -> Result<serde_json::Value> {
-    // Try to decode the fields
-    match extrinsic.field_values() {
-        Ok(fields) => {
-            // Convert scale_value to JSON using existing utility
-            Ok(crate::substrate::scale_utils::composite_to_json(&fields))
-        }
-        Err(e) => {
-            // If decoding fails, return the raw hex
-            log::debug!("Failed to decode call arguments: {e}");
-            let extrinsic_bytes = extrinsic.bytes();
-            Ok(serde_json::json!({
-                "raw": format!("0x{}", hex::encode(extrinsic_bytes))
-            }))
-        }
-    }
 }
 
 /// Check events to determine success/failure and extract fees
@@ -314,9 +297,19 @@ async fn check_extrinsic_events(
                 // Try to extract fee amount
                 match event.field_values() {
                     Ok(fields) => {
-                        let json = crate::substrate::scale_utils::composite_to_json(&fields);
-                        if let Some(actual_fee) = json.get("actual_fee") {
-                            fee = Some(actual_fee.to_string());
+                        // Access the actual_fee field directly from the Composite
+                        if let Composite::Named(named_fields) = fields {
+                            // Find the actual_fee field
+                            if let Some((_, fee_value)) =
+                                named_fields.iter().find(|(name, _)| name == "actual_fee")
+                            {
+                                // Convert the fee value to a string representation
+                                fee = Some(match &fee_value.value {
+                                    ValueDef::Primitive(Primitive::U128(n)) => n.to_string(),
+                                    ValueDef::Primitive(Primitive::String(s)) => s.clone(),
+                                    _ => format!("{:?}", fee_value.value), // Fallback to debug format
+                                });
+                            }
                         }
                     }
                     Err(e) => {
