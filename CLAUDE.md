@@ -16,6 +16,8 @@ substrate-mcp/
 └── src/
     ├── main.rs         # Entry point with tokio async runtime
     ├── server.rs       # MCP server implementation with tool routing
+    ├── prompts/        # MCP prompt templates
+    │   └── mod.rs      # Prompt registry and handlers
     └── substrate/      # Substrate client implementation
         └── client.rs   # RPC client for interacting with nodes
 
@@ -48,6 +50,7 @@ cargo fmt
 - **serde** (v1): Serialization/deserialization with derive feature
 - **serde_json** (v1): JSON support
 - **anyhow** (v1): Error handling
+- **handlebars** (v6): Template engine for prompt generation
 
 ## Architecture
 
@@ -59,8 +62,10 @@ cargo fmt
 This server follows the standard MCP communication pattern:
 - Uses stdin/stdout for transport (tokio's stdin/stdout)
 - Tools are defined using the `#[tool]` macro from rmcp
+- Prompts are defined as `SubstratePromptDefinition` structs with Handlebars templates
 - Server handler implemented via `#[tool_handler]` macro
 - Tool routing via `#[tool_router]` macro
+- Prompt routing via `handle_list_prompts` and `handle_get_prompt` functions
 
 ### Current State
 The server currently has:
@@ -68,9 +73,60 @@ The server currently has:
 - Several functional tools:
   - `fetch_and_analyze_release`: Fetches and analyzes Polkadot SDK releases (downloads PRDocs and generates summaries)
   - `chain_storage_bisect`: Finds storage changes between blocks
+- Comprehensive prompt templates for Substrate development:
+  - `release_comparison`: Compare changes between Polkadot SDK versions
+  - `analyze_release`: Analyze how releases impact your project
+  - `scaffold_pallet`: Generate pallet implementation scaffolding
+  - `automated_analysis`: Comprehensive security and quality analysis
+  - `code_security_audit`: Audit components for vulnerabilities
+  - `economic_security`: Economic security assessment
+  - `incentive_analysis`: Cryptoeconomic incentive analysis
+  - `threat_modeling`: Threat model analysis
+  - `weight_analysis`: Weight and benchmark analysis
 - Server info indicating it's for Substrate-based blockchain development
-- Both tools and resources capabilities enabled
+- Tools, resources, and prompts capabilities enabled
 - Server name: "substrate-mcp" (version 0.1.0)
+
+### Prompt System Architecture
+
+The server uses a modular prompt template system built with Handlebars:
+
+#### Prompt Structure
+Each prompt module follows this pattern:
+```rust
+use rmcp::model::PromptArgument;
+use super::SubstratePromptDefinition;
+
+const TEMPLATE: &str = r#"Your prompt template with {{variables}}"#;
+
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
+        name: "prompt_name".to_string(),
+        description: "What this prompt does".to_string(),
+        arguments: vec![
+            PromptArgument {
+                name: "arg_name".to_string(),
+                description: Some("Argument description".to_string()),
+                required: Some(true),
+            }
+        ],
+        template: TEMPLATE.to_string(),
+    }
+}
+```
+
+#### Key Components
+- **SubstratePromptDefinition**: Core struct containing prompt metadata and template
+- **Handlebars Templates**: Support variable interpolation with `{{variable_name}}`
+- **Security Disclaimer**: Automatically injected into security-related prompts via `{{security_disclaimer}}`
+- **Strict Mode**: Templates use Handlebars strict mode to catch undefined variables
+
+#### Adding New Prompts
+1. Create a new module in `src/prompts/` (e.g., `my_prompt.rs`)
+2. Define the template constant and prompt_definition function
+3. Import the module in `src/prompts/mod.rs`
+4. Add to the `prompt_definitions()` vector
+5. Write tests following the existing pattern
 
 ### Adding New Tools
 To add new Substrate-related tools:
