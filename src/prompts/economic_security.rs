@@ -1,5 +1,9 @@
-/// Economic security handlebars template
-pub const PROMPT: &str = r#"{{security_disclaimer}}
+use rmcp::model::PromptArgument;
+
+use super::SubstratePrompt;
+
+/// Economic security prompt template
+const TEMPLATE: &str = r#"{{security_disclaimer}}
 
 Perform a comprehensive economic security assessment of the following Substrate subsystem:
 
@@ -66,3 +70,25 @@ Please analyze the code and economic design to provide a detailed assessment cov
 Format your response as a structured economic security report with specific calculations, attack scenarios, and actionable recommendations. Include code references where economic logic is implemented.
 
 {{security_disclaimer}}"#;
+
+pub fn prompt() -> SubstratePrompt {
+    SubstratePrompt {
+        name: "economic_security".to_string(),
+        description: "Do an economic security analysis on a specific subsystem".to_string(),
+        arguments: vec![
+            PromptArgument {
+                name: "system_description".to_string(),
+                description: Some("Description of the system to make the analysis for (all pallets, a specific group/flow, etc)".to_string()),
+                required: Some(true),
+            },
+            PromptArgument {
+                name: "extra_context".to_string(),
+                description: Some("Extra context to provide for analysis".to_string()),
+                required: Some(true),
+            },
+        ],
+        template: TEMPLATE.to_string(),
+        needs_security_disclaimer: true,
+        validate_args: None,
+    }
+}

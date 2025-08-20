@@ -1,5 +1,9 @@
-/// Threat modeling handlebars template
-pub const PROMPT: &str = r#"{{security_disclaimer}}
+use rmcp::model::PromptArgument;
+
+use super::SubstratePrompt;
+
+/// Threat modeling prompt template
+const TEMPLATE: &str = r#"{{security_disclaimer}}
 
 Perform a comprehensive security threat model analysis of the following Substrate subsystem:
 
@@ -56,3 +60,25 @@ Please analyze the code and provide a detailed threat model covering:
 Format your response as a structured security report with clear sections and actionable findings. Include specific line numbers and code references where issues are found.
 
 {{security_disclaimer}}"#;
+
+pub fn prompt() -> SubstratePrompt {
+    SubstratePrompt {
+        name: "threat_modeling".to_string(),
+        description: "Do threat modeling of a specific part of the system".to_string(),
+        arguments: vec![
+            PromptArgument {
+                name: "system_description".to_string(),
+                description: Some("Description of the system to make the analysis for (all pallets, a specific group/flow, node, etc)".to_string()),
+                required: Some(true),
+            },
+            PromptArgument {
+                name: "extra_context".to_string(),
+                description: Some("Extra context to provide for analysis".to_string()),
+                required: Some(true),
+            },
+        ],
+        template: TEMPLATE.to_string(),
+        needs_security_disclaimer: true,
+        validate_args: None,
+    }
+}

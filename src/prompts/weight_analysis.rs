@@ -1,5 +1,9 @@
-/// Weight analysis handlebars template
-pub const PROMPT: &str = r#"{{security_disclaimer}}
+use rmcp::model::PromptArgument;
+
+use super::SubstratePrompt;
+
+/// Weight analysis prompt template
+const TEMPLATE: &str = r#"{{security_disclaimer}}
 
 Perform a comprehensive weight analysis of the following Substrate pallet under extreme and adversarial conditions:
 
@@ -65,3 +69,20 @@ Please analyze the pallet's weight calculations, benchmarks, and resource usage 
 Format your response as a detailed security audit with specific findings, severity ratings, and code examples demonstrating the issues.
 
 {{security_disclaimer}}"#;
+
+pub fn prompt() -> SubstratePrompt {
+    SubstratePrompt {
+        name: "weight_analysis".to_string(),
+        description: "Weight-based system breakdown analysis under extreme conditions".to_string(),
+        arguments: vec![
+            PromptArgument {
+                name: "target_pallet".to_string(),
+                description: Some("Pallet to make the analysis for".to_string()),
+                required: Some(true),
+            },
+        ],
+        template: TEMPLATE.to_string(),
+        needs_security_disclaimer: true,
+        validate_args: None,
+    }
+}
