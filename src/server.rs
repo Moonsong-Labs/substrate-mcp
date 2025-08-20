@@ -34,7 +34,14 @@ pub struct SubstrateService {
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
 pub struct FetchAndAnalyzeReleaseRequest {
-    /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412')
+    /// Release identifier: the prdoc directory name under the main branch.
+    /// Examples: 'stable2503-8', 'stable2412-1', '1.9.0'
+    ///
+    /// IMPORTANT: This is NOT a git branch or tag name, but a directory name under prdoc/.
+    /// If you have a git tag like 'polkadot-stable2503-8', use just 'stable2503-8'.
+    /// The tool will automatically strip 'polkadot-' prefix if provided.
+    ///
+    /// The tool accesses: https://github.com/paritytech/polkadot-sdk/tree/master/prdoc/{release}
     pub release: String,
 }
 
@@ -153,7 +160,7 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Fetches and analyzes a Polkadot SDK release - downloads PRDocs and generates summaries (manifest, crate changes, audience breakdown)"
+        description = "Fetches and analyzes a Polkadot SDK release - downloads PRDocs from the prdoc directory on the main branch and generates summaries (manifest, crate changes, audience breakdown). Accepts release directory names like 'stable2503-8' or git tags like 'polkadot-stable2503-8' (prefix will be stripped automatically)."
     )]
     pub async fn fetch_and_analyze_release(
         &self,

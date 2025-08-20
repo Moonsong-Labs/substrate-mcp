@@ -109,6 +109,31 @@ struct AudienceInfo {
 // Note: audience_summary.json now directly uses HashMap<String, AudienceInfo>
 // instead of a fixed struct, allowing dynamic audience types
 
+/// Normalize release input to handle different formats users might provide.
+///
+/// This function handles common variations in how users might specify a release:
+/// - Git tags with 'polkadot-' prefix (e.g., 'polkadot-stable2503-8' -> 'stable2503-8')
+/// - Release tags with 'release-' prefix (e.g., 'release-v1.9.0' -> 'v1.9.0')
+/// - Version tags with 'v' prefix are preserved as some releases use this format
+///
+/// # Examples
+/// - 'polkadot-stable2503-8' -> 'stable2503-8'
+/// - 'stable2503-8' -> 'stable2503-8' (unchanged)
+/// - 'release-v1.9.0' -> 'v1.9.0'
+/// - '1.9.0' -> '1.9.0' (unchanged)
+fn normalize_release_input(input: &str) -> String {
+    // First trim whitespace
+    let trimmed = input.trim();
+
+    // Strip common prefixes that users might include from git tags
+    let normalized = trimmed
+        .strip_prefix("polkadot-")
+        .or_else(|| trimmed.strip_prefix("release-"))
+        .unwrap_or(trimmed);
+
+    normalized.to_string()
+}
+
 // Helper function to extract PR number from filename
 fn extract_pr_number(filename: &str) -> Option<u32> {
     if let Some(name) = filename.strip_prefix("pr_") {
@@ -170,19 +195,54 @@ fn get_project_name() -> String {
         .unwrap_or_else(|| "default".to_string())
 }
 
+/// Fetches and analyzes PRDocs for a specific Polkadot SDK release.
+///
+/// # Important: Understanding Polkadot SDK Release Structure
+///
+/// Polkadot SDK organizes releases as follows:
+/// 1. **Release Directories**: PRDocs are stored in directories under `prdoc/` on the main branch
+///    - Example: `prdoc/stable2503-8/`, `prdoc/1.9.0/`
+/// 2. **Git Tags**: Releases are tagged with a 'polkadot-' prefix
+///    - Example: `polkadot-stable2503-8`, `polkadot-v1.9.0`
+/// 3. **GitHub Release Pages**: Use the git tag in the URL
+///    - Example: `https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-stable2503-8`
+///
+/// # What This Function Does
+///
+/// This function accesses the GitHub Contents API to fetch PRDoc files from:
+/// `https://api.github.com/repos/paritytech/polkadot-sdk/contents/prdoc/{release}`
+///
+/// **IMPORTANT**: This is NOT accessing a git branch or tag. It's accessing a directory
+/// on the DEFAULT branch (master/main). The `{release}` parameter is a directory name,
+/// not a git reference.
+///
+/// # Parameters
+///
+/// * `release` - The release identifier, which can be:
+///   - A directory name: 'stable2503-8', '1.9.0'
+///   - A git tag (will be normalized): 'polkadot-stable2503-8' -> 'stable2503-8'
+///
+/// The function will automatically normalize the input to handle common variations.
 pub async fn fetch_and_analyze_release(release: &str) -> Result<PrdocsResult> {
     let client = reqwest::Client::new();
+
+    // Normalize the release input to handle different formats
+    // This strips prefixes like 'polkadot-' that users might include from git tags
+    let normalized_release = normalize_release_input(release);
+
+    log::info!("Fetching release '{normalized_release}' (normalized from '{release}')");
 
     // Get project name from the current project root
     let project_name = get_project_name();
 
     // Create directory under ~/.substrate-mcp/{project}/releases/{release}/pr-docs
+    // We use the normalized release name for the directory structure
     let home_dir = dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
     let output_dir = home_dir
         .join(".substrate-mcp")
         .join(project_name)
         .join("releases")
-        .join(release)
+        .join(&normalized_release)
         .join("pr-docs");
 
     // Create directory if it doesn't exist
@@ -190,9 +250,13 @@ pub async fn fetch_and_analyze_release(release: &str) -> Result<PrdocsResult> {
         .await
         .map_err(|e| anyhow!("Failed to create directory {}: {}", output_dir.display(), e))?;
 
-    // First, get the list of files in the prdoc/{release} folder
-    let api_url =
-        format!("https://api.github.com/repos/paritytech/polkadot-sdk/contents/prdoc/{release}");
+    // IMPORTANT: This URL accesses the prdoc/{release} directory on the DEFAULT branch (master/main)
+    // It is NOT accessing a git branch or tag named {release}
+    // The {release} parameter is a directory name under prdoc/ on the main branch
+    // Example: https://api.github.com/repos/paritytech/polkadot-sdk/contents/prdoc/stable2503-8
+    let api_url = format!(
+        "https://api.github.com/repos/paritytech/polkadot-sdk/contents/prdoc/{normalized_release}"
+    );
 
     let response = client
         .get(&api_url)
@@ -202,11 +266,28 @@ pub async fn fetch_and_analyze_release(release: &str) -> Result<PrdocsResult> {
         .map_err(|e| anyhow!("Failed to fetch directory listing: {}", e))?;
 
     if !response.status().is_success() {
-        return Err(anyhow!(
-            "GitHub API returned status {}: {}",
-            response.status(),
-            response.text().await.unwrap_or_default()
-        ));
+        let status = response.status();
+        let error_text = response.text().await.unwrap_or_default();
+
+        // Provide helpful error messages based on the status
+        if status == reqwest::StatusCode::NOT_FOUND {
+            return Err(anyhow!(
+                "Release '{}' not found. This means the directory 'prdoc/{}' does not exist on the main branch.\n\
+                Common issues:\n\
+                - If you used a git tag like 'polkadot-stable2503-8', the directory name should be 'stable2503-8'\n\
+                - The release may not exist yet or may use a different naming format\n\
+                - Check available releases at: https://github.com/paritytech/polkadot-sdk/tree/master/prdoc\n\
+                GitHub API response: {}",
+                normalized_release, normalized_release, error_text
+            ));
+        } else {
+            return Err(anyhow!(
+                "GitHub API returned status {} when accessing prdoc/{}: {}",
+                status,
+                normalized_release,
+                error_text
+            ));
+        }
     }
 
     let contents: Vec<GitHubContent> = response
@@ -223,7 +304,7 @@ pub async fn fetch_and_analyze_release(release: &str) -> Result<PrdocsResult> {
     if prdoc_files.is_empty() {
         return Ok(PrdocsResult {
             success: false,
-            release: release.to_string(),
+            release: normalized_release.to_string(),
             output_dir,
             file_count: 0,
             total_size: 0,
@@ -330,7 +411,7 @@ pub async fn fetch_and_analyze_release(release: &str) -> Result<PrdocsResult> {
 
     // Create manifest.json
     let manifest = Manifest {
-        release: release.to_string(),
+        release: normalized_release.to_string(),
         total_prdocs: saved_count,
         pr_numbers: pr_numbers.clone(),
         download_date: chrono::Utc::now().to_rfc3339(),
@@ -403,12 +484,12 @@ This directory includes JSON manifest files for efficient analysis:
 These PRDocs document changes, improvements, and new features in the {} release.
 Each file corresponds to a pull request that was included in this release.
 "#,
-        release,
-        release,
+        normalized_release,
+        normalized_release,
         prdoc_files.len(),
         saved_count,
         total_size,
-        release
+        normalized_release
     );
 
     let summary_path = output_dir.join("RELEASE_SUMMARY.md");
@@ -424,7 +505,7 @@ Each file corresponds to a pull request that was included in this release.
 
     Ok(PrdocsResult {
         success: true,
-        release: release.to_string(),
+        release: normalized_release.to_string(),
         output_dir,
         file_count: saved_count,
         total_size,
@@ -513,6 +594,36 @@ async fn fetch_and_save_github_labels(
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_normalize_release_input() {
+        // Test stripping polkadot- prefix
+        assert_eq!(
+            normalize_release_input("polkadot-stable2503-8"),
+            "stable2503-8"
+        );
+        assert_eq!(
+            normalize_release_input("polkadot-stable2412-1"),
+            "stable2412-1"
+        );
+        assert_eq!(normalize_release_input("polkadot-v1.9.0"), "v1.9.0");
+
+        // Test stripping release- prefix
+        assert_eq!(normalize_release_input("release-v1.9.0"), "v1.9.0");
+        assert_eq!(normalize_release_input("release-stable2503"), "stable2503");
+
+        // Test no change for already normalized inputs
+        assert_eq!(normalize_release_input("stable2503-8"), "stable2503-8");
+        assert_eq!(normalize_release_input("1.9.0"), "1.9.0");
+        assert_eq!(normalize_release_input("v1.9.0"), "v1.9.0");
+
+        // Test trimming whitespace
+        assert_eq!(normalize_release_input("  stable2503-8  "), "stable2503-8");
+        assert_eq!(
+            normalize_release_input("  polkadot-stable2503-8  "),
+            "stable2503-8"
+        );
+    }
+
     #[tokio::test]
     async fn test_fetch_and_analyze_release_valid_release() {
         // This test requires network access
@@ -555,13 +666,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_fetch_and_analyze_release_with_polkadot_prefix() {
+        // Test that the function correctly handles inputs with 'polkadot-' prefix
+        let result = fetch_and_analyze_release("polkadot-stable2412-1").await;
+        assert!(result.is_ok(), "Should handle 'polkadot-' prefix correctly");
+        let prdocs_result = result.unwrap();
+        assert!(prdocs_result.success);
+        // The normalized release name should be stored
+        assert_eq!(prdocs_result.release, "stable2412-1");
+        assert!(prdocs_result.file_count > 0);
+    }
+
+    #[tokio::test]
     async fn test_fetch_and_analyze_release_invalid_release() {
         let result = fetch_and_analyze_release("nonexistent-release").await;
-        // Should return Ok with success=false or an error
-        match result {
-            Ok(prdocs_result) => assert!(!prdocs_result.success),
-            Err(_) => {} // Also acceptable
-        }
+        // Should return an error with helpful message
+        assert!(result.is_err());
+        let error_message = result.unwrap_err().to_string();
+        // Check that the error message contains helpful information
+        assert!(error_message.contains("not found") || error_message.contains("does not exist"));
+        assert!(error_message.contains("prdoc/"));
     }
 
     #[test]
