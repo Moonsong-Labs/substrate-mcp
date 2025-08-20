@@ -2,6 +2,31 @@ use rmcp::model::PromptArgument;
 
 use super::SubstratePromptDefinition;
 
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
+        name: "release_comparison".to_string(),
+        description: "List changes between two polkadot-sdk release versions".to_string(),
+        arguments: vec![
+            PromptArgument {
+                name: "current_version".to_string(),
+                description: Some("Version currently being used".to_string()),
+                required: Some(true),
+            },
+            PromptArgument {
+                name: "target_version".to_string(),
+                description: Some("Version dev wants to compare with (must be greater than current)".to_string()),
+                required: Some(true),
+            },
+            PromptArgument {
+                name: "specific_changes".to_string(),
+                description: Some("What specific changes to look for (e.g: was there any change in `pallet_treasury` ?)".to_string()),
+                required: Some(false),
+            },
+        ],
+        template: TEMPLATE.to_string(),
+    }
+}
+
 /// Release comparison prompt template
 const TEMPLATE: &str = r#"Compare changes between Polkadot SDK versions {{current_version}} and {{target_version}}.
 
@@ -92,28 +117,3 @@ Based on the changes between versions:
 - Review CHANGELOG.md files for complete details
 {{/unless}}
 ```"#;
-
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "release_comparison".to_string(),
-        description: "List changes between two polkadot-sdk release versions".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "current_version".to_string(),
-                description: Some("Version currently being used".to_string()),
-                required: Some(true),
-            },
-            PromptArgument {
-                name: "target_version".to_string(),
-                description: Some("Version dev wants to compare with (must be greater than current)".to_string()),
-                required: Some(true),
-            },
-            PromptArgument {
-                name: "specific_changes".to_string(),
-                description: Some("What specific changes to look for (e.g: was there any change in `pallet_treasury` ?)".to_string()),
-                required: Some(false),
-            },
-        ],
-        template: TEMPLATE.to_string(),
-    }
-}

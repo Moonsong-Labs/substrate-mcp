@@ -3,6 +3,26 @@ use rmcp::model::PromptArgument;
 use super::SubstratePromptDefinition;
 
 /// Analyze release prompt template
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
+        name: "analyze_release".to_string(),
+        description: "Analyzes how Polkadot SDK release changes impact your project using parallel processing".to_string(),
+        arguments: vec![
+            PromptArgument {
+                name: "release".to_string(),
+                description: Some("The release version(s) to analyze. Examples: 'stable2503-7' for single release, 'stable2502,stable2503' for comparison".to_string()),
+                required: Some(true),
+            },
+            PromptArgument {
+                name: "focus".to_string(),
+                description: Some("Optional: Specific aspect to focus on (e.g., 'breaking changes', 'migrations', 'security'). Leave empty for comprehensive analysis".to_string()),
+                required: Some(false),
+            }
+        ],
+        template: TEMPLATE.to_string(),
+    }
+}
+
 const TEMPLATE: &str = r#"
 # Analyze Polkadot SDK Release Impact on Your Project
 
@@ -664,23 +684,3 @@ Remember: The markdown file is the PRIMARY deliverable. Console output is second
 ✓ Did you print BOTH the directory path AND the clickable file path?
 ✓ Did you analyze ALL PRDocs from ~/.substrate-mcp/{project}/releases/{{release}}/pr-docs/?
 "#;
-
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "analyze_release".to_string(),
-        description: "Analyzes how Polkadot SDK release changes impact your project using parallel processing".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "release".to_string(),
-                description: Some("The release version(s) to analyze. Examples: 'stable2503-7' for single release, 'stable2502,stable2503' for comparison".to_string()),
-                required: Some(true),
-            },
-            PromptArgument {
-                name: "focus".to_string(),
-                description: Some("Optional: Specific aspect to focus on (e.g., 'breaking changes', 'migrations', 'security'). Leave empty for comprehensive analysis".to_string()),
-                required: Some(false),
-            }
-        ],
-        template: TEMPLATE.to_string(),
-    }
-}

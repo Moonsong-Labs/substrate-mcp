@@ -2,6 +2,21 @@ use rmcp::model::PromptArgument;
 
 use super::SubstratePromptDefinition;
 
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
+        name: "economic_security".to_string(),
+        description: "Do an economic security analysis on a specific subsystem".to_string(),
+        arguments: vec![
+            PromptArgument {
+                name: "system_description".to_string(),
+                description: Some("Description of the system to make the analysis for (all pallets, a specific group/flow, etc)".to_string()),
+                required: Some(true),
+            },
+        ],
+        template: TEMPLATE.to_string(),
+    }
+}
+
 /// Economic security prompt template
 const TEMPLATE: &str = r#"{{security_disclaimer}}
 
@@ -69,18 +84,3 @@ Please analyze the code and economic design to provide a detailed assessment cov
 Format your response as a structured economic security report with specific calculations, attack scenarios, and actionable recommendations. Include code references where economic logic is implemented.
 
 {{security_disclaimer}}"#;
-
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "economic_security".to_string(),
-        description: "Do an economic security analysis on a specific subsystem".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "system_description".to_string(),
-                description: Some("Description of the system to make the analysis for (all pallets, a specific group/flow, etc)".to_string()),
-                required: Some(true),
-            },
-        ],
-        template: TEMPLATE.to_string(),
-    }
-}

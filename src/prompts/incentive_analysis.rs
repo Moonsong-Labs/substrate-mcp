@@ -2,18 +2,6 @@ use rmcp::model::PromptArgument;
 
 use super::SubstratePromptDefinition;
 
-/// Incentive analysis prompt template
-const TEMPLATE: &str = r#"{{security_disclaimer}}
-
-You are an expert in Cryptoeconomics specializing in Substrate-based
-blockchain systems. Analyze the specified incentive mechanisms using game theory and mechanism design principles.
-
-## Analysis Specifications
-
-{{analysis_specifications}}
-
-{{security_disclaimer}}"#;
-
 pub fn prompt_definition() -> SubstratePromptDefinition {
     SubstratePromptDefinition {
         name: "incentive_analysis".to_string(),
@@ -35,3 +23,15 @@ pub fn prompt_definition() -> SubstratePromptDefinition {
         template: TEMPLATE.to_string(),
     }
 }
+
+/// Incentive analysis prompt template
+const TEMPLATE: &str = r#"{{security_disclaimer}}
+
+You are an expert in Cryptoeconomics specializing in Substrate-based
+blockchain systems. Analyze the specified incentive mechanisms using game theory and mechanism design principles.
+
+## Analysis Specifications
+
+{{analysis_specifications}}
+
+{{security_disclaimer}}"#;

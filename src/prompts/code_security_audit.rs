@@ -2,6 +2,19 @@ use rmcp::model::PromptArgument;
 
 use super::SubstratePromptDefinition;
 
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
+        name: "code_security_audit".to_string(),
+        description: "Audit specific component for common code-related vulnerabilities".to_string(),
+        arguments: vec![PromptArgument {
+            name: "audit_target".to_string(),
+            description: Some("Describe the target of the audit".to_string()),
+            required: Some(true),
+        }],
+        template: TEMPLATE.to_string(),
+    }
+}
+
 const TEMPLATE: &str = r#"You are a Systems Security Expert specializing in Substrate-based blockchain
 security. Perform a comprehensive security audit following industry-standard
 practices and Substrate-specific considerations.
@@ -34,16 +47,3 @@ Perform comprehensive analysis with emphasis on:
 - Resource exhaustion vectors
 
 {{security_disclaimer}}"#;
-
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "code_security_audit".to_string(),
-        description: "Audit specific component for common code-related vulnerabilities".to_string(),
-        arguments: vec![PromptArgument {
-            name: "audit_target".to_string(),
-            description: Some("Describe the target of the audit".to_string()),
-            required: Some(true),
-        }],
-        template: TEMPLATE.to_string(),
-    }
-}

@@ -2,7 +2,21 @@ use rmcp::model::PromptArgument;
 
 use super::SubstratePromptDefinition;
 
-/// Automated analysis prompt template
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
+        name: "automated_analysis".to_string(),
+        description: "Template for automated code and runtime analysis".to_string(),
+        arguments: vec![
+            PromptArgument {
+                name: "change_description".to_string(),
+                description: Some("Description of the changes made to the code that trigger this analysis (PR description, new release, etc)".to_string()),
+                required: Some(true),
+            },
+        ],
+        template: TEMPLATE.to_string(),
+    }
+}
+
 const TEMPLATE: &str = r#"{{security_disclaimer}}
 
 Perform a comprehensive security and quality analysis of the following Substrate project changes for pre-release/PR review:
@@ -153,18 +167,3 @@ Additionally review:
 - [ ] Security considerations noted
 
 {{security_disclaimer}}"#;
-
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "automated_analysis".to_string(),
-        description: "Template for automated code and runtime analysis".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "change_description".to_string(),
-                description: Some("Description of the changes made to the code that trigger this analysis (PR description, new release, etc)".to_string()),
-                required: Some(true),
-            },
-        ],
-        template: TEMPLATE.to_string(),
-    }
-}

@@ -2,6 +2,19 @@ use rmcp::model::PromptArgument;
 
 use super::SubstratePromptDefinition;
 
+pub fn prompt_definition() -> SubstratePromptDefinition {
+    SubstratePromptDefinition {
+        name: "scaffold_pallet".to_string(),
+        description: "Generate pallet structure and implementation templates".to_string(),
+        arguments: vec![PromptArgument {
+            name: "pallet_description".to_string(),
+            description: Some("Description for the pallet".to_string()),
+            required: Some(true),
+        }],
+        template: TEMPLATE.to_string(),
+    }
+}
+
 /// Scaffold pallet prompt template
 const TEMPLATE: &str = r#"Create a complete Substrate pallet scaffold based on the following description:
 
@@ -63,16 +76,3 @@ To fill in missing blanks, also check kitchensink pallet: https://github.com/par
 - Basic pallet structure: https://docs.polkadot.com/develop/parachains/customize-parachain/make-custom-pallet/
 - Testing guide: https://docs.polkadot.com/develop/parachains/testing/pallet-testing/
 - Benchmarking: https://docs.polkadot.com/develop/parachains/testing/benchmarking/"#;
-
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "scaffold_pallet".to_string(),
-        description: "Generate pallet structure and implementation templates".to_string(),
-        arguments: vec![PromptArgument {
-            name: "pallet_description".to_string(),
-            description: Some("Description for the pallet".to_string()),
-            required: Some(true),
-        }],
-        template: TEMPLATE.to_string(),
-    }
-}
