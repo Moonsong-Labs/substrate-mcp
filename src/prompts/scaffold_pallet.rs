@@ -68,15 +68,12 @@ pub fn prompt() -> SubstratePrompt {
     SubstratePrompt {
         name: "scaffold_pallet".to_string(),
         description: "Generate pallet structure and implementation templates".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "pallet_description".to_string(),
-                description: Some("Description for the pallet".to_string()),
-                required: Some(true),
-            },
-        ],
+        arguments: vec![PromptArgument {
+            name: "pallet_description".to_string(),
+            description: Some("Description for the pallet".to_string()),
+            required: Some(true),
+        }],
         template: TEMPLATE.to_string(),
-        needs_security_disclaimer: false,
-        validate_args: None,
     }
 }
+

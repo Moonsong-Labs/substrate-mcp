@@ -74,15 +74,12 @@ pub fn prompt() -> SubstratePrompt {
     SubstratePrompt {
         name: "weight_analysis".to_string(),
         description: "Weight-based system breakdown analysis under extreme conditions".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "target_pallet".to_string(),
-                description: Some("Pallet to make the analysis for".to_string()),
-                required: Some(true),
-            },
-        ],
+        arguments: vec![PromptArgument {
+            name: "target_pallet".to_string(),
+            description: Some("Pallet to make the analysis for".to_string()),
+            required: Some(true),
+        }],
         template: TEMPLATE.to_string(),
-        needs_security_disclaimer: true,
-        validate_args: None,
     }
 }
+

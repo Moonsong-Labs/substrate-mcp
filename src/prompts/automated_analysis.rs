@@ -166,7 +166,6 @@ pub fn prompt() -> SubstratePrompt {
             },
         ],
         template: TEMPLATE.to_string(),
-        needs_security_disclaimer: true,
-        validate_args: None,
     }
 }
+

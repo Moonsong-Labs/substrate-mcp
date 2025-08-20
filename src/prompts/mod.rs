@@ -6,7 +6,6 @@ use rmcp::model::{
 use rmcp::service::{RequestContext, RoleServer};
 use rmcp::ErrorData as McpError;
 use serde_json::json;
-use std::sync::{LazyLock, Mutex};
 
 // Import all prompt modules
 mod analyze_release;
@@ -26,11 +25,6 @@ pub struct SubstratePrompt {
     pub description: String,
     pub arguments: Vec<PromptArgument>,
     pub template: String,
-}
-
-/// Get the security disclaimer to be injected into templates
-fn get_security_disclaimer() -> serde_json::Value {
-    json!(security_disclaimer::SECURITY_DISCLAIMER)
 }
 
 /// Create a new Prompts instance with all available prompts
@@ -91,37 +85,20 @@ pub async fn handle_get_prompt(
     let args = request.arguments.as_ref().unwrap_or(&empty_map);
 
     // Add security disclaimer to args for templates that need it
-    let mut enriched_args = args.clone();
-
-    // Inject security disclaimer if needed
-    if prompt_def.needs_security_disclaimer {
-        enriched_args.insert("security_disclaimer".to_string(), get_security_disclaimer());
-    }
-
-    // Validate arguments if validator is provided
-    if let Some(validator) = &prompt_def.validate_args {
-        validator(&enriched_args).map_err(|e| McpError {
-            code: rmcp::model::ErrorCode::INVALID_PARAMS,
-            message: e.into(),
-            data: None,
-        })?;
-    }
+    let mut args_with_disclaimer = args.clone();
+    args_with_disclaimer.insert(
+        "security_disclaimer".to_string(),
+        json!(security_disclaimer::SECURITY_DISCLAIMER),
+    );
 
     let mut registry = Handlebars::new();
-
-    registry
-        .register_template_string(&request.name, &prompt_def.template)
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-            message: format!("Failed to register template: {}", e).into(),
-            data: None,
-        })?;
+    registry.set_strict_mode(true);
 
     let prompt = registry
-        .render(&request.name, &enriched_args)
+        .render_template(&prompt_def.template, &args_with_disclaimer)
         .map_err(|e| McpError {
             code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-            message: format!("Failed to render {} template: {}", request.name, e).into(),
+            message: format!("Failed to render template: {e}").into(),
             data: None,
         })?;
 
@@ -133,4 +110,3 @@ pub async fn handle_get_prompt(
         description: Some(prompt_def.description),
     })
 }
-

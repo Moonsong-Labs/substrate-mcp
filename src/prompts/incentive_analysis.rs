@@ -25,17 +25,20 @@ pub fn prompt() -> SubstratePrompt {
         arguments: vec![
             PromptArgument {
                 name: "target_pallets".to_string(),
-                description: Some("List of pallets that make the scope of the analysis".to_string()),
+                description: Some(
+                    "List of pallets that make the scope of the analysis".to_string(),
+                ),
                 required: Some(true),
             },
             PromptArgument {
                 name: "analysis_specifications".to_string(),
-                description: Some("Specific things to look out for during the analysis".to_string()),
+                description: Some(
+                    "Specific things to look out for during the analysis".to_string(),
+                ),
                 required: Some(true),
             },
         ],
         template: TEMPLATE.to_string(),
-        needs_security_disclaimer: true,
-        validate_args: None,
     }
 }
+

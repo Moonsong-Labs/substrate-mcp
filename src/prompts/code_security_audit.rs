@@ -4,11 +4,11 @@ use super::SubstratePrompt;
 use super::security_disclaimer::SECURITY_DISCLAIMER
 
 /// Code security audit prompt template
-const TEMPLATE: String = format!(r#"You are a Systems Security Expert specializing in Substrate-based blockchain
+const TEMPLATE: &str = r#"You are a Systems Security Expert specializing in Substrate-based blockchain
 security. Perform a comprehensive security audit following industry-standard
 practices and Substrate-specific considerations.
 
-{{SEC}}
+{{security_disclaimer}}
 
 ## Audit Target
 {{audit_target}}
@@ -47,7 +47,6 @@ pub fn prompt() -> SubstratePrompt {
             required: Some(true),
         }],
         template: TEMPLATE.to_string(),
-        needs_security_disclaimer: true,
     }
 }
 
