@@ -627,9 +627,9 @@ impl ServerHandler for SubstrateService {
     async fn get_prompt(
         &self,
         request: GetPromptRequestParam,
-        context: RequestContext<RoleServer>,
+        _context: RequestContext<RoleServer>,
     ) -> Result<GetPromptResult, McpError> {
-        prompts::handle_get_prompt(request, context).await
+        prompts::handle_get_prompt(request)
     }
 
     async fn list_resources(

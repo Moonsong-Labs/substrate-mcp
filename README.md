@@ -78,49 +78,57 @@ Alternatively, you can add using cli:
 
 The Substrate MCP server provides several specialized prompts for Substrate development and security analysis:
 
-### release_comparison
+### Polkadot SDK Release Analysis
+
+#### release_comparison
 **Description**: List changes between two polkadot-sdk release versions  
 **Arguments**:
 - `current_version` (required): Version currently being used
 - `target_version` (required): Version dev wants to compare with (must be greater than current)
 - `specific_changes` (optional): What specific changes to look for (e.g: was there any change in `pallet_treasury` ?)
 
-### automated_analysis
-**Description**: Template for automated code and runtime analysis  
+#### analyze_release
+**Description**: Analyzes how Polkadot SDK release changes impact your project using parallel processing  
 **Arguments**:
-- `change_description` (required): Description of the changes made to the code that trigger this analysis (PR description, new release, etc)
+- `release` (required): The release version(s) to analyze. Examples: 'stable2503-7' for single release, 'stable2502,stable2503' for comparison
+- `focus` (optional): Specific aspect to focus on (e.g., 'breaking changes', 'migrations', 'security'). Leave empty for comprehensive analysis
 
-### code_security_audit
-**Description**: Audit specific component for common code-related vulnerabilities  
-**Arguments**:
-- `audit_type` (required): pallet/runtime/node/general
-- `audit_target` (required): Describe the target of the audit
-- `specific_checks` (optional): Specific things to look for
+### Scaffolding
 
-### economic_security
-**Description**: Do an economic security analysis on a specific subsystem  
-**Arguments**:
-- `system_description` (required): Description of the system to make the analysis for (all pallets, a specific group/flow, etc)
-- `extra_context` (required): Extra context to provide for analysis
-
-### pallet_incentive_analysis
-**Description**: Analyze economic viability of incentives  
-**Arguments**:
-- `target_pallets` (required): List of pallets that make the scope of the analysis
-- `analysis_specifications` (required): Specific things to look out for during the analysis
-
-### scaffold_pallet
+#### scaffold_pallet
 **Description**: Generate pallet structure and implementation templates  
 **Arguments**:
 - `pallet_description` (required): Description for the pallet
 
-### threat_modeling
+### Analysis
+
+#### automated_analysis
+**Description**: Template for automated code and runtime analysis  
+**Arguments**:
+- `change_description` (required): Description of the changes made to the code that trigger this analysis (PR description, new release, etc)
+
+#### code_security_audit
+**Description**: Audit specific component for common code-related vulnerabilities  
+**Arguments**:
+- `audit_target` (required): Describe the target of the audit
+
+#### economic_security
+**Description**: Do an economic security analysis on a specific subsystem  
+**Arguments**:
+- `system_description` (required): Description of the system to make the analysis for (all pallets, a specific group/flow, etc)
+
+#### incentive_analysis
+**Description**: Analyze economic viability of incentives  
+**Arguments**:
+- `target_pallets` (required): List of pallets that make the scope of the analysis
+- `analysis_specifications` (required): Specify incentive mechanism to analyze
+
+#### threat_modeling
 **Description**: Do threat modeling of a specific part of the system  
 **Arguments**:
 - `system_description` (required): Description of the system to make the analysis for (all pallets, a specific group/flow, node, etc)
-- `extra_context` (required): Extra context to provide for analysis
 
-### weight_analysis
+#### weight_analysis
 **Description**: Weight-based system breakdown analysis under extreme conditions  
 **Arguments**:
 - `target_pallet` (required): Pallet to make the analysis for
