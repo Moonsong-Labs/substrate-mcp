@@ -30,15 +30,18 @@ pub struct SubstratePromptDefinition {
 /// Create a new Prompts instance with all available prompts
 pub fn prompt_definitions() -> Vec<SubstratePromptDefinition> {
     vec![
+        // Polkadot SDK release analysis
         release_comparison::prompt_definition(),
+        analyze_release::prompt_definition(),
+        // Scaffolding
+        scaffold_pallet::prompt_definition(),
+        // Analysis
         automated_analysis::prompt_definition(),
         code_security_audit::prompt_definition(),
         economic_security::prompt_definition(),
         incentive_analysis::prompt_definition(),
-        scaffold_pallet::prompt_definition(),
         threat_modeling::prompt_definition(),
         weight_analysis::prompt_definition(),
-        analyze_release::prompt_definition(),
     ]
 }
 
