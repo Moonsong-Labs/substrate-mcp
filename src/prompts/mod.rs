@@ -8,12 +8,10 @@ use rmcp::ErrorData as McpError;
 use serde_json::json;
 
 // Import all prompt modules
-mod analyze_release;
 mod automated_analysis;
 mod code_security_audit;
 mod economic_security;
 mod incentive_analysis;
-mod release_comparison;
 mod scaffold_pallet;
 mod security_disclaimer;
 mod threat_modeling;
@@ -30,9 +28,6 @@ pub struct SubstratePromptDefinition {
 /// Create a new Prompts instance with all available prompts
 pub fn prompt_definitions() -> Vec<SubstratePromptDefinition> {
     vec![
-        // Polkadot SDK release analysis
-        release_comparison::prompt_definition(),
-        analyze_release::prompt_definition(),
         // Scaffolding
         scaffold_pallet::prompt_definition(),
         // Analysis
@@ -158,40 +153,6 @@ mod tests {
                 text
             );
         }
-    }
-
-    #[test]
-    fn test_release_comparison_prompt() {
-        let mut args = serde_json::Map::new();
-        args.insert("current_version".to_string(), json!("1.9.0"));
-        args.insert("target_version".to_string(), json!("1.10.0"));
-
-        test_prompt(
-            "release_comparison",
-            args.clone(),
-            vec![
-                "Compare changes between Polkadot SDK versions 1.9.0 and 1.10.0",
-                "fetch_and_analyze_release",
-                "Breaking Changes",
-                "New Features",
-                "Migration Recommendations",
-            ],
-        );
-
-        // Test with optional specific_changes parameter
-        args.insert(
-            "specific_changes".to_string(),
-            json!("pallet_treasury changes"),
-        );
-        test_prompt(
-            "release_comparison",
-            args,
-            vec![
-                "Compare changes between Polkadot SDK versions 1.9.0 and 1.10.0",
-                "Filtered Analysis",
-                "Focus only on changes related to: pallet_treasury changes",
-            ],
-        );
     }
 
     #[test]
@@ -329,31 +290,6 @@ mod tests {
                 "benchmarks",
                 "resource usage",
             ],
-        );
-    }
-
-    #[test]
-    fn test_analyze_release_prompt() {
-        let mut args = serde_json::Map::new();
-        args.insert("release".to_string(), json!("stable2412"));
-
-        test_prompt(
-            "analyze_release",
-            args.clone(),
-            vec![
-                "release(s) stable2412 impact",
-                "Project Dependency Discovery",
-                "construct_runtime!",
-                "Migration",
-            ],
-        );
-
-        // Test with optional focus parameter
-        args.insert("focus".to_string(), json!("XCM improvements"));
-        test_prompt(
-            "analyze_release",
-            args,
-            vec!["release(s) stable2412 impact", "XCM improvements"],
         );
     }
 
