@@ -8,6 +8,7 @@ mod resources;
 mod server;
 mod substrate;
 mod tools;
+mod utils;
 
 use server::SubstrateService;
 
