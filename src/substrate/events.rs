@@ -37,9 +37,9 @@ pub struct EventFilter {
     pub limit: Option<usize>,
 }
 
-/// Query events from historical blocks using a hybrid approach
+/// Query events from blocks
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoricalEventsQuery {
+pub struct EventsQuery {
     /// Start block (negative = relative to current)
     pub from_block: i32,
     /// End block (negative = relative to current)  
@@ -50,16 +50,16 @@ pub struct HistoricalEventsQuery {
     pub event: Option<String>,
 }
 
-/// Result of historical events query
+/// Result of events query
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoricalEventsQueryResult {
+pub struct EventsResult {
     /// Events found
     pub events: Vec<Event>,
     /// Number of blocks queried
     pub blocks_queried: u32,
 }
 
-/// A historical event with decoded data
+/// An event with decoded data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
     /// Block number
@@ -76,44 +76,12 @@ pub struct Event {
     pub data: String,
 }
 
-impl EventFilter {
-    /// Query events from the chain based on the filter criteria
-    pub async fn query_events(
-        &self,
-        client: &OnlineClient<PolkadotConfig>,
-    ) -> Result<Vec<DecodedEvent>> {
-        // For now, we'll use the historical events module for all event queries
-        // This provides a workaround for the block hash retrieval issue
-
-        // Get latest block to determine range
-        let latest_block = client.blocks().at_latest().await?;
-        let latest_number = latest_block.number();
-
-        let from = self.from_block.unwrap_or(latest_number.saturating_sub(100));
-        let to = self.to_block.unwrap_or(latest_number);
-
-        // Create a historical query
-        let _query = HistoricalEventsQuery {
-            from_block: from as i32,
-            to_block: Some(to as i32),
-            pallet: self.pallet.clone(),
-            event: self.variant.clone(),
-        };
-
-        // Get the RPC URL from somewhere (this is a limitation - we need the URL)
-        // For now, we'll return an error directing to use the historical events tool
-        Err(anyhow::anyhow!(
-            "Historical block hash retrieval not yet implemented. Please use the query_historical_events tool instead."
-        ))
-    }
-}
-
-/// Query historical events using substrate-api-client for RPC and subxt for decoding
-pub async fn query_historical_events(
-    query: HistoricalEventsQuery,
-    subxt_client: &subxt::OnlineClient<subxt::PolkadotConfig>,
+/// Query events using substrate-api-client for RPC and subxt for decoding
+pub async fn query_events(
+    query: EventsQuery,
+    subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
-) -> Result<HistoricalEventsQueryResult> {
+) -> Result<EventsResult> {
     // Get block range from query parameters
     let (from, to) = utils::get_block_range(query.from_block, query.to_block, subxt_client).await?;
 
@@ -154,7 +122,7 @@ pub async fn query_historical_events(
         }
     }
 
-    Ok(HistoricalEventsQueryResult {
+    Ok(EventsResult {
         events: all_events,
         blocks_queried,
     })

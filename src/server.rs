@@ -18,7 +18,7 @@ use crate::tools;
 use serde::Deserialize;
 
 use crate::resources;
-use crate::substrate::events::{query_historical_events, EventFilter, HistoricalEventsQuery};
+use crate::substrate::events::{query_events, EventsQuery};
 use crate::substrate::extrinsic::{query_extrinsics, ExtrinsicsQuery};
 use crate::substrate::metadata::MetadataFilter;
 use crate::substrate::runtime::list_runtime_changes;
@@ -59,19 +59,17 @@ pub struct MetadataFilterArgs {
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct EventFilterArgs {
-    /// The RPC URL to connect to
+pub struct QueryEventsProperties {
+    /// The RPC endpoint to connect to
     pub rpc_url: String,
-    /// Filter by pallet name (supports partial matching)
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
+    pub from_block: i32,
+    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
+    pub to_block: Option<i32>,
+    /// Filter by pallet name (optional)
     pub pallet: Option<String>,
-    /// Filter by event variant name (supports partial matching)
-    pub variant: Option<String>,
-    /// Start block number (inclusive, defaults to 100 blocks ago)
-    pub from_block: Option<u32>,
-    /// End block number (inclusive, defaults to latest)
-    pub to_block: Option<u32>,
-    /// Maximum number of events to return
-    pub limit: Option<usize>,
+    /// Filter by event name (optional)
+    pub event: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -96,20 +94,6 @@ pub struct ListPalletStorageArgs {
     pub rpc_url: String,
     /// The pallet name
     pub pallet: String,
-}
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct QueryHistoricalEventsArgs {
-    /// The RPC endpoint to connect to
-    pub rpc_url: String,
-    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
-    pub from_block: i32,
-    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
-    pub to_block: Option<i32>,
-    /// Filter by pallet name (optional)
-    pub pallet: Option<String>,
-    /// Filter by event name (optional)
-    pub event: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -297,11 +281,11 @@ impl SubstrateService {
     }
 
     #[tool(
-        description = "Query and filter blockchain events within a specified block range. Supports filtering by pallet and event name with partial matching. Use this to find specific events like transfers, staking rewards, or governance actions."
+        description = "Query events from blocks. Supports querying by pallet and event name. Returns event details such as pallet name, event index and data. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters. Maximum block range is 100 blocks."
     )]
     pub async fn query_events(
         &self,
-        Parameters(args): Parameters<EventFilterArgs>,
+        Parameters(args): Parameters<QueryEventsProperties>,
     ) -> Result<CallToolResult, McpError> {
         // Connect to the chain using subxt
         let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
@@ -312,24 +296,25 @@ impl SubstrateService {
                 data: None,
             })?;
 
-        // Create filter
-        let filter = EventFilter {
-            pallet: args.pallet,
-            variant: args.variant,
+        // Create query
+        let query = EventsQuery {
             from_block: args.from_block,
             to_block: args.to_block,
-            limit: args.limit,
+            pallet: args.pallet,
+            event: args.event,
         };
 
-        // Query events
-        let results = filter.query_events(&client).await.map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to query events: {e}").into(),
-            data: None,
-        })?;
+        // Query historical events
+        let result = query_events(query, &client, &args.rpc_url)
+            .await
+            .map_err(|e| McpError {
+                code: rmcp::model::ErrorCode(-32603),
+                message: format!("Failed to query historical events: {e}").into(),
+                data: None,
+            })?;
 
         // Convert to JSON
-        let json_result = serde_json::to_string_pretty(&results).map_err(|e| McpError {
+        let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
             code: rmcp::model::ErrorCode::INTERNAL_ERROR,
             message: format!("Serialization error: {e}").into(),
             data: None,
@@ -421,59 +406,6 @@ impl SubstrateService {
 
         // Convert to JSON
         let json_result = serde_json::to_string_pretty(&entries).map_err(|e| McpError {
-            code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-            message: format!("Serialization error: {e}").into(),
-            data: None,
-        })?;
-
-        Ok(CallToolResult {
-            content: vec![Content {
-                annotations: None,
-                raw: RawContent::Text(RawTextContent { text: json_result }),
-            }],
-            is_error: None,
-        })
-    }
-
-    #[tool(
-        description = "Query events from historical blocks. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters. Maximum block range is 100 blocks."
-    )]
-    pub async fn query_historical_events(
-        &self,
-        Parameters(args): Parameters<QueryHistoricalEventsArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        // Connect to the chain using subxt
-        let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
-            .await
-            .map_err(|e| McpError {
-                code: rmcp::model::ErrorCode(-32603),
-                message: format!(
-                    "Failed to connect to chain with URL '{}': {e}",
-                    args.rpc_url
-                )
-                .into(),
-                data: None,
-            })?;
-
-        // Create query
-        let query = HistoricalEventsQuery {
-            from_block: args.from_block,
-            to_block: args.to_block,
-            pallet: args.pallet,
-            event: args.event,
-        };
-
-        // Query historical events
-        let result = query_historical_events(query, &client, &args.rpc_url)
-            .await
-            .map_err(|e| McpError {
-                code: rmcp::model::ErrorCode(-32603),
-                message: format!("Failed to query historical events: {e}").into(),
-                data: None,
-            })?;
-
-        // Convert to JSON
-        let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
             code: rmcp::model::ErrorCode::INTERNAL_ERROR,
             message: format!("Serialization error: {e}").into(),
             data: None,
