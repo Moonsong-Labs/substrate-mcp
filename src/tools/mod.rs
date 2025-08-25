@@ -91,6 +91,26 @@ pub async fn handle_submit_dev_extrinsic(
         .await
         .map_err(|e| mcp_error_internal(format!("Transaction failed: {e}")))?;
 
+    let events_info = get_event_details_from_extrinsic(&tx_events)?;
+
+    let result = format!(
+        "Transaction successful!\nHash: {:?}\nEvents emitted:\n{}",
+        tx_events.extrinsic_hash(),
+        events_info.join("\n")
+    );
+
+    Ok(CallToolResult {
+        content: vec![Content {
+            annotations: None,
+            raw: RawContent::Text(RawTextContent { text: result }),
+        }],
+        is_error: None,
+    })
+}
+
+pub fn get_event_details_from_extrinsic(
+    tx_events: &subxt::blocks::ExtrinsicEvents<PolkadotConfig>,
+) -> Result<Vec<String>, McpError> {
     let mut events_info = Vec::new();
     for event in tx_events.iter() {
         let event =
@@ -116,18 +136,5 @@ pub async fn handle_submit_dev_extrinsic(
 
         events_info.push(event_data);
     }
-
-    let result = format!(
-        "Transaction successful!\nHash: {:?}\nEvents emitted:\n{}",
-        tx_events.extrinsic_hash(),
-        events_info.join("\n")
-    );
-
-    Ok(CallToolResult {
-        content: vec![Content {
-            annotations: None,
-            raw: RawContent::Text(RawTextContent { text: result }),
-        }],
-        is_error: None,
-    })
+    Ok(events_info)
 }

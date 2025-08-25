@@ -1,5 +1,4 @@
 use anyhow::Result;
-use scale_value::{Composite, Primitive, ValueDef};
 use serde::{Deserialize, Serialize};
 use sp_core::crypto::Ss58Codec;
 use subxt::blocks::{Block, ExtrinsicDetails};
@@ -51,10 +50,8 @@ pub struct Extrinsic {
     pub call: String,
     /// Call arguments (as JSON)
     pub args: String,
-    /// Whether the extrinsic was successful
-    pub success: bool,
-    /// Fee paid (if available)
-    pub fee: Option<String>,
+    /// Return all events associated with the extrinsic
+    pub events: Vec<String>,
 }
 
 // Create a configurable set of inherent pallets
@@ -244,8 +241,8 @@ async fn process_extrinsic(
         Err(e) => format!("Failed to decode call arguments: {e}"),
     };
 
-    // Check events for success/failure and fees
-    let (success, fee) = check_extrinsic_events(block, extrinsic_index).await?;
+    let tx_events = extrinsic.events().await?;
+    let events = crate::tools::get_event_details_from_extrinsic(&tx_events)?;
 
     Ok(Some(Extrinsic {
         block_number,
@@ -256,69 +253,6 @@ async fn process_extrinsic(
         pallet: pallet_name.to_string(),
         call: call_name,
         args,
-        success,
-        fee,
+        events,
     }))
-}
-
-/// Check events to determine success/failure and extract fees
-async fn check_extrinsic_events(
-    block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-    extrinsic_index: u32,
-) -> Result<(bool, Option<String>)> {
-    let events = block.events().await?;
-
-    let mut success = false;
-    let mut fee = None;
-
-    // Iterate through events
-    for event in events.iter() {
-        let event = event?;
-
-        // Check if this event is associated with our extrinsic
-        if let subxt::events::Phase::ApplyExtrinsic(ext_idx) = event.phase() {
-            if ext_idx != extrinsic_index {
-                continue;
-            }
-
-            // Check for success/failure
-            if event.pallet_name() == "System" {
-                match event.variant_name() {
-                    "ExtrinsicSuccess" => success = true,
-                    "ExtrinsicFailed" => success = false,
-                    _ => {}
-                }
-            }
-
-            // Check for fee payment
-            if event.pallet_name() == "TransactionPayment"
-                && event.variant_name() == "TransactionFeePaid"
-            {
-                // Try to extract fee amount
-                match event.field_values() {
-                    Ok(fields) => {
-                        // Access the actual_fee field directly from the Composite
-                        if let Composite::Named(named_fields) = fields {
-                            // Find the actual_fee field
-                            if let Some((_, fee_value)) =
-                                named_fields.iter().find(|(name, _)| name == "actual_fee")
-                            {
-                                // Convert the fee value to a string representation
-                                fee = Some(match &fee_value.value {
-                                    ValueDef::Primitive(Primitive::U128(n)) => n.to_string(),
-                                    ValueDef::Primitive(Primitive::String(s)) => s.clone(),
-                                    _ => format!("{:?}", fee_value.value), // Fallback to debug format
-                                });
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        log::debug!("Failed to decode fee event: {e}");
-                    }
-                }
-            }
-        }
-    }
-
-    Ok((success, fee))
 }
