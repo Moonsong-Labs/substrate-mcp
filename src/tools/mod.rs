@@ -91,7 +91,7 @@ pub async fn handle_submit_dev_extrinsic(
         .await
         .map_err(|e| mcp_error_internal(format!("Transaction failed: {e}")))?;
 
-    let events_info = get_event_details_from_extrinsic(&tx_events)?;
+    let events_info = crate::substrate::utils::get_event_details_from_extrinsic(&tx_events)?;
 
     let result = format!(
         "Transaction successful!\nHash: {:?}\nEvents emitted:\n{}",
@@ -106,35 +106,4 @@ pub async fn handle_submit_dev_extrinsic(
         }],
         is_error: None,
     })
-}
-
-pub fn get_event_details_from_extrinsic(
-    tx_events: &subxt::blocks::ExtrinsicEvents<PolkadotConfig>,
-) -> Result<Vec<String>, McpError> {
-    let mut events_info = Vec::new();
-    for event in tx_events.iter() {
-        let event =
-            event.map_err(|e| mcp_error_internal(format!("Failed to decode event: {e}")))?;
-
-        let fields = event
-            .field_values()
-            .map_err(|e| mcp_error_internal(format!("Failed to decode event fields: {e}")))?;
-
-        let value = scale_value::Value {
-            value: scale_value::ValueDef::Composite(fields),
-            context: 0,
-        };
-        let fields_str = scale_value::stringify::to_string(&value);
-
-        // Concatenate event name with the fields data
-        let event_data = format!(
-            "  - {}.{}: {}",
-            event.pallet_name(),
-            event.variant_name(),
-            fields_str
-        );
-
-        events_info.push(event_data);
-    }
-    Ok(events_info)
 }

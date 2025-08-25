@@ -54,8 +54,8 @@ pub struct Extrinsic {
     pub events: Vec<String>,
 }
 
-// Create a configurable set of inherent pallets
-const COMMON_INHERENT_PALLETS: &[&str] = &["Timestamp", "ParaInherent", "ParachainSystem"];
+// List of calls to be filtered out
+const FILTERED_CALLS: &[&str] = &["setValidationData"];
 
 /// Query extrinsics using jsonrpsee for RPC and subxt for proper decoding
 pub async fn query_extrinsics(
@@ -170,10 +170,9 @@ async fn process_extrinsic(
         format!("Call{call_index}")
     };
 
-    // If pallet is an inherent, exclude it
-    if !extrinsic.is_signed() && COMMON_INHERENT_PALLETS.contains(&pallet_name) {
-        log::debug!("Filtering inherent: {}.{}", pallet_name, call_name);
-        return Ok(None); // Filter out this inherent
+    // If the call is in the filtered list, remove it
+    if FILTERED_CALLS.contains(&call_name.as_str()) {
+        return Ok(None); // Filter out this call
     }
 
     // Apply pallet filter
@@ -242,7 +241,7 @@ async fn process_extrinsic(
     };
 
     let tx_events = extrinsic.events().await?;
-    let events = crate::tools::get_event_details_from_extrinsic(&tx_events)?;
+    let events = utils::get_event_details_from_extrinsic(&tx_events)?;
 
     Ok(Some(Extrinsic {
         block_number,
