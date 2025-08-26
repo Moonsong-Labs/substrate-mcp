@@ -1,8 +1,11 @@
 use anyhow::{anyhow, Result};
+use itertools::Itertools;
 use jsonrpsee::core::client::ClientT;
 use jsonrpsee::core::traits::ToRpcParams;
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
+use rmcp::ErrorData as McpError;
+use scale_value::Composite;
 use serde::de::DeserializeOwned;
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
@@ -62,6 +65,64 @@ pub async fn get_block_range(
     }
 
     Ok((from, to))
+}
+
+pub fn stringify_composite<T>(composite: &Composite<T>) -> Result<String> {
+    match composite {
+        Composite::Named(fields) => {
+            let data = fields
+                .iter()
+                .map(|pair| {
+                    let (name, value) = pair;
+                    format!("{}={}", name, scale_value::stringify::to_string(value))
+                })
+                .join(", ");
+            Ok(data)
+        }
+        Composite::Unnamed(values) => {
+            let array: Vec<_> = values
+                .iter()
+                .map(|value| scale_value::stringify::to_string(value))
+                .collect();
+            Ok(array.join(", "))
+        }
+    }
+}
+
+pub fn get_event_details_from_extrinsic(
+    tx_events: &subxt::blocks::ExtrinsicEvents<PolkadotConfig>,
+) -> Result<Vec<String>, McpError> {
+    let mut events_info = Vec::new();
+    for event in tx_events.iter() {
+        let event = event.map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: format!("Failed to decode event: {e}").into(),
+            data: None,
+        })?;
+
+        let fields = event.field_values().map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: format!("Failed to decode event fields: {e}").into(),
+            data: None,
+        })?;
+
+        let value = scale_value::Value {
+            value: scale_value::ValueDef::Composite(fields),
+            context: 0,
+        };
+        let fields_str = scale_value::stringify::to_string(&value);
+
+        // Concatenate event name with the fields data
+        let event_data = format!(
+            "  - {}.{}: {}",
+            event.pallet_name(),
+            event.variant_name(),
+            fields_str
+        );
+
+        events_info.push(event_data);
+    }
+    Ok(events_info)
 }
 
 /// RPC client that can be either HTTP or WebSocket

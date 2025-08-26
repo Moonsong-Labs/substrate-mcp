@@ -49,12 +49,13 @@ pub struct Extrinsic {
     /// Call name  
     pub call: String,
     /// Call arguments (as JSON)
-    pub args: serde_json::Value,
-    /// Whether the extrinsic was successful
-    pub success: bool,
-    /// Fee paid (if available)
-    pub fee: Option<String>,
+    pub args: String,
+    /// Return all events associated with the extrinsic
+    pub events: Vec<String>,
 }
+
+// List of calls to be filtered out
+const FILTERED_CALLS: &[&str] = &["setValidationData"];
 
 /// Query extrinsics using jsonrpsee for RPC and subxt for proper decoding
 pub async fn query_extrinsics(
@@ -169,6 +170,11 @@ async fn process_extrinsic(
         format!("Call{call_index}")
     };
 
+    // If the call is in the filtered list, remove it
+    if FILTERED_CALLS.contains(&call_name.as_str()) {
+        return Ok(None); // Filter out this call
+    }
+
     // Apply pallet filter
     if let Some(ref pallet) = pallet_filter {
         if !pallet_name.eq_ignore_ascii_case(pallet) {
@@ -229,10 +235,13 @@ async fn process_extrinsic(
     let block_hash = format!("0x{}", hex::encode(block.hash()));
 
     // Decode call arguments
-    let args = decode_call_args(extrinsic)?;
+    let args = match extrinsic.field_values() {
+        Ok(fields) => utils::stringify_composite(&fields)?,
+        Err(e) => format!("Failed to decode call arguments: {e}"),
+    };
 
-    // Check events for success/failure and fees
-    let (success, fee) = check_extrinsic_events(block, extrinsic_index).await?;
+    let tx_events = extrinsic.events().await?;
+    let events = utils::get_event_details_from_extrinsic(&tx_events)?;
 
     Ok(Some(Extrinsic {
         block_number,
@@ -243,80 +252,6 @@ async fn process_extrinsic(
         pallet: pallet_name.to_string(),
         call: call_name,
         args,
-        success,
-        fee,
+        events,
     }))
-}
-
-/// Decode call arguments to JSON
-fn decode_call_args(
-    extrinsic: &ExtrinsicDetails<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-) -> Result<serde_json::Value> {
-    // Try to decode the fields
-    match extrinsic.field_values() {
-        Ok(fields) => {
-            // Convert scale_value to JSON using existing utility
-            Ok(crate::substrate::scale_utils::composite_to_json(&fields))
-        }
-        Err(e) => {
-            // If decoding fails, return the raw hex
-            log::debug!("Failed to decode call arguments: {e}");
-            let extrinsic_bytes = extrinsic.bytes();
-            Ok(serde_json::json!({
-                "raw": format!("0x{}", hex::encode(extrinsic_bytes))
-            }))
-        }
-    }
-}
-
-/// Check events to determine success/failure and extract fees
-async fn check_extrinsic_events(
-    block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-    extrinsic_index: u32,
-) -> Result<(bool, Option<String>)> {
-    let events = block.events().await?;
-
-    let mut success = false;
-    let mut fee = None;
-
-    // Iterate through events
-    for event in events.iter() {
-        let event = event?;
-
-        // Check if this event is associated with our extrinsic
-        if let subxt::events::Phase::ApplyExtrinsic(ext_idx) = event.phase() {
-            if ext_idx != extrinsic_index {
-                continue;
-            }
-
-            // Check for success/failure
-            if event.pallet_name() == "System" {
-                match event.variant_name() {
-                    "ExtrinsicSuccess" => success = true,
-                    "ExtrinsicFailed" => success = false,
-                    _ => {}
-                }
-            }
-
-            // Check for fee payment
-            if event.pallet_name() == "TransactionPayment"
-                && event.variant_name() == "TransactionFeePaid"
-            {
-                // Try to extract fee amount
-                match event.field_values() {
-                    Ok(fields) => {
-                        let json = crate::substrate::scale_utils::composite_to_json(&fields);
-                        if let Some(actual_fee) = json.get("actual_fee") {
-                            fee = Some(actual_fee.to_string());
-                        }
-                    }
-                    Err(e) => {
-                        log::debug!("Failed to decode fee event: {e}");
-                    }
-                }
-            }
-        }
-    }
-
-    Ok((success, fee))
 }
