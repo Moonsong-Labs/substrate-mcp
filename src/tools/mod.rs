@@ -1,3 +1,4 @@
+use futures::FutureExt;
 use rmcp::{
     model::{CallToolResult, Content, RawContent, RawTextContent},
     schemars, ErrorData as McpError,
@@ -5,6 +6,8 @@ use rmcp::{
 use serde::Deserialize;
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
+
+use crate::utils::{mcp_error_internal, mcp_error_invalid_params};
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct SubmitExtrinsicProperties {
@@ -25,25 +28,18 @@ pub async fn handle_submit_dev_extrinsic(
 ) -> Result<CallToolResult, McpError> {
     let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to connect to chain: {e}").into(),
-            data: None,
-        })?;
+        .map_err(|e| mcp_error_internal(format!("Failed to connect to chain: {e}")))?;
 
     let (scale_args_result, remainder) = scale_value::stringify::from_str(&properties.args);
-    let scale_args = scale_args_result.map_err(|e| McpError {
-        code: rmcp::model::ErrorCode(-32602),
-        message: format!("Failed to parse arguments: {e}. See 'substrate:scale-value-format' resource for syntax guide").into(),
-        data: None,
-    })?;
+
+    let scale_args = scale_args_result.map_err(|e|
+        mcp_error_invalid_params(format!("Failed to parse arguments: {e}. See 'substrate:scale-value-format' resource for syntax guide"))
+    )?;
 
     if !remainder.trim().is_empty() {
-        return Err(McpError {
-            code: rmcp::model::ErrorCode(-32602),
-            message: format!("Unexpected content after arguments: '{remainder}'").into(),
-            data: None,
-        });
+        return Err(mcp_error_invalid_params(format!(
+            "Unexpected content after parsing arguments: '{remainder}'"
+        )));
     }
 
     // Create composite from the scale value
@@ -52,6 +48,7 @@ pub async fn handle_submit_dev_extrinsic(
         scale_value::ValueDef::Composite(composite) => composite,
         _ => scale_value::Composite::Unnamed(vec![scale_args]),
     };
+    let call_data = subxt::dynamic::tx(&properties.pallet, &properties.call, composite_args);
 
     // Get the appropriate signer based on the requested dev account
     let signer = match properties.signer.to_lowercase().as_str() {
@@ -62,54 +59,46 @@ pub async fn handle_submit_dev_extrinsic(
         "eve" => dev::eve(),
         "ferdie" => dev::ferdie(),
         _ => {
-            return Err(McpError {
-                    code: rmcp::model::ErrorCode(-32602),
-                    message: format!(
-                        "Invalid signer '{}'. Supported signers: alice, bob, charlie, dave, eve, ferdie",
-                        properties.signer
-                    ).into(),
-                    data: None,
-                });
+            return Err(mcp_error_invalid_params(format!(
+                "Invalid signer '{}'. Supported signers: alice, bob, charlie, dave, eve, ferdie",
+                properties.signer
+            )));
         }
     };
 
-    // Create the dynamic call payload
-    let call_data = subxt::dynamic::tx(&properties.pallet, &properties.call, composite_args);
-
-    // Submit and wait for finalization
-    let tx_progress = client
-        .tx()
-        .sign_and_submit_then_watch_default(&call_data, &signer)
-        .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to submit transaction: {e}").into(),
-            data: None,
-        })?;
+    // NOTE: `sign_and_submit_then_watch_default` panics when call exists and arguments
+    // are valid SCALE but don't fit the call type. We get around this by catching the
+    // panic
+    let tx_progress = std::panic::AssertUnwindSafe(
+        client
+            .tx()
+            .sign_and_submit_then_watch_default(&call_data, &signer),
+    )
+    .catch_unwind()
+    .await
+    .map_err(|_| {
+        mcp_error_internal(format!(
+            "Transaction submission panicked - likely due to invalid call data. \
+            Please verify the call data matches the expectd format for pallet '{}' and call '{}'",
+            properties.pallet, properties.call
+        ))
+    })?
+    .map_err(|e| mcp_error_internal(format!("Failed to submit transaction: {e}")))?;
 
     // Wait for the transaction to be finalized and check for success
     let tx_events = tx_progress
         .wait_for_finalized_success()
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Transaction failed: {e}").into(),
-            data: None,
-        })?;
+        .map_err(|e| mcp_error_internal(format!("Transaction failed: {e}")))?;
 
     let mut events_info = Vec::new();
     for event in tx_events.iter() {
-        let event = event.map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to decode event: {e}").into(),
-            data: None,
-        })?;
+        let event =
+            event.map_err(|e| mcp_error_internal(format!("Failed to decode event: {e}")))?;
 
-        let fields = event.field_values().map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to decode event fields: {e}").into(),
-            data: None,
-        })?;
+        let fields = event
+            .field_values()
+            .map_err(|e| mcp_error_internal(format!("Failed to decode event fields: {e}")))?;
 
         let value = scale_value::Value {
             value: scale_value::ValueDef::Composite(fields),
