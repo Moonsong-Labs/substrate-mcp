@@ -23,27 +23,6 @@ For the `subxt_execute` tool, install the subxt CLI:
 cargo install subxt-cli
 ```
 
-## Available Tools
-
-### Event Querying
-- **`query_events`** - Query and filter blockchain events within a specified block range. Supports filtering by pallet and event name with partial matching.
-- **`query_historical_events`** - Query events from historical blocks. Supports relative block numbers (e.g., -10 for 10 blocks ago).
-
-### Extrinsic Operations
-- **`submit_dev_extrinsic`** - Submit an extrinsic to a Substrate chain using dev accounts (alice, bob, charlie, etc.).
-
-### Storage Querying
-- **`query_storage`** - Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys.
-- **`list_pallet_storage`** - List all storage entries available in a specific pallet.
-- **`chain_storage_bisect`** - Find all storage changes between two blocks for a specific key.
-
-### Metadata and Chain Exploration
-- **`filter_metadata`** - Filter and search chain metadata to discover available pallets, storage entries, calls, events, constants, and errors. Supports partial name matching.
-- **`subxt_execute`** - Use subxt CLI to decode and explore Substrate blockchain data. Useful for analyzing chain metadata, generating type-safe Rust code, and understanding runtime APIs.
-
-### Documentation
-- **`fetch_and_analyze_release`** - Fetches and analyzes a Polkadot SDK release by downloading all PRDoc files and generating analysis summaries (manifest, crate changes, audience breakdown). Files are saved to `~/.substrate-mcp/{project}/releases/{release}/pr-docs/` and the tool returns the path for further exploration.
-
 ## Usage with Claude Code
 
 To use this MCP server with Claude Code, add it to your Claude Code configuration.
@@ -73,6 +52,23 @@ If you built the server locally instead of installing it, use the full path:
 Alternatively, you can add using cli:
 
 ```claude mcp add substrate /path/to/substrate-mcp/target/release/substrate-mcp```
+
+## Available Tools
+
+### Release Analysis
+- **`fetch_and_analyze_release`** - Fetches and analyzes a Polkadot SDK release - downloads PRDocs and generates summaries (manifest, crate changes, audience breakdown)
+
+### Chain Exploration
+- **`subxt_execute`** - Use subxt to decode and explore Substrate blockchain data. Useful for: analyzing chain metadata structure, generating type-safe Rust code for chain interactions, exploring available pallets/calls/storage/events, decoding extrinsics and storage values, and understanding runtime APIs
+- **`filter_metadata`** - Filter and search chain metadata to discover available pallets, storage entries, calls, events, constants, and errors. Supports partial name matching for easy discovery
+- **`query_extrinsics`** - Query extrinsics from blocks. Supports filtering by pallet, call name, and signer address. Returns decoded transaction data including signer, call info, and arguments
+- **`query_events`** - Query events from blocks. Supports querying by pallet and event name. Returns event details such as pallet name, event index and data. Supports relative block numbers (e.g., -10 for 10 blocks ago)
+- **`query_storage`** - Query chain storage entries by pallet and storage name. Supports querying map-type storage with keys. Use this to read chain state like account balances, staking info, or governance proposals
+- **`list_pallet_storage`** - List all storage entries available in a specific pallet. Use this to discover what storage items are available before querying them
+
+### Extrinsic Operations
+- **`submit_dev_extrinsic`** - Submit a generic extrinsic to a Substrate chain using dev accounts. Supports any pallet call with arbitrary arguments. Use dev account names like 'alice', 'bob', 'charlie', etc. for signing
+
 
 ## Available Prompts
 
