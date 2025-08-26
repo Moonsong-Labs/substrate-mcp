@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
-use crate::substrate::events::{query_historical_events, Event, HistoricalEventsQuery};
+use crate::substrate::events::{query_events, Event, EventsQuery};
 use crate::substrate::extrinsic::{query_extrinsics, Extrinsic, ExtrinsicsQuery};
 use crate::substrate::utils;
 
@@ -184,14 +184,14 @@ async fn fetch_upgrade_details_at_block(
     rpc_url: &str,
 ) -> Result<RuntimeUpgradeDetails> {
     // Get all events in the upgrade block
-    let events_query = HistoricalEventsQuery {
+    let events_query = EventsQuery {
         from_block: upgrade.block_number as i32,
         to_block: Some(upgrade.block_number as i32),
         pallet: None,
         event: None,
     };
 
-    let events = query_historical_events(events_query, subxt_client, rpc_url).await?;
+    let events = query_events(events_query, subxt_client, rpc_url).await?;
 
     // Get all transactions in the upgrade block
     let tx_query = ExtrinsicsQuery {
