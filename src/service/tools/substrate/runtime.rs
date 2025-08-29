@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
-use crate::substrate::events::{query_events, Event, EventsQuery};
-use crate::substrate::extrinsic::{query_extrinsics, Extrinsic, ExtrinsicsQuery};
-use crate::substrate::utils;
+use super::events::{query_events, Event, EventsQuery};
+use super::extrinsic::{query_extrinsics, Extrinsic, ExtrinsicsQuery};
+use super::utils;
 
 /// Query runtime upgrades from historical blocks
 #[derive(Debug, Clone, Serialize, Deserialize)]

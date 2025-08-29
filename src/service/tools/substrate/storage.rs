@@ -5,7 +5,7 @@ use subxt::utils::AccountId32 as SubxtAccountId32;
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
-use crate::substrate::utils;
+use super::utils;
 
 /// Represents a storage entry value
 #[derive(Debug, Clone, Serialize, Deserialize)]
