@@ -9,118 +9,23 @@ use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
 use tokio::process::Command;
 
+use super::utils::{mcp_error_internal, mcp_error_invalid_params};
+
 pub mod polkadot_sdk_releases;
 pub mod substrate;
 
-use self::substrate::events::{query_events, EventsQuery};
-use self::substrate::extrinsic::{query_extrinsics, ExtrinsicsQuery};
-use self::substrate::metadata::MetadataFilter;
-use self::substrate::runtime::list_runtime_changes;
-use self::substrate::storage::{list_pallet_storage, query_storage, StorageQuery};
-use super::utils::{mcp_error_internal, mcp_error_invalid_params};
+use substrate::{
+    events::{query_events, EventsQuery},
+    extrinsic::{query_extrinsics, ExtrinsicsQuery},
+    metadata::MetadataFilter,
+    runtime::list_runtime_changes,
+    storage::{list_pallet_storage, query_storage, StorageQuery},
+};
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
 pub struct FetchAndAnalyzeReleaseProperties {
     /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412')
     pub release: String,
-}
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct SubmitExtrinsicProperties {
-    /// The RPC URL to connect to
-    pub rpc_url: String,
-    /// The pallet name (e.g., "System", "Balances")
-    pub pallet: String,
-    /// The call/extrinsic name (e.g., "transfer", "set_code")
-    pub call: String,
-    /// The arguments for the call in scale_value string format (see 'substrate:scale-value-format' resource)
-    pub args: String,
-    /// The dev account to use for signing (alice, bob, charlie, dave, eve, ferdie)
-    pub signer: String,
-}
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct SubxtExecuteArgs {
-    /// The subxt command and arguments to execute (e.g., ["metadata", "-f", "json", "--url", "ws://localhost:9944"])
-    pub args: Vec<String>,
-}
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct MetadataFilterArgs {
-    /// The RPC URL to connect to
-    pub rpc_url: String,
-    /// Filter by item type (e.g., "pallet", "storage", "call", "event", "constant", "error")
-    pub item_type: Option<String>,
-    /// Filter by pallet name (supports partial matching)
-    pub pallet: Option<String>,
-    /// Filter by item name (supports partial matching)
-    pub name: Option<String>,
-    /// Include detailed type information
-    pub include_details: Option<bool>,
-}
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct QueryEventsProperties {
-    /// The RPC endpoint to connect to
-    pub rpc_url: String,
-    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
-    pub from_block: i32,
-    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
-    pub to_block: Option<i32>,
-    /// Filter by pallet name (optional)
-    pub pallet: Option<String>,
-    /// Filter by event name (optional)
-    pub event: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct QueryStorageProperties {
-    /// The RPC URL to connect to
-    pub rpc_url: String,
-    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
-    pub from_block: i32,
-    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
-    pub to_block: Option<i32>,
-    /// The pallet name
-    pub pallet: String,
-    /// The storage entry name
-    pub entry: String,
-    /// Optional keys for map-type storage (as JSON array). Supports SS58 addresses which will be automatically decoded to AccountId32
-    pub keys: Option<Vec<serde_json::Value>>,
-}
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct ListPalletStorageArgs {
-    /// The RPC URL to connect to
-    pub rpc_url: String,
-    /// The pallet name
-    pub pallet: String,
-}
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct QueryExtrinsicsProperties {
-    /// The RPC endpoint to connect to
-    pub rpc_url: String,
-    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
-    pub from_block: i32,
-    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
-    pub to_block: Option<i32>,
-    /// Filter by pallet name (optional)
-    pub pallet: Option<String>,
-    /// Filter by call name (optional)
-    pub call: Option<String>,
-    /// Filter by signer address (optional)
-    pub signer: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct ListRuntimeChangesProperties {
-    /// The RPC endpoint to connect to
-    pub rpc_url: String,
-    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
-    pub from_block: i32,
-    /// End block number (negative = relative to current, defaults to current block. Leaving this blank will return a single block equal to from_block)
-    pub to_block: Option<i32>,
 }
 
 pub async fn handle_fetch_and_analyze_release(
@@ -150,6 +55,20 @@ pub async fn handle_fetch_and_analyze_release(
         }],
         is_error: None,
     })
+}
+
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct SubmitExtrinsicProperties {
+    /// The RPC URL to connect to
+    pub rpc_url: String,
+    /// The pallet name (e.g., "System", "Balances")
+    pub pallet: String,
+    /// The call/extrinsic name (e.g., "transfer", "set_code")
+    pub call: String,
+    /// The arguments for the call in scale_value string format (see 'substrate:scale-value-format' resource)
+    pub args: String,
+    /// The dev account to use for signing (alice, bob, charlie, dave, eve, ferdie)
+    pub signer: String,
 }
 
 pub async fn handle_submit_dev_extrinsic(
@@ -237,10 +156,16 @@ pub async fn handle_submit_dev_extrinsic(
     })
 }
 
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct SubxtExecuteProperties {
+    /// The subxt command and arguments to execute (e.g., ["metadata", "-f", "json", "--url", "ws://localhost:9944"])
+    pub args: Vec<String>,
+}
+
 pub async fn handle_subxt_execute(
-    args: SubxtExecuteArgs,
+    properties: SubxtExecuteProperties,
 ) -> Result<CallToolResult, McpError> {
-    if args.args.is_empty() {
+    if properties.args.is_empty() {
         return Err(McpError {
             code: rmcp::model::ErrorCode(-32602),
             message: "No arguments provided for subxt command".into(),
@@ -248,18 +173,17 @@ pub async fn handle_subxt_execute(
         });
     }
 
-    log::info!("Executing subxt with args: {:?}", args.args);
+    log::info!("Executing subxt with args: {:?}", properties.args);
 
     let output = Command::new("subxt")
-        .args(&args.args)
+        .args(&properties.args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
         .await
         .map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to execute subxt: {e}. Make sure subxt is installed.")
-                .into(),
+            message: format!("Failed to execute subxt: {e}. Make sure subxt is installed.").into(),
             data: None,
         })?;
 
@@ -292,11 +216,25 @@ pub async fn handle_subxt_execute(
     })
 }
 
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct MetadataFilterProperties {
+    /// The RPC URL to connect to
+    pub rpc_url: String,
+    /// Filter by item type (e.g., "pallet", "storage", "call", "event", "constant", "error")
+    pub item_type: Option<String>,
+    /// Filter by pallet name (supports partial matching)
+    pub pallet: Option<String>,
+    /// Filter by item name (supports partial matching)
+    pub name: Option<String>,
+    /// Include detailed type information
+    pub include_details: Option<bool>,
+}
+
 pub async fn handle_filter_metadata(
-    args: MetadataFilterArgs,
+    properties: MetadataFilterProperties,
 ) -> Result<CallToolResult, McpError> {
     // Connect to the chain using subxt
-    let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
+    let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
         .await
         .map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
@@ -309,10 +247,10 @@ pub async fn handle_filter_metadata(
 
     // Create filter
     let filter = MetadataFilter {
-        item_type: args.item_type,
-        pallet: args.pallet,
-        name: args.name,
-        include_details: args.include_details.unwrap_or(false),
+        item_type: properties.item_type,
+        pallet: properties.pallet,
+        name: properties.name,
+        include_details: properties.include_details.unwrap_or(false),
     };
 
     // Apply filter
@@ -338,11 +276,25 @@ pub async fn handle_filter_metadata(
     })
 }
 
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct QueryEventsProperties {
+    /// The RPC endpoint to connect to
+    pub rpc_url: String,
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
+    pub from_block: i32,
+    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
+    pub to_block: Option<i32>,
+    /// Filter by pallet name (optional)
+    pub pallet: Option<String>,
+    /// Filter by event name (optional)
+    pub event: Option<String>,
+}
+
 pub async fn handle_query_events(
-    args: QueryEventsProperties,
+    properties: QueryEventsProperties,
 ) -> Result<CallToolResult, McpError> {
     // Connect to the chain using subxt
-    let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
+    let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
         .await
         .map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
@@ -352,14 +304,14 @@ pub async fn handle_query_events(
 
     // Create query
     let query = EventsQuery {
-        from_block: args.from_block,
-        to_block: args.to_block,
-        pallet: args.pallet,
-        event: args.event,
+        from_block: properties.from_block,
+        to_block: properties.to_block,
+        pallet: properties.pallet,
+        event: properties.event,
     };
 
     // Query historical events
-    let result = query_events(query, &client, &args.rpc_url)
+    let result = query_events(query, &client, &properties.rpc_url)
         .await
         .map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
@@ -383,11 +335,27 @@ pub async fn handle_query_events(
     })
 }
 
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct QueryStorageProperties {
+    /// The RPC URL to connect to
+    pub rpc_url: String,
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
+    pub from_block: i32,
+    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
+    pub to_block: Option<i32>,
+    /// The pallet name
+    pub pallet: String,
+    /// The storage entry name
+    pub entry: String,
+    /// Optional keys for map-type storage (as JSON array). Supports SS58 addresses which will be automatically decoded to AccountId32
+    pub keys: Option<Vec<serde_json::Value>>,
+}
+
 pub async fn handle_query_storage(
-    args: QueryStorageProperties,
+    properties: QueryStorageProperties,
 ) -> Result<CallToolResult, McpError> {
     // Connect to the chain using subxt
-    let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
+    let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
         .await
         .map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
@@ -397,15 +365,15 @@ pub async fn handle_query_storage(
 
     // Create query
     let query = StorageQuery {
-        from_block: args.from_block,
-        to_block: args.to_block,
-        pallet: args.pallet,
-        entry: args.entry,
-        keys: args.keys,
+        from_block: properties.from_block,
+        to_block: properties.to_block,
+        pallet: properties.pallet,
+        entry: properties.entry,
+        keys: properties.keys,
     };
 
     // Query historical storage
-    let result = query_storage(query, &client, &args.rpc_url)
+    let result = query_storage(query, &client, &properties.rpc_url)
         .await
         .map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
@@ -429,11 +397,19 @@ pub async fn handle_query_storage(
     })
 }
 
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct ListPalletStorageProperties {
+    /// The RPC URL to connect to
+    pub rpc_url: String,
+    /// The pallet name
+    pub pallet: String,
+}
+
 pub async fn handle_list_pallet_storage(
-    args: ListPalletStorageArgs,
+    properties: ListPalletStorageProperties,
 ) -> Result<CallToolResult, McpError> {
     // Connect to the chain using subxt
-    let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
+    let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
         .await
         .map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
@@ -442,7 +418,7 @@ pub async fn handle_list_pallet_storage(
         })?;
 
     // List storage entries
-    let entries = list_pallet_storage(&client, &args.pallet)
+    let entries = list_pallet_storage(&client, &properties.pallet)
         .await
         .map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
@@ -466,17 +442,33 @@ pub async fn handle_list_pallet_storage(
     })
 }
 
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct QueryExtrinsicsProperties {
+    /// The RPC endpoint to connect to
+    pub rpc_url: String,
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
+    pub from_block: i32,
+    /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
+    pub to_block: Option<i32>,
+    /// Filter by pallet name (optional)
+    pub pallet: Option<String>,
+    /// Filter by call name (optional)
+    pub call: Option<String>,
+    /// Filter by signer address (optional)
+    pub signer: Option<String>,
+}
+
 pub async fn handle_query_extrinsics(
-    args: QueryExtrinsicsProperties,
+    properties: QueryExtrinsicsProperties,
 ) -> Result<CallToolResult, McpError> {
     // Connect to the chain using subxt
-    let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
+    let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
         .await
         .map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
             message: format!(
                 "Failed to connect to chain with URL '{}': {e}",
-                args.rpc_url
+                properties.rpc_url
             )
             .into(),
             data: None,
@@ -484,15 +476,15 @@ pub async fn handle_query_extrinsics(
 
     // Create query
     let query = ExtrinsicsQuery {
-        from_block: args.from_block,
-        to_block: args.to_block,
-        pallet: args.pallet,
-        call: args.call,
-        signer: args.signer,
+        from_block: properties.from_block,
+        to_block: properties.to_block,
+        pallet: properties.pallet,
+        call: properties.call,
+        signer: properties.signer,
     };
 
     // Query extrinsics
-    let result = query_extrinsics(query, &client, &args.rpc_url)
+    let result = query_extrinsics(query, &client, &properties.rpc_url)
         .await
         .map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
@@ -516,30 +508,45 @@ pub async fn handle_query_extrinsics(
     })
 }
 
+#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
+pub struct ListRuntimeChangesProperties {
+    /// The RPC endpoint to connect to
+    pub rpc_url: String,
+    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
+    pub from_block: i32,
+    /// End block number (negative = relative to current, defaults to current block. Leaving this blank will return a single block equal to from_block)
+    pub to_block: Option<i32>,
+}
+
 pub async fn handle_list_runtime_changes(
-    args: ListRuntimeChangesProperties,
+    properties: ListRuntimeChangesProperties,
 ) -> Result<CallToolResult, McpError> {
     // Connect to the chain using subxt
-    let client = OnlineClient::<PolkadotConfig>::from_url(&args.rpc_url)
+    let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
         .await
         .map_err(|e| McpError {
             code: rmcp::model::ErrorCode(-32603),
             message: format!(
                 "Failed to connect to chain with URL '{}': {e}",
-                args.rpc_url
+                properties.rpc_url
             )
             .into(),
             data: None,
         })?;
 
     // List runtime changes
-    let result = list_runtime_changes(args.from_block, args.to_block, &client, &args.rpc_url)
-        .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to list runtime changes: {e}").into(),
-            data: None,
-        })?;
+    let result = list_runtime_changes(
+        properties.from_block,
+        properties.to_block,
+        &client,
+        &properties.rpc_url,
+    )
+    .await
+    .map_err(|e| McpError {
+        code: rmcp::model::ErrorCode(-32603),
+        message: format!("Failed to list runtime changes: {e}").into(),
+        data: None,
+    })?;
 
     // Convert to JSON
     let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
@@ -556,3 +563,4 @@ pub async fn handle_list_runtime_changes(
         is_error: None,
     })
 }
+

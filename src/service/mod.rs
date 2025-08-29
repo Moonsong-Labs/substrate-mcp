@@ -50,9 +50,9 @@ impl SubstrateService {
     )]
     pub async fn subxt_execute(
         &self,
-        Parameters(args): Parameters<tools::SubxtExecuteArgs>,
+        Parameters(properties): Parameters<tools::SubxtExecuteProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_subxt_execute(args).await
+        tools::handle_subxt_execute(properties).await
     }
 
     #[tool(
@@ -60,9 +60,9 @@ impl SubstrateService {
     )]
     pub async fn filter_metadata(
         &self,
-        Parameters(args): Parameters<tools::MetadataFilterArgs>,
+        Parameters(properties): Parameters<tools::MetadataFilterProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_filter_metadata(args).await
+        tools::handle_filter_metadata(properties).await
     }
 
     #[tool(
@@ -70,9 +70,9 @@ impl SubstrateService {
     )]
     pub async fn query_events(
         &self,
-        Parameters(args): Parameters<tools::QueryEventsProperties>,
+        Parameters(properties): Parameters<tools::QueryEventsProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_query_events(args).await
+        tools::handle_query_events(properties).await
     }
 
     #[tool(
@@ -80,9 +80,9 @@ impl SubstrateService {
     )]
     pub async fn query_storage(
         &self,
-        Parameters(args): Parameters<tools::QueryStorageProperties>,
+        Parameters(properties): Parameters<tools::QueryStorageProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_query_storage(args).await
+        tools::handle_query_storage(properties).await
     }
 
     #[tool(
@@ -90,9 +90,9 @@ impl SubstrateService {
     )]
     pub async fn list_pallet_storage(
         &self,
-        Parameters(args): Parameters<tools::ListPalletStorageArgs>,
+        Parameters(properties): Parameters<tools::ListPalletStorageProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_list_pallet_storage(args).await
+        tools::handle_list_pallet_storage(properties).await
     }
 
     #[tool(
@@ -110,9 +110,9 @@ impl SubstrateService {
     )]
     pub async fn query_extrinsics(
         &self,
-        Parameters(args): Parameters<tools::QueryExtrinsicsProperties>,
+        Parameters(properties): Parameters<tools::QueryExtrinsicsProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_query_extrinsics(args).await
+        tools::handle_query_extrinsics(properties).await
     }
 
     #[tool(
@@ -120,9 +120,9 @@ impl SubstrateService {
     )]
     pub async fn list_runtime_changes(
         &self,
-        Parameters(args): Parameters<tools::ListRuntimeChangesProperties>,
+        Parameters(properties): Parameters<tools::ListRuntimeChangesProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_list_runtime_changes(args).await
+        tools::handle_list_runtime_changes(properties).await
     }
 }
 
