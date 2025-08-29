@@ -112,16 +112,6 @@ impl SubstrateService {
     ) -> Result<CallToolResult, McpError> {
         tools::handle_query_extrinsics(properties).await
     }
-
-    #[tool(
-        description = "List all runtime changes (upgrades) in a block range with detailed information including events, storage changes, and transactions for each upgrade block. Supports relative block numbers (e.g., -10 for 10 blocks ago). If to_block is left blank, will query only a single block equal to from_block; to query a range it needs both parameters. Maximum block range is 100 blocks."
-    )]
-    pub async fn list_runtime_changes(
-        &self,
-        Parameters(properties): Parameters<tools::ListRuntimeChangesProperties>,
-    ) -> Result<CallToolResult, McpError> {
-        tools::handle_list_runtime_changes(properties).await
-    }
 }
 
 #[tool_handler]

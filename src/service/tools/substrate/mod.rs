@@ -11,8 +11,5 @@ pub mod storage;
 /// Extrinsic module for querying chain extrinsics
 pub mod extrinsic;
 
-/// Runtime module for tracking and analyzing runtime
-pub mod runtime;
-
 /// Common utility functions used across substrate modules
 pub mod utils;

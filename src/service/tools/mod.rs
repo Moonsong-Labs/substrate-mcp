@@ -18,7 +18,6 @@ use substrate::{
     events::{query_events, EventsQuery},
     extrinsic::{query_extrinsics, ExtrinsicsQuery},
     metadata::MetadataFilter,
-    runtime::list_runtime_changes,
     storage::{list_pallet_storage, query_storage, StorageQuery},
 };
 
@@ -431,52 +430,6 @@ pub async fn handle_query_extrinsics(
     let result = query_extrinsics(query, &client, &properties.rpc_url)
         .await
         .map_err(|e| mcp_error_internal(format!("Failed to query historical transactions: {e}")))?;
-
-    // Convert to JSON
-    let json_result = serde_json::to_string_pretty(&result)
-        .map_err(|e| mcp_error_internal(format!("Serialization error: {e}")))?;
-
-    Ok(CallToolResult {
-        content: vec![Content {
-            annotations: None,
-            raw: RawContent::Text(RawTextContent { text: json_result }),
-        }],
-        is_error: None,
-    })
-}
-
-#[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct ListRuntimeChangesProperties {
-    /// The RPC endpoint to connect to
-    pub rpc_url: String,
-    /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
-    pub from_block: i32,
-    /// End block number (negative = relative to current, defaults to current block. Leaving this blank will return a single block equal to from_block)
-    pub to_block: Option<i32>,
-}
-
-pub async fn handle_list_runtime_changes(
-    properties: ListRuntimeChangesProperties,
-) -> Result<CallToolResult, McpError> {
-    // Connect to the chain using subxt
-    let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
-        .await
-        .map_err(|e| {
-            mcp_error_internal(format!(
-                "Failed to connect to chain with URL '{}': {e}",
-                properties.rpc_url
-            ))
-        })?;
-
-    // List runtime changes
-    let result = list_runtime_changes(
-        properties.from_block,
-        properties.to_block,
-        &client,
-        &properties.rpc_url,
-    )
-    .await
-    .map_err(|e| mcp_error_internal(format!("Failed to list runtime changes: {e}")))?;
 
     // Convert to JSON
     let json_result = serde_json::to_string_pretty(&result)
