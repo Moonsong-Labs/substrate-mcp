@@ -7,7 +7,17 @@ use serde::Deserialize;
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
 
-use crate::utils::{mcp_error_internal, mcp_error_invalid_params};
+pub mod polkadot_sdk_releases;
+pub mod substrate;
+pub mod utils;
+
+use utils::{mcp_error_internal, mcp_error_invalid_params};
+
+#[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
+pub struct FetchAndAnalyzeReleaseProperties {
+    /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412')
+    pub release: String,
+}
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
 pub struct SubmitExtrinsicProperties {
@@ -21,6 +31,35 @@ pub struct SubmitExtrinsicProperties {
     pub args: String,
     /// The dev account to use for signing (alice, bob, charlie, dave, eve, ferdie)
     pub signer: String,
+}
+
+pub async fn handle_fetch_and_analyze_release(
+    properties: FetchAndAnalyzeReleaseProperties,
+) -> Result<CallToolResult, McpError> {
+    let response = polkadot_sdk_releases::fetch_and_analyze_release(&properties.release)
+        .await
+        .map_err(|e| McpError {
+            code: rmcp::model::ErrorCode(-32603),
+            message: e.to_string().into(),
+            data: None,
+        })?;
+
+    // Format the response as JSON string
+    let response_text = serde_json::to_string_pretty(&response).map_err(|e| McpError {
+        code: rmcp::model::ErrorCode(-32603),
+        message: format!("Failed to serialize response: {e}").into(),
+        data: None,
+    })?;
+
+    Ok(CallToolResult {
+        content: vec![Content {
+            annotations: None,
+            raw: RawContent::Text(RawTextContent {
+                text: response_text,
+            }),
+        }],
+        is_error: None,
+    })
 }
 
 pub async fn handle_submit_dev_extrinsic(

@@ -12,17 +12,19 @@ use std::future::Future;
 use std::process::Stdio;
 use tokio::process::Command;
 
-use crate::polkadot_sdk_releases;
-use crate::prompts;
-use crate::tools;
+pub mod prompts;
+pub mod resources;
+pub mod tools;
+mod utils;
+
 use serde::Deserialize;
 
-use crate::resources;
-use crate::substrate::events::{query_events, EventsQuery};
-use crate::substrate::extrinsic::{query_extrinsics, ExtrinsicsQuery};
-use crate::substrate::metadata::MetadataFilter;
-use crate::substrate::runtime::list_runtime_changes;
-use crate::substrate::storage::{list_pallet_storage, query_storage, StorageQuery};
+// use crate::resources;
+// use substrate::events::{query_events, EventsQuery};
+// use substrate::extrinsic::{query_extrinsics, ExtrinsicsQuery};
+// use :substrate::metadata::MetadataFilter;
+// use crate::substrate::runtime::list_runtime_changes;
+// use crate::substrate::storage::{list_pallet_storage, query_storage, StorageQuery};
 
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
@@ -30,12 +32,6 @@ use subxt::PolkadotConfig;
 #[derive(Clone)]
 pub struct SubstrateService {
     tool_router: ToolRouter<Self>,
-}
-
-#[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
-pub struct FetchAndAnalyzeReleaseRequest {
-    /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412')
-    pub release: String,
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -141,34 +137,9 @@ impl SubstrateService {
     )]
     pub async fn fetch_and_analyze_release(
         &self,
-        Parameters(FetchAndAnalyzeReleaseRequest { release }): Parameters<
-            FetchAndAnalyzeReleaseRequest,
-        >,
+        Parameters(properties): Parameters<tools::FetchAndAnalyzeReleaseProperties>,
     ) -> Result<CallToolResult, McpError> {
-        let response = polkadot_sdk_releases::fetch_and_analyze_release(&release)
-            .await
-            .map_err(|e| McpError {
-                code: rmcp::model::ErrorCode(-32603),
-                message: e.to_string().into(),
-                data: None,
-            })?;
-
-        // Format the response as JSON string
-        let response_text = serde_json::to_string_pretty(&response).map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to serialize response: {e}").into(),
-            data: None,
-        })?;
-
-        Ok(CallToolResult {
-            content: vec![Content {
-                annotations: None,
-                raw: RawContent::Text(RawTextContent {
-                    text: response_text,
-                }),
-            }],
-            is_error: None,
-        })
+        tools::handle_fetch_and_analyze_release(properties)
     }
 
     #[tool(

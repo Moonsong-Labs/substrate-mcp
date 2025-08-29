@@ -2,15 +2,9 @@ use anyhow::Result;
 use rmcp::service::ServiceExt;
 use tokio::io::{stdin, stdout};
 
-mod polkadot_sdk_releases;
-mod prompts;
-mod resources;
-mod server;
-mod substrate;
-mod tools;
-mod utils;
+mod service;
 
-use server::SubstrateService;
+use service::SubstrateService;
 
 #[tokio::main]
 async fn main() -> Result<()> {
