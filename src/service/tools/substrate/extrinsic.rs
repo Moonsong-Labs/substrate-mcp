@@ -5,7 +5,7 @@ use subxt::blocks::{Block, ExtrinsicDetails};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
-use crate::substrate::utils;
+use super::utils;
 
 /// Query extrinsics from blocks
 #[derive(Debug, Clone, Serialize, Deserialize)]

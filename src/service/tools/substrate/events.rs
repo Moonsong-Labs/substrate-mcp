@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
-use crate::substrate::utils;
+use super::utils;
 
 /// Represents a decoded event from the chain
 #[derive(Debug, Clone, Serialize, Deserialize)]
