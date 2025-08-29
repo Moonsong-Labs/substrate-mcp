@@ -3,8 +3,7 @@ use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
     CallToolResult, GetPromptRequestParam, GetPromptResult, ListPromptsResult,
     ListResourceTemplatesResult, ListResourcesResult, PaginatedRequestParam,
-    ReadResourceRequestParam, ReadResourceResult, ResourceContents,
-    ServerCapabilities, ServerInfo,
+    ReadResourceRequestParam, ReadResourceResult, ResourceContents, ServerCapabilities, ServerInfo,
 };
 use rmcp::service::{RequestContext, RoleServer};
 use rmcp::{tool, tool_handler, tool_router, ErrorData as McpError};
@@ -19,7 +18,6 @@ mod utils;
 pub struct SubstrateService {
     tool_router: ToolRouter<Self>,
 }
-
 
 impl Default for SubstrateService {
     fn default() -> Self {

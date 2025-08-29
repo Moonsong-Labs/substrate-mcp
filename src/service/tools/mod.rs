@@ -33,18 +33,11 @@ pub async fn handle_fetch_and_analyze_release(
 ) -> Result<CallToolResult, McpError> {
     let response = polkadot_sdk_releases::fetch_and_analyze_release(&properties.release)
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: e.to_string().into(),
-            data: None,
-        })?;
+        .map_err(|e| mcp_error_internal(format!("Failed to fetch and analyze release: {e}")))?;
 
     // Format the response as JSON string
-    let response_text = serde_json::to_string_pretty(&response).map_err(|e| McpError {
-        code: rmcp::model::ErrorCode(-32603),
-        message: format!("Failed to serialize response: {e}").into(),
-        data: None,
-    })?;
+    let response_text = serde_json::to_string_pretty(&response)
+        .map_err(|e| mcp_error_internal(format!("Failed to serialize response: {e}")))?;
 
     Ok(CallToolResult {
         content: vec![Content {
@@ -166,11 +159,9 @@ pub async fn handle_subxt_execute(
     properties: SubxtExecuteProperties,
 ) -> Result<CallToolResult, McpError> {
     if properties.args.is_empty() {
-        return Err(McpError {
-            code: rmcp::model::ErrorCode(-32602),
-            message: "No arguments provided for subxt command".into(),
-            data: None,
-        });
+        return Err(mcp_error_invalid_params(
+            "No arguments provided for subxt command".to_string(),
+        ));
     }
 
     log::info!("Executing subxt with args: {:?}", properties.args);
@@ -181,21 +172,19 @@ pub async fn handle_subxt_execute(
         .stderr(Stdio::piped())
         .output()
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to execute subxt: {e}. Make sure subxt is installed.").into(),
-            data: None,
+        .map_err(|e| {
+            mcp_error_internal(format!(
+                "Failed to execute subxt: {e}. Make sure subxt is installed."
+            ))
         })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     if !output.status.success() {
-        return Err(McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("subxt command failed: {stderr}").into(),
-            data: None,
-        });
+        return Err(mcp_error_internal(format!(
+            "subxt command failed: {stderr}"
+        )));
     }
 
     let result = if !stdout.is_empty() {
@@ -236,11 +225,7 @@ pub async fn handle_filter_metadata(
     // Connect to the chain using subxt
     let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to connect to chain: {e}").into(),
-            data: None,
-        })?;
+        .map_err(|e| mcp_error_internal(format!("Failed to connect to chain: {e}")))?;
 
     // Get metadata
     let metadata = client.metadata();
@@ -254,18 +239,13 @@ pub async fn handle_filter_metadata(
     };
 
     // Apply filter
-    let results = filter.apply(&metadata).map_err(|e| McpError {
-        code: rmcp::model::ErrorCode(-32603),
-        message: format!("Failed to filter metadata: {e}").into(),
-        data: None,
-    })?;
+    let results = filter
+        .apply(&metadata)
+        .map_err(|e| mcp_error_internal(format!("Failed to filter metadata: {e}")))?;
 
     // Convert to JSON
-    let json_result = serde_json::to_string_pretty(&results).map_err(|e| McpError {
-        code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-        message: format!("Serialization error: {e}").into(),
-        data: None,
-    })?;
+    let json_result = serde_json::to_string_pretty(&results)
+        .map_err(|e| mcp_error_internal(format!("Serialization error: {e}")))?;
 
     Ok(CallToolResult {
         content: vec![Content {
@@ -296,11 +276,7 @@ pub async fn handle_query_events(
     // Connect to the chain using subxt
     let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to connect to chain: {e}").into(),
-            data: None,
-        })?;
+        .map_err(|e| mcp_error_internal(format!("Failed to connect to chain: {e}")))?;
 
     // Create query
     let query = EventsQuery {
@@ -313,18 +289,11 @@ pub async fn handle_query_events(
     // Query historical events
     let result = query_events(query, &client, &properties.rpc_url)
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to query historical events: {e}").into(),
-            data: None,
-        })?;
+        .map_err(|e| mcp_error_internal(format!("Failed to query historical events: {e}")))?;
 
     // Convert to JSON
-    let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
-        code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-        message: format!("Serialization error: {e}").into(),
-        data: None,
-    })?;
+    let json_result = serde_json::to_string_pretty(&result)
+        .map_err(|e| mcp_error_internal(format!("Serialization error: {e}")))?;
 
     Ok(CallToolResult {
         content: vec![Content {
@@ -357,11 +326,7 @@ pub async fn handle_query_storage(
     // Connect to the chain using subxt
     let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to connect to chain: {e}").into(),
-            data: None,
-        })?;
+        .map_err(|e| mcp_error_internal(format!("Failed to connect to chain: {e}")))?;
 
     // Create query
     let query = StorageQuery {
@@ -375,18 +340,11 @@ pub async fn handle_query_storage(
     // Query historical storage
     let result = query_storage(query, &client, &properties.rpc_url)
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to query historical storage: {e}").into(),
-            data: None,
-        })?;
+        .map_err(|e| mcp_error_internal(format!("Failed to query historical storage: {e}")))?;
 
     // Convert to JSON
-    let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
-        code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-        message: format!("Serialization error: {e}").into(),
-        data: None,
-    })?;
+    let json_result = serde_json::to_string_pretty(&result)
+        .map_err(|e| mcp_error_internal(format!("Serialization error: {e}")))?;
 
     Ok(CallToolResult {
         content: vec![Content {
@@ -411,27 +369,16 @@ pub async fn handle_list_pallet_storage(
     // Connect to the chain using subxt
     let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to connect to chain: {e}").into(),
-            data: None,
-        })?;
+        .map_err(|e| mcp_error_internal(format!("Failed to connect to chain: {e}")))?;
 
     // List storage entries
     let entries = list_pallet_storage(&client, &properties.pallet)
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to list storage: {e}").into(),
-            data: None,
-        })?;
+        .map_err(|e| mcp_error_internal(format!("Failed to list storage: {e}")))?;
 
     // Convert to JSON
-    let json_result = serde_json::to_string_pretty(&entries).map_err(|e| McpError {
-        code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-        message: format!("Serialization error: {e}").into(),
-        data: None,
-    })?;
+    let json_result = serde_json::to_string_pretty(&entries)
+        .map_err(|e| mcp_error_internal(format!("Serialization error: {e}")))?;
 
     Ok(CallToolResult {
         content: vec![Content {
@@ -464,14 +411,11 @@ pub async fn handle_query_extrinsics(
     // Connect to the chain using subxt
     let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!(
+        .map_err(|e| {
+            mcp_error_internal(format!(
                 "Failed to connect to chain with URL '{}': {e}",
                 properties.rpc_url
-            )
-            .into(),
-            data: None,
+            ))
         })?;
 
     // Create query
@@ -486,18 +430,11 @@ pub async fn handle_query_extrinsics(
     // Query extrinsics
     let result = query_extrinsics(query, &client, &properties.rpc_url)
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!("Failed to query historical transactions: {e}").into(),
-            data: None,
-        })?;
+        .map_err(|e| mcp_error_internal(format!("Failed to query historical transactions: {e}")))?;
 
     // Convert to JSON
-    let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
-        code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-        message: format!("Serialization error: {e}").into(),
-        data: None,
-    })?;
+    let json_result = serde_json::to_string_pretty(&result)
+        .map_err(|e| mcp_error_internal(format!("Serialization error: {e}")))?;
 
     Ok(CallToolResult {
         content: vec![Content {
@@ -524,14 +461,11 @@ pub async fn handle_list_runtime_changes(
     // Connect to the chain using subxt
     let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
         .await
-        .map_err(|e| McpError {
-            code: rmcp::model::ErrorCode(-32603),
-            message: format!(
+        .map_err(|e| {
+            mcp_error_internal(format!(
                 "Failed to connect to chain with URL '{}': {e}",
                 properties.rpc_url
-            )
-            .into(),
-            data: None,
+            ))
         })?;
 
     // List runtime changes
@@ -542,18 +476,11 @@ pub async fn handle_list_runtime_changes(
         &properties.rpc_url,
     )
     .await
-    .map_err(|e| McpError {
-        code: rmcp::model::ErrorCode(-32603),
-        message: format!("Failed to list runtime changes: {e}").into(),
-        data: None,
-    })?;
+    .map_err(|e| mcp_error_internal(format!("Failed to list runtime changes: {e}")))?;
 
     // Convert to JSON
-    let json_result = serde_json::to_string_pretty(&result).map_err(|e| McpError {
-        code: rmcp::model::ErrorCode::INTERNAL_ERROR,
-        message: format!("Serialization error: {e}").into(),
-        data: None,
-    })?;
+    let json_result = serde_json::to_string_pretty(&result)
+        .map_err(|e| mcp_error_internal(format!("Serialization error: {e}")))?;
 
     Ok(CallToolResult {
         content: vec![Content {
@@ -563,4 +490,3 @@ pub async fn handle_list_runtime_changes(
         is_error: None,
     })
 }
-
