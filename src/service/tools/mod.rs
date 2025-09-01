@@ -38,15 +38,13 @@ pub async fn handle_fetch_and_analyze_release(
     let response_text = serde_json::to_string_pretty(&response)
         .map_err(|e| mcp_error_internal(format!("Failed to serialize response: {e}")))?;
 
-    Ok(CallToolResult {
-        content: vec![Content {
-            annotations: None,
-            raw: RawContent::Text(RawTextContent {
-                text: response_text,
-            }),
-        }],
-        is_error: None,
-    })
+    let result = CallToolResult::success(vec![Content {
+        annotations: None,
+        raw: RawContent::Text(RawTextContent {
+            text: response_text,
+        }),
+    }]);
+    Ok(result)
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -133,19 +131,17 @@ pub async fn handle_submit_dev_extrinsic(
 
     let events_info = self::substrate::utils::get_event_details_from_extrinsic(&tx_events)?;
 
-    let result = format!(
+    let result_text = format!(
         "Transaction successful!\nHash: {:?}\nEvents emitted:\n{}",
         tx_events.extrinsic_hash(),
         events_info.join("\n")
     );
 
-    Ok(CallToolResult {
-        content: vec![Content {
-            annotations: None,
-            raw: RawContent::Text(RawTextContent { text: result }),
-        }],
-        is_error: None,
-    })
+    let result = CallToolResult::success(vec![Content {
+        annotations: None,
+        raw: RawContent::Text(RawTextContent { text: result_text }),
+    }]);
+    Ok(result)
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
