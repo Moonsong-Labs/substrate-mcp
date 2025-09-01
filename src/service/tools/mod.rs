@@ -191,13 +191,11 @@ pub async fn handle_subxt_execute(
         "Command completed successfully with no output".to_string()
     };
 
-    Ok(CallToolResult {
-        content: vec![Content {
-            annotations: None,
-            raw: RawContent::Text(RawTextContent { text: result }),
-        }],
-        is_error: None,
-    })
+    let result = CallToolResult::success(vec![Content {
+        annotations: None,
+        raw: RawContent::Text(RawTextContent { text: result }),
+    }]);
+    Ok(result)
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -242,13 +240,11 @@ pub async fn handle_filter_metadata(
     let json_result = serde_json::to_string_pretty(&results)
         .map_err(|e| mcp_error_internal(format!("Serialization error: {e}")))?;
 
-    Ok(CallToolResult {
-        content: vec![Content {
-            annotations: None,
-            raw: RawContent::Text(RawTextContent { text: json_result }),
-        }],
-        is_error: None,
-    })
+    let result = CallToolResult::success(vec![Content {
+        annotations: None,
+        raw: RawContent::Text(RawTextContent { text: json_result }),
+    }]);
+    Ok(result)
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -290,13 +286,11 @@ pub async fn handle_query_events(
     let json_result = serde_json::to_string_pretty(&result)
         .map_err(|e| mcp_error_internal(format!("Serialization error: {e}")))?;
 
-    Ok(CallToolResult {
-        content: vec![Content {
-            annotations: None,
-            raw: RawContent::Text(RawTextContent { text: json_result }),
-        }],
-        is_error: None,
-    })
+    let result = CallToolResult::success(vec![Content {
+        annotations: None,
+        raw: RawContent::Text(RawTextContent { text: json_result }),
+    }]);
+    Ok(result)
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -341,13 +335,11 @@ pub async fn handle_query_storage(
     let json_result = serde_json::to_string_pretty(&result)
         .map_err(|e| mcp_error_internal(format!("Serialization error: {e}")))?;
 
-    Ok(CallToolResult {
-        content: vec![Content {
-            annotations: None,
-            raw: RawContent::Text(RawTextContent { text: json_result }),
-        }],
-        is_error: None,
-    })
+    let result = CallToolResult::success(vec![Content {
+        annotations: None,
+        raw: RawContent::Text(RawTextContent { text: json_result }),
+    }]);
+    Ok(result)
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -375,13 +367,11 @@ pub async fn handle_list_pallet_storage(
     let json_result = serde_json::to_string_pretty(&entries)
         .map_err(|e| mcp_error_internal(format!("Serialization error: {e}")))?;
 
-    Ok(CallToolResult {
-        content: vec![Content {
-            annotations: None,
-            raw: RawContent::Text(RawTextContent { text: json_result }),
-        }],
-        is_error: None,
-    })
+    let result = CallToolResult::success(vec![Content {
+        annotations: None,
+        raw: RawContent::Text(RawTextContent { text: json_result }),
+    }]);
+    Ok(result)
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
@@ -431,11 +421,9 @@ pub async fn handle_query_extrinsics(
     let json_result = serde_json::to_string_pretty(&result)
         .map_err(|e| mcp_error_internal(format!("Serialization error: {e}")))?;
 
-    Ok(CallToolResult {
-        content: vec![Content {
-            annotations: None,
-            raw: RawContent::Text(RawTextContent { text: json_result }),
-        }],
-        is_error: None,
-    })
+    let result = CallToolResult::success(vec![Content {
+        annotations: None,
+        raw: RawContent::Text(RawTextContent { text: json_result }),
+    }]);
+    Ok(result)
 }
