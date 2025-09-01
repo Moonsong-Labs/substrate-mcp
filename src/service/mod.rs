@@ -14,6 +14,8 @@ pub mod resources;
 pub mod tools;
 mod utils;
 
+use utils::catch_panic_as_mcp_error;
+
 #[derive(Clone)]
 pub struct SubstrateService {
     tool_router: ToolRouter<Self>,
@@ -40,7 +42,7 @@ impl SubstrateService {
         &self,
         Parameters(properties): Parameters<tools::FetchAndAnalyzeReleaseProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_fetch_and_analyze_release(properties).await
+        catch_panic_as_mcp_error(tools::handle_fetch_and_analyze_release(properties)).await
     }
 
     #[tool(
@@ -50,7 +52,7 @@ impl SubstrateService {
         &self,
         Parameters(properties): Parameters<tools::SubxtExecuteProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_subxt_execute(properties).await
+        catch_panic_as_mcp_error(tools::handle_subxt_execute(properties)).await
     }
 
     #[tool(
@@ -60,7 +62,7 @@ impl SubstrateService {
         &self,
         Parameters(properties): Parameters<tools::MetadataFilterProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_filter_metadata(properties).await
+        catch_panic_as_mcp_error(tools::handle_filter_metadata(properties)).await
     }
 
     #[tool(
@@ -70,7 +72,10 @@ impl SubstrateService {
         &self,
         Parameters(properties): Parameters<tools::QueryEventsProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_query_events(properties).await
+        catch_panic_as_mcp_error(catch_panic_as_mcp_error(tools::handle_query_events(
+            properties,
+        )))
+        .await
     }
 
     #[tool(
@@ -80,7 +85,7 @@ impl SubstrateService {
         &self,
         Parameters(properties): Parameters<tools::QueryStorageProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_query_storage(properties).await
+        catch_panic_as_mcp_error(tools::handle_query_storage(properties)).await
     }
 
     #[tool(
@@ -90,7 +95,7 @@ impl SubstrateService {
         &self,
         Parameters(properties): Parameters<tools::ListPalletStorageProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_list_pallet_storage(properties).await
+        catch_panic_as_mcp_error(tools::handle_list_pallet_storage(properties)).await
     }
 
     #[tool(
@@ -100,7 +105,7 @@ impl SubstrateService {
         &self,
         Parameters(properties): Parameters<tools::SubmitExtrinsicProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_submit_dev_extrinsic(properties).await
+        catch_panic_as_mcp_error(tools::handle_submit_dev_extrinsic(properties)).await
     }
 
     #[tool(
@@ -110,7 +115,7 @@ impl SubstrateService {
         &self,
         Parameters(properties): Parameters<tools::QueryExtrinsicsProperties>,
     ) -> Result<CallToolResult, McpError> {
-        tools::handle_query_extrinsics(properties).await
+        catch_panic_as_mcp_error(tools::handle_query_extrinsics(properties)).await
     }
 }
 
