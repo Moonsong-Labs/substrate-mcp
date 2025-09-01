@@ -1,4 +1,5 @@
-use rmcp::handler::server::tool::{Parameters, ToolRouter};
+use rmcp::handler::server::tool::ToolRouter;
+use rmcp::handler::server::wrapper::Parameters;
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
     CallToolResult, GetPromptRequestParam, GetPromptResult, ListPromptsResult,
@@ -7,7 +8,6 @@ use rmcp::model::{
 };
 use rmcp::service::{RequestContext, RoleServer};
 use rmcp::{tool, tool_handler, tool_router, ErrorData as McpError};
-use std::future::Future;
 
 pub mod prompts;
 pub mod resources;
@@ -72,10 +72,7 @@ impl SubstrateService {
         &self,
         Parameters(properties): Parameters<tools::QueryEventsProperties>,
     ) -> Result<CallToolResult, McpError> {
-        catch_panic_as_mcp_error(catch_panic_as_mcp_error(tools::handle_query_events(
-            properties,
-        )))
-        .await
+        catch_panic_as_mcp_error(tools::handle_query_events(properties)).await
     }
 
     #[tool(
