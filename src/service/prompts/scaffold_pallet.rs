@@ -85,4 +85,6 @@ To fill in missing blanks, also check kitchensink pallet: https://github.com/par
 ## References
 - Basic pallet structure: https://docs.polkadot.com/develop/parachains/customize-parachain/make-custom-pallet/
 - Testing guide: https://docs.polkadot.com/develop/parachains/testing/pallet-testing/
-- Benchmarking: https://docs.polkadot.com/develop/parachains/testing/benchmarking/"#;
+- Benchmarking: https://docs.polkadot.com/develop/parachains/testing/benchmarking/
+
+{{security_disclaimer}}"#;

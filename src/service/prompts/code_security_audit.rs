@@ -53,4 +53,6 @@ Perform comprehensive analysis with emphasis on:
 - Network protocol vulnerabilities
 - Database access patterns
 - CLI injection risks
-- Resource exhaustion vectors"#;
+- Resource exhaustion vectors
+
+{{security_disclaimer}}"#;

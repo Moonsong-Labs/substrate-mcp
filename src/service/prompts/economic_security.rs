@@ -86,4 +86,6 @@ Please analyze the code and economic design to provide a detailed assessment cov
    - Slashing conditions
    - Governance controls
 
-Format your response as a structured economic security report with specific calculations, attack scenarios, and actionable recommendations. Include code references where economic logic is implemented."#;
+Format your response as a structured economic security report with specific calculations, attack scenarios, and actionable recommendations. Include code references where economic logic is implemented.
+
+{{security_disclaimer}}"#;

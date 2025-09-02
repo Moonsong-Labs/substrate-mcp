@@ -31,4 +31,6 @@ blockchain systems. Analyze the specified incentive mechanisms using game theory
 
 ## Analysis Specifications
 
-{{analysis_specifications}}"#;
+{{analysis_specifications}}
+
+{{security_disclaimer}}"#;

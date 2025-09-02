@@ -127,4 +127,6 @@ Based on the changes between versions:
 - Changes not covered by PRDocs may exist in the codebase
 - Review CHANGELOG.md files for complete details
 {{/unless}}
-```"#;
+```
+
+{{security_disclaimer}}"#;

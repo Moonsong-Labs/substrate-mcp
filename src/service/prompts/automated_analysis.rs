@@ -170,4 +170,6 @@ Additionally review:
 - [ ] README updated
 - [ ] CHANGELOG updated
 - [ ] Migration guide provided
-- [ ] Security considerations noted"#;
+- [ ] Security considerations noted
+
+{{security_disclaimer}}"#;

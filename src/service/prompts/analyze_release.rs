@@ -685,4 +685,5 @@ Remember: The markdown file is the PRIMARY deliverable. Console output is second
 ✓ Did you verify the file was created successfully?
 ✓ Did you print BOTH the directory path AND the clickable file path?
 ✓ Did you analyze ALL PRDocs from ~/.substrate-mcp/{project}/releases/{{release}}/pr-docs/?
-"#;
+
+{{security_disclaimer}}"#;
