@@ -4,6 +4,7 @@ use handlebars::Handlebars;
 use rmcp::model::{PromptMessage, PromptMessageRole};
 use serde_json::json;
 
+use super::common::SECURITY_DISCLAIMER;
 use super::types::AnalyzeReleaseArgs;
 
 /// Generate analyze release prompt content
@@ -12,7 +13,8 @@ pub async fn generate_prompt(args: AnalyzeReleaseArgs) -> Vec<PromptMessage> {
 
     let context = json!({
         "release": args.release,
-        "focus": args.focus
+        "focus": args.focus,
+        "security_disclaimer": SECURITY_DISCLAIMER
     });
 
     let content = handlebars
@@ -22,7 +24,7 @@ pub async fn generate_prompt(args: AnalyzeReleaseArgs) -> Vec<PromptMessage> {
     vec![PromptMessage::new_text(PromptMessageRole::User, content)]
 }
 
-const TEMPLATE: &str = r#"Analyze how the Polkadot SDK release(s) {{release}} impact your current project and provide actionable recommendations.{{#if focus}} Focus specifically on: {{focus}}{{/if}}
+const TEMPLATE: &str = r#"{{security_disclaimer}}
 
 # Analyze Polkadot SDK Release Impact on Your Project
 
