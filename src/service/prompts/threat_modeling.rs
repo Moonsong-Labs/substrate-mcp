@@ -1,20 +1,35 @@
-use rmcp::model::PromptArgument;
+//! Threat modeling prompt implementation
 
-use super::SubstratePromptDefinition;
+use handlebars::Handlebars;
+use rmcp::model::{PromptMessage, PromptMessageRole};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "threat_modeling".to_string(),
-        description: "Do threat modeling of a specific part of the system".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "system_description".to_string(),
-                description: Some("Description of the system to make the analysis for (all pallets, a specific group/flow, node, etc)".to_string()),
-                required: Some(true),
-            },
-        ],
-        template: TEMPLATE.to_string(),
-    }
+use super::common::SECURITY_DISCLAIMER;
+
+/// Arguments for the threat modeling prompt
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(description = "Threat model analysis")]
+pub struct ThreatModelingArgs {
+    #[schemars(description = "Description of the system to threat model")]
+    pub system_description: String,
+}
+
+/// Generate threat modeling prompt content
+pub async fn generate_prompt(args: ThreatModelingArgs) -> Vec<PromptMessage> {
+    let handlebars = Handlebars::new();
+
+    let context = json!({
+        "system_description": args.system_description,
+        "security_disclaimer": SECURITY_DISCLAIMER
+    });
+
+    let content = handlebars
+        .render_template(TEMPLATE, &context)
+        .unwrap_or_else(|e| format!("Template rendering failed: {}", e));
+
+    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
 }
 
 /// Threat modeling prompt template

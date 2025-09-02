@@ -1,25 +1,43 @@
-use rmcp::model::PromptArgument;
+//! Code security audit prompt implementation
 
-use super::SubstratePromptDefinition;
+use handlebars::Handlebars;
+use rmcp::model::{PromptMessage, PromptMessageRole};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "code_security_audit".to_string(),
-        description: "Audit specific component for common code-related vulnerabilities".to_string(),
-        arguments: vec![PromptArgument {
-            name: "audit_target".to_string(),
-            description: Some("Describe the target of the audit".to_string()),
-            required: Some(true),
-        }],
-        template: TEMPLATE.to_string(),
-    }
+use super::common::SECURITY_DISCLAIMER;
+
+/// Arguments for the code security audit prompt
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(description = "Security audit for specific components")]
+pub struct CodeSecurityAuditArgs {
+    #[schemars(description = "Component or pallet to audit")]
+    pub audit_target: String,
 }
 
-const TEMPLATE: &str = r#"You are a Systems Security Expert specializing in Substrate-based blockchain
+/// Generate code security audit prompt content
+pub async fn generate_prompt(args: CodeSecurityAuditArgs) -> Vec<PromptMessage> {
+    let handlebars = Handlebars::new();
+
+    let context = json!({
+        "audit_target": args.audit_target,
+        "security_disclaimer": SECURITY_DISCLAIMER
+    });
+
+    let content = handlebars
+        .render_template(TEMPLATE, &context)
+        .unwrap_or_else(|e| format!("Template rendering failed: {}", e));
+
+    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
+}
+
+const TEMPLATE: &str = r#"{{security_disclaimer}}
+
+You are a Systems Security Expert specializing in Substrate-based blockchain
 security. Perform a comprehensive security audit following industry-standard
 practices and Substrate-specific considerations.
 
-{{security_disclaimer}}
 
 ## Audit Target
 {{audit_target}}

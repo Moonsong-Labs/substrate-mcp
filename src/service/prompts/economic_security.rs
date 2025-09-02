@@ -1,23 +1,37 @@
-use rmcp::model::PromptArgument;
+//! Economic security prompt implementation
 
-use super::SubstratePromptDefinition;
+use handlebars::Handlebars;
+use rmcp::model::{PromptMessage, PromptMessageRole};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "economic_security".to_string(),
-        description: "Do an economic security analysis on a specific subsystem".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "system_description".to_string(),
-                description: Some("Description of the system to make the analysis for (all pallets, a specific group/flow, etc)".to_string()),
-                required: Some(true),
-            },
-        ],
-        template: TEMPLATE.to_string(),
-    }
+use super::common::SECURITY_DISCLAIMER;
+
+/// Arguments for the economic security prompt
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(description = "Economic security assessment")]
+pub struct EconomicSecurityArgs {
+    #[schemars(description = "Description of the system to analyze")]
+    pub system_description: String,
 }
 
-/// Economic security prompt template
+/// Generate economic security prompt content
+pub async fn generate_prompt(args: EconomicSecurityArgs) -> Vec<PromptMessage> {
+    let handlebars = Handlebars::new();
+
+    let context = json!({
+        "system_description": args.system_description,
+        "security_disclaimer": SECURITY_DISCLAIMER
+    });
+
+    let content = handlebars
+        .render_template(TEMPLATE, &context)
+        .unwrap_or_else(|e| format!("Template rendering failed: {}", e));
+
+    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
+}
+
 const TEMPLATE: &str = r#"{{security_disclaimer}}
 
 Perform a comprehensive economic security assessment of the following Substrate subsystem:

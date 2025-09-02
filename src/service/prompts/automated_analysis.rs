@@ -1,20 +1,35 @@
-use rmcp::model::PromptArgument;
+//! Automated analysis prompt implementation
 
-use super::SubstratePromptDefinition;
+use handlebars::Handlebars;
+use rmcp::model::{PromptMessage, PromptMessageRole};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "automated_analysis".to_string(),
-        description: "Template for automated code and runtime analysis".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "change_description".to_string(),
-                description: Some("Description of the changes made to the code that trigger this analysis (PR description, new release, etc)".to_string()),
-                required: Some(true),
-            },
-        ],
-        template: TEMPLATE.to_string(),
-    }
+use super::common::SECURITY_DISCLAIMER;
+
+/// Arguments for the automated analysis prompt
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(description = "Comprehensive security and quality analysis")]
+pub struct AutomatedAnalysisArgs {
+    #[schemars(description = "Description of the change or feature to analyze")]
+    pub change_description: String,
+}
+
+/// Generate automated analysis prompt content
+pub async fn generate_prompt(args: AutomatedAnalysisArgs) -> Vec<PromptMessage> {
+    let handlebars = Handlebars::new();
+
+    let context = json!({
+        "change_description": args.change_description,
+        "security_disclaimer": SECURITY_DISCLAIMER
+    });
+
+    let content = handlebars
+        .render_template(TEMPLATE, &context)
+        .unwrap_or_else(|e| format!("Template rendering failed: {}", e));
+
+    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
 }
 
 const TEMPLATE: &str = r#"{{security_disclaimer}}

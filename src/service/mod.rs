@@ -1,13 +1,16 @@
+use rmcp::handler::server::router::prompt::PromptRouter;
 use rmcp::handler::server::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
     CallToolResult, GetPromptRequestParam, GetPromptResult, ListPromptsResult,
-    ListResourceTemplatesResult, ListResourcesResult, PaginatedRequestParam,
+    ListResourceTemplatesResult, ListResourcesResult, PaginatedRequestParam, PromptMessage,
     ReadResourceRequestParam, ReadResourceResult, ResourceContents, ServerCapabilities, ServerInfo,
 };
 use rmcp::service::{RequestContext, RoleServer};
-use rmcp::{tool, tool_handler, tool_router, ErrorData as McpError};
+use rmcp::{
+    prompt, prompt_handler, prompt_router, tool, tool_handler, tool_router, ErrorData as McpError,
+};
 
 pub mod prompts;
 pub mod resources;
@@ -16,9 +19,15 @@ mod utils;
 
 use utils::catch_panic_as_mcp_error;
 
+use crate::service::prompts::{
+    analyze_release, automated_analysis, code_security_audit, economic_security,
+    incentive_analysis, release_comparison, scaffold_pallet, threat_modeling, weight_analysis,
+};
+
 #[derive(Clone)]
 pub struct SubstrateService {
     tool_router: ToolRouter<Self>,
+    prompt_router: PromptRouter<Self>,
 }
 
 impl Default for SubstrateService {
@@ -27,11 +36,13 @@ impl Default for SubstrateService {
     }
 }
 
+#[prompt_router]
 #[tool_router]
 impl SubstrateService {
     pub fn new() -> Self {
         Self {
             tool_router: Self::tool_router(),
+            prompt_router: Self::prompt_router(),
         }
     }
 
@@ -114,8 +125,118 @@ impl SubstrateService {
     ) -> Result<CallToolResult, McpError> {
         catch_panic_as_mcp_error(tools::handle_query_extrinsics(properties)).await
     }
+
+    // Prompt implementations
+    /// Compare changes between two Polkadot SDK versions
+    #[prompt(
+        name = "release_comparison",
+        description = "List changes between two polkadot-sdk release versions"
+    )]
+    async fn release_comparison(
+        &self,
+        Parameters(args): Parameters<release_comparison::ReleaseComparisonArgs>,
+    ) -> Result<GetPromptResult, McpError> {
+        prompts::release_comparison::generate_prompt(args).await
+    }
+
+    /// Analyze how a Polkadot SDK release impacts your project
+    #[prompt(
+        name = "analyze_release",
+        description = "Analyze how specific release(s) impact your current project"
+    )]
+    async fn analyze_release(
+        &self,
+        Parameters(args): Parameters<analyze_release::AnalyzeReleaseArgs>,
+    ) -> Vec<PromptMessage> {
+        prompts::analyze_release::generate_prompt(args).await
+    }
+
+    /// Generate pallet structure and implementation templates
+    #[prompt(
+        name = "scaffold_pallet",
+        description = "Generate pallet structure and implementation templates"
+    )]
+    async fn scaffold_pallet(
+        &self,
+        Parameters(args): Parameters<scaffold_pallet::ScaffoldPalletArgs>,
+    ) -> Vec<PromptMessage> {
+        prompts::scaffold_pallet::generate_prompt(args).await
+    }
+
+    /// Comprehensive security and quality analysis
+    #[prompt(
+        name = "automated_analysis",
+        description = "Automated comprehensive security and quality analysis"
+    )]
+    async fn automated_analysis(
+        &self,
+        Parameters(args): Parameters<automated_analysis::AutomatedAnalysisArgs>,
+    ) -> Vec<PromptMessage> {
+        prompts::automated_analysis::generate_prompt(args).await
+    }
+
+    /// Security audit for specific components
+    #[prompt(
+        name = "code_security_audit",
+        description = "Security audit for specific components or pallets"
+    )]
+    async fn code_security_audit(
+        &self,
+        Parameters(args): Parameters<code_security_audit::CodeSecurityAuditArgs>,
+    ) -> Vec<PromptMessage> {
+        prompts::code_security_audit::generate_prompt(args).await
+    }
+
+    /// Economic security assessment
+    #[prompt(
+        name = "economic_security",
+        description = "Economic security assessment for blockchain systems"
+    )]
+    async fn economic_security(
+        &self,
+        Parameters(args): Parameters<economic_security::EconomicSecurityArgs>,
+    ) -> Vec<PromptMessage> {
+        prompts::economic_security::generate_prompt(args).await
+    }
+
+    /// Cryptoeconomic incentive analysis
+    #[prompt(
+        name = "incentive_analysis",
+        description = "Cryptoeconomic incentive analysis for specific pallets"
+    )]
+    async fn incentive_analysis(
+        &self,
+        Parameters(args): Parameters<incentive_analysis::IncentiveAnalysisArgs>,
+    ) -> Vec<PromptMessage> {
+        prompts::incentive_analysis::generate_prompt(args).await
+    }
+
+    /// Threat model analysis
+    #[prompt(
+        name = "threat_modeling",
+        description = "Comprehensive threat model analysis"
+    )]
+    async fn threat_modeling(
+        &self,
+        Parameters(args): Parameters<threat_modeling::ThreatModelingArgs>,
+    ) -> Vec<PromptMessage> {
+        prompts::threat_modeling::generate_prompt(args).await
+    }
+
+    /// Weight and benchmark analysis
+    #[prompt(
+        name = "weight_analysis",
+        description = "Weight and benchmark analysis for Substrate pallets"
+    )]
+    async fn weight_analysis(
+        &self,
+        Parameters(args): Parameters<weight_analysis::WeightAnalysisArgs>,
+    ) -> Vec<PromptMessage> {
+        prompts::weight_analysis::generate_prompt(args).await
+    }
 }
 
+#[prompt_handler]
 #[tool_handler]
 impl ServerHandler for SubstrateService {
     fn get_info(&self) -> ServerInfo {
@@ -132,22 +253,6 @@ impl ServerHandler for SubstrateService {
                 .build(),
             ..Default::default()
         }
-    }
-
-    async fn list_prompts(
-        &self,
-        cursor: Option<PaginatedRequestParam>,
-        context: RequestContext<RoleServer>,
-    ) -> Result<ListPromptsResult, McpError> {
-        prompts::handle_list_prompts(cursor, context).await
-    }
-
-    async fn get_prompt(
-        &self,
-        request: GetPromptRequestParam,
-        _context: RequestContext<RoleServer>,
-    ) -> Result<GetPromptResult, McpError> {
-        prompts::handle_get_prompt(request)
     }
 
     async fn list_resources(
