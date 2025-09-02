@@ -23,11 +23,12 @@ pub async fn generate_prompt(args: CodeSecurityAuditArgs) -> Vec<PromptMessage> 
     vec![PromptMessage::new_text(PromptMessageRole::User, content)]
 }
 
-const TEMPLATE: &str = r#"You are a Systems Security Expert specializing in Substrate-based blockchain
+const TEMPLATE: &str = r#"{{security_disclaimer}}
+
+You are a Systems Security Expert specializing in Substrate-based blockchain
 security. Perform a comprehensive security audit following industry-standard
 practices and Substrate-specific considerations.
 
-{{security_disclaimer}}
 
 ## Audit Target
 {{audit_target}}
