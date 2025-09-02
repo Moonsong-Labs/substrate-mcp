@@ -19,6 +19,11 @@ mod utils;
 
 use utils::catch_panic_as_mcp_error;
 
+use crate::service::prompts::{
+    analyze_release, automated_analysis, code_security_audit, economic_security,
+    incentive_analysis, release_comparison, scaffold_pallet, threat_modeling, weight_analysis,
+};
+
 #[derive(Clone)]
 pub struct SubstrateService {
     tool_router: ToolRouter<Self>,
@@ -129,7 +134,7 @@ impl SubstrateService {
     )]
     async fn release_comparison(
         &self,
-        Parameters(args): Parameters<prompts::types::ReleaseComparisonArgs>,
+        Parameters(args): Parameters<release_comparison::ReleaseComparisonArgs>,
     ) -> Result<GetPromptResult, McpError> {
         prompts::release_comparison::generate_prompt(args).await
     }
@@ -141,7 +146,7 @@ impl SubstrateService {
     )]
     async fn analyze_release(
         &self,
-        Parameters(args): Parameters<prompts::types::AnalyzeReleaseArgs>,
+        Parameters(args): Parameters<analyze_release::AnalyzeReleaseArgs>,
     ) -> Vec<PromptMessage> {
         prompts::analyze_release::generate_prompt(args).await
     }
@@ -153,7 +158,7 @@ impl SubstrateService {
     )]
     async fn scaffold_pallet(
         &self,
-        Parameters(args): Parameters<prompts::types::ScaffoldPalletArgs>,
+        Parameters(args): Parameters<scaffold_pallet::ScaffoldPalletArgs>,
     ) -> Vec<PromptMessage> {
         prompts::scaffold_pallet::generate_prompt(args).await
     }
@@ -165,7 +170,7 @@ impl SubstrateService {
     )]
     async fn automated_analysis(
         &self,
-        Parameters(args): Parameters<prompts::types::AutomatedAnalysisArgs>,
+        Parameters(args): Parameters<automated_analysis::AutomatedAnalysisArgs>,
     ) -> Vec<PromptMessage> {
         prompts::automated_analysis::generate_prompt(args).await
     }
@@ -177,7 +182,7 @@ impl SubstrateService {
     )]
     async fn code_security_audit(
         &self,
-        Parameters(args): Parameters<prompts::types::CodeSecurityAuditArgs>,
+        Parameters(args): Parameters<code_security_audit::CodeSecurityAuditArgs>,
     ) -> Vec<PromptMessage> {
         prompts::code_security_audit::generate_prompt(args).await
     }
@@ -189,7 +194,7 @@ impl SubstrateService {
     )]
     async fn economic_security(
         &self,
-        Parameters(args): Parameters<prompts::types::EconomicSecurityArgs>,
+        Parameters(args): Parameters<economic_security::EconomicSecurityArgs>,
     ) -> Vec<PromptMessage> {
         prompts::economic_security::generate_prompt(args).await
     }
@@ -201,7 +206,7 @@ impl SubstrateService {
     )]
     async fn incentive_analysis(
         &self,
-        Parameters(args): Parameters<prompts::types::IncentiveAnalysisArgs>,
+        Parameters(args): Parameters<incentive_analysis::IncentiveAnalysisArgs>,
     ) -> Vec<PromptMessage> {
         prompts::incentive_analysis::generate_prompt(args).await
     }
@@ -213,7 +218,7 @@ impl SubstrateService {
     )]
     async fn threat_modeling(
         &self,
-        Parameters(args): Parameters<prompts::types::ThreatModelingArgs>,
+        Parameters(args): Parameters<threat_modeling::ThreatModelingArgs>,
     ) -> Vec<PromptMessage> {
         prompts::threat_modeling::generate_prompt(args).await
     }
@@ -225,7 +230,7 @@ impl SubstrateService {
     )]
     async fn weight_analysis(
         &self,
-        Parameters(args): Parameters<prompts::types::WeightAnalysisArgs>,
+        Parameters(args): Parameters<weight_analysis::WeightAnalysisArgs>,
     ) -> Vec<PromptMessage> {
         prompts::weight_analysis::generate_prompt(args).await
     }

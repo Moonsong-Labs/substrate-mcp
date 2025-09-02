@@ -2,10 +2,19 @@
 
 use handlebars::Handlebars;
 use rmcp::model::{PromptMessage, PromptMessageRole};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::common::SECURITY_DISCLAIMER;
-use super::types::CodeSecurityAuditArgs;
+
+/// Arguments for the code security audit prompt
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(description = "Security audit for specific components")]
+pub struct CodeSecurityAuditArgs {
+    #[schemars(description = "Component or pallet to audit")]
+    pub audit_target: String,
+}
 
 /// Generate code security audit prompt content
 pub async fn generate_prompt(args: CodeSecurityAuditArgs) -> Vec<PromptMessage> {

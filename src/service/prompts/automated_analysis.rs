@@ -2,10 +2,19 @@
 
 use handlebars::Handlebars;
 use rmcp::model::{PromptMessage, PromptMessageRole};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::common::SECURITY_DISCLAIMER;
-use super::types::AutomatedAnalysisArgs;
+
+/// Arguments for the automated analysis prompt
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(description = "Comprehensive security and quality analysis")]
+pub struct AutomatedAnalysisArgs {
+    #[schemars(description = "Description of the change or feature to analyze")]
+    pub change_description: String,
+}
 
 /// Generate automated analysis prompt content
 pub async fn generate_prompt(args: AutomatedAnalysisArgs) -> Vec<PromptMessage> {

@@ -2,10 +2,21 @@
 
 use handlebars::Handlebars;
 use rmcp::model::{PromptMessage, PromptMessageRole};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::common::SECURITY_DISCLAIMER;
-use super::types::IncentiveAnalysisArgs;
+
+/// Arguments for the incentive analysis prompt
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(description = "Cryptoeconomic incentive analysis")]
+pub struct IncentiveAnalysisArgs {
+    #[schemars(description = "Target pallets to analyze")]
+    pub target_pallets: String,
+    #[schemars(description = "Analysis specifications")]
+    pub analysis_specifications: String,
+}
 
 /// Generate incentive analysis prompt content
 pub async fn generate_prompt(args: IncentiveAnalysisArgs) -> Vec<PromptMessage> {

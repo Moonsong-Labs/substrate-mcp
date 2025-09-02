@@ -1,11 +1,20 @@
 //! Weight analysis prompt implementation
 
-use crate::service::prompts::common::SECURITY_DISCLAIMER;
 use handlebars::Handlebars;
 use rmcp::model::{PromptMessage, PromptMessageRole};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::types::WeightAnalysisArgs;
+use super::common::SECURITY_DISCLAIMER;
+
+/// Arguments for the weight analysis prompt
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(description = "Weight and benchmark analysis")]
+pub struct WeightAnalysisArgs {
+    #[schemars(description = "Target pallet for weight analysis")]
+    pub target_pallet: String,
+}
 
 /// Generate weight analysis prompt content
 pub async fn generate_prompt(args: WeightAnalysisArgs) -> Vec<PromptMessage> {

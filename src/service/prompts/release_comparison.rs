@@ -1,12 +1,24 @@
 //! Release comparison prompt implementation
 
 use handlebars::Handlebars;
-use rmcp::model::{GetPromptResult, PromptMessage, PromptMessageRole};
-use rmcp::ErrorData as McpError;
+use rmcp::model::{ErrorData as McpError, GetPromptResult, PromptMessage, PromptMessageRole};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::common::SECURITY_DISCLAIMER;
-use super::types::ReleaseComparisonArgs;
+
+/// Arguments for the release comparison prompt
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(description = "Compare changes between two Polkadot SDK versions")]
+pub struct ReleaseComparisonArgs {
+    #[schemars(description = "Version currently being used")]
+    pub current_version: String,
+    #[schemars(description = "Version to compare with (must be greater than current)")]
+    pub target_version: String,
+    #[schemars(description = "What specific changes to look for")]
+    pub specific_changes: Option<String>,
+}
 
 /// Generate release comparison prompt content
 pub async fn generate_prompt(args: ReleaseComparisonArgs) -> Result<GetPromptResult, McpError> {

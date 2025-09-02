@@ -2,10 +2,19 @@
 
 use handlebars::Handlebars;
 use rmcp::model::{PromptMessage, PromptMessageRole};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::common::SECURITY_DISCLAIMER;
-use super::types::ScaffoldPalletArgs;
+
+/// Arguments for the scaffold pallet prompt
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(description = "Generate pallet structure and implementation templates")]
+pub struct ScaffoldPalletArgs {
+    #[schemars(description = "Description for the pallet to be created")]
+    pub pallet_description: String,
+}
 
 /// Generate scaffold pallet prompt content
 pub async fn generate_prompt(args: ScaffoldPalletArgs) -> Vec<PromptMessage> {

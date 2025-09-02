@@ -2,10 +2,19 @@
 
 use handlebars::Handlebars;
 use rmcp::model::{PromptMessage, PromptMessageRole};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::common::SECURITY_DISCLAIMER;
-use super::types::ThreatModelingArgs;
+
+/// Arguments for the threat modeling prompt
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(description = "Threat model analysis")]
+pub struct ThreatModelingArgs {
+    #[schemars(description = "Description of the system to threat model")]
+    pub system_description: String,
+}
 
 /// Generate threat modeling prompt content
 pub async fn generate_prompt(args: ThreatModelingArgs) -> Vec<PromptMessage> {

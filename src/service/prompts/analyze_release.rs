@@ -2,10 +2,21 @@
 
 use handlebars::Handlebars;
 use rmcp::model::{PromptMessage, PromptMessageRole};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::common::SECURITY_DISCLAIMER;
-use super::types::AnalyzeReleaseArgs;
+
+/// Arguments for the analyze release prompt  
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(description = "Analyze how a Polkadot SDK release impacts your project")]
+pub struct AnalyzeReleaseArgs {
+    #[schemars(description = "Release name/version to analyze")]
+    pub release: String,
+    #[schemars(description = "Specific area to focus analysis on")]
+    pub focus: Option<String>,
+}
 
 /// Generate analyze release prompt content
 pub async fn generate_prompt(args: AnalyzeReleaseArgs) -> Vec<PromptMessage> {

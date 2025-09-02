@@ -13,5 +13,4 @@ pub mod incentive_analysis;
 pub mod release_comparison;
 pub mod scaffold_pallet;
 pub mod threat_modeling;
-pub mod types;
 pub mod weight_analysis;
