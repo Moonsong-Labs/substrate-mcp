@@ -1,22 +1,32 @@
-use rmcp::model::PromptArgument;
+//! Scaffold pallet prompt implementation
 
-use super::SubstratePromptDefinition;
+use handlebars::Handlebars;
+use rmcp::model::{PromptMessage, PromptMessageRole};
+use serde_json::json;
 
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "scaffold_pallet".to_string(),
-        description: "Generate pallet structure and implementation templates".to_string(),
-        arguments: vec![PromptArgument {
-            name: "pallet_description".to_string(),
-            description: Some("Description for the pallet".to_string()),
-            required: Some(true),
-        }],
-        template: TEMPLATE.to_string(),
-    }
+use super::common::SECURITY_DISCLAIMER;
+use super::types::ScaffoldPalletArgs;
+
+/// Generate scaffold pallet prompt content
+pub async fn generate_prompt(args: ScaffoldPalletArgs) -> Vec<PromptMessage> {
+    let handlebars = Handlebars::new();
+
+    let context = json!({
+        "pallet_description": args.pallet_description,
+        "security_disclaimer": SECURITY_DISCLAIMER
+    });
+
+    let content = handlebars
+        .render_template(TEMPLATE, &context)
+        .unwrap_or_else(|e| format!("Template rendering failed: {}", e));
+
+    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
 }
 
 /// Scaffold pallet prompt template
-const TEMPLATE: &str = r#"Create a complete Substrate pallet scaffold based on the following description:
+const TEMPLATE: &str = r#"{{security_disclaimer}}
+
+Create a complete Substrate pallet scaffold based on the following description:
 
 <PALLET DESCRIPTION>
 {{pallet_description}}

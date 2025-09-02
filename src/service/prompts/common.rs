@@ -1,3 +1,5 @@
+//! Common constants and utilities for prompts
+
 /// Security disclaimer instruction for AI-generated analysis
 pub const SECURITY_DISCLAIMER: &str = r#"
 

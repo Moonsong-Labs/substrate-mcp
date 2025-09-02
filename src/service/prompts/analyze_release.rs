@@ -1,29 +1,29 @@
-use rmcp::model::PromptArgument;
+//! Analyze release prompt implementation
 
-use super::SubstratePromptDefinition;
+use handlebars::Handlebars;
+use rmcp::model::{PromptMessage, PromptMessageRole};
+use serde_json::json;
 
-/// Analyze release prompt template
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "analyze_release".to_string(),
-        description: "Analyzes how Polkadot SDK release changes impact your project using parallel processing".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "release".to_string(),
-                description: Some("The release version(s) to analyze. Examples: 'stable2503-7' for single release, 'stable2502,stable2503' for comparison".to_string()),
-                required: Some(true),
-            },
-            PromptArgument {
-                name: "focus".to_string(),
-                description: Some("Optional: Specific aspect to focus on (e.g., 'breaking changes', 'migrations', 'security'). Leave empty for comprehensive analysis".to_string()),
-                required: Some(false),
-            }
-        ],
-        template: TEMPLATE.to_string(),
-    }
+use super::types::AnalyzeReleaseArgs;
+
+/// Generate analyze release prompt content
+pub async fn generate_prompt(args: AnalyzeReleaseArgs) -> Vec<PromptMessage> {
+    let handlebars = Handlebars::new();
+
+    let context = json!({
+        "release": args.release,
+        "focus": args.focus
+    });
+
+    let content = handlebars
+        .render_template(TEMPLATE, &context)
+        .unwrap_or_else(|e| format!("Template rendering failed: {}", e));
+
+    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
 }
 
-const TEMPLATE: &str = r#"
+const TEMPLATE: &str = r#"Analyze how the Polkadot SDK release(s) {{release}} impact your current project and provide actionable recommendations.{{#if focus}} Focus specifically on: {{focus}}{{/if}}
+
 # Analyze Polkadot SDK Release Impact on Your Project
 
 You MUST analyze how the release(s) {{release}} impact this specific project using parallel processing.

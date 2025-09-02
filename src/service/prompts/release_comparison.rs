@@ -1,34 +1,45 @@
-use rmcp::model::PromptArgument;
+//! Release comparison prompt implementation
 
-use super::SubstratePromptDefinition;
+use handlebars::Handlebars;
+use rmcp::model::{GetPromptResult, PromptMessage, PromptMessageRole};
+use rmcp::ErrorData as McpError;
+use serde_json::json;
 
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "release_comparison".to_string(),
-        description: "List changes between two polkadot-sdk release versions".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "current_version".to_string(),
-                description: Some("Version currently being used".to_string()),
-                required: Some(true),
-            },
-            PromptArgument {
-                name: "target_version".to_string(),
-                description: Some("Version dev wants to compare with (must be greater than current)".to_string()),
-                required: Some(true),
-            },
-            PromptArgument {
-                name: "specific_changes".to_string(),
-                description: Some("What specific changes to look for (e.g: was there any change in `pallet_treasury` ?)".to_string()),
-                required: Some(false),
-            },
-        ],
-        template: TEMPLATE.to_string(),
-    }
+use super::common::SECURITY_DISCLAIMER;
+use super::types::ReleaseComparisonArgs;
+
+/// Generate release comparison prompt content
+pub async fn generate_prompt(args: ReleaseComparisonArgs) -> Result<GetPromptResult, McpError> {
+    let handlebars = Handlebars::new();
+
+    let context = json!({
+        "current_version": args.current_version,
+        "target_version": args.target_version,
+        "specific_changes": args.specific_changes,
+        "security_disclaimer": SECURITY_DISCLAIMER
+    });
+
+    let content = handlebars
+        .render_template(TEMPLATE, &context)
+        .map_err(|e| McpError::internal_error(format!("Template rendering failed: {}", e), None))?;
+
+    let description = handlebars
+      .render_template(
+          "Compare changes between Polkadot SDK versions {{current_version}} and {{target_version}}", 
+          &context
+      )
+      .map_err(|e| McpError::internal_error(format!("Description template rendering failed: {}", e), None))?;
+
+    Ok(GetPromptResult {
+        description: Some(description),
+        messages: vec![PromptMessage::new_text(PromptMessageRole::User, content)],
+    })
 }
 
 /// Release comparison prompt template
-const TEMPLATE: &str = r#"Compare changes between Polkadot SDK versions {{current_version}} and {{target_version}}.
+const TEMPLATE: &str = r#"{{security_disclaimer}}
+
+Compare changes between Polkadot SDK versions {{current_version}} and {{target_version}}.
 
 ## Getting Release Data
 

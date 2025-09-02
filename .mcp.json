@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "substrate": {
+      "type": "stdio",
+      "command": "target/debug/substrate-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}

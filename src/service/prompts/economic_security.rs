@@ -1,23 +1,28 @@
-use rmcp::model::PromptArgument;
+//! Economic security prompt implementation
 
-use super::SubstratePromptDefinition;
+use handlebars::Handlebars;
+use rmcp::model::{PromptMessage, PromptMessageRole};
+use serde_json::json;
 
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "economic_security".to_string(),
-        description: "Do an economic security analysis on a specific subsystem".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "system_description".to_string(),
-                description: Some("Description of the system to make the analysis for (all pallets, a specific group/flow, etc)".to_string()),
-                required: Some(true),
-            },
-        ],
-        template: TEMPLATE.to_string(),
-    }
+use super::common::SECURITY_DISCLAIMER;
+use super::types::EconomicSecurityArgs;
+
+/// Generate economic security prompt content
+pub async fn generate_prompt(args: EconomicSecurityArgs) -> Vec<PromptMessage> {
+    let handlebars = Handlebars::new();
+
+    let context = json!({
+        "system_description": args.system_description,
+        "security_disclaimer": SECURITY_DISCLAIMER
+    });
+
+    let content = handlebars
+        .render_template(TEMPLATE, &context)
+        .unwrap_or_else(|e| format!("Template rendering failed: {}", e));
+
+    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
 }
 
-/// Economic security prompt template
 const TEMPLATE: &str = r#"{{security_disclaimer}}
 
 Perform a comprehensive economic security assessment of the following Substrate subsystem:
@@ -81,6 +86,4 @@ Please analyze the code and economic design to provide a detailed assessment cov
    - Slashing conditions
    - Governance controls
 
-Format your response as a structured economic security report with specific calculations, attack scenarios, and actionable recommendations. Include code references where economic logic is implemented.
-
-{{security_disclaimer}}"#;
+Format your response as a structured economic security report with specific calculations, attack scenarios, and actionable recommendations. Include code references where economic logic is implemented."#;

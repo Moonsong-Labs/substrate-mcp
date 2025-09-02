@@ -1,18 +1,26 @@
-use rmcp::model::PromptArgument;
+//! Code security audit prompt implementation
 
-use super::SubstratePromptDefinition;
+use handlebars::Handlebars;
+use rmcp::model::{PromptMessage, PromptMessageRole};
+use serde_json::json;
 
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "code_security_audit".to_string(),
-        description: "Audit specific component for common code-related vulnerabilities".to_string(),
-        arguments: vec![PromptArgument {
-            name: "audit_target".to_string(),
-            description: Some("Describe the target of the audit".to_string()),
-            required: Some(true),
-        }],
-        template: TEMPLATE.to_string(),
-    }
+use super::common::SECURITY_DISCLAIMER;
+use super::types::CodeSecurityAuditArgs;
+
+/// Generate code security audit prompt content
+pub async fn generate_prompt(args: CodeSecurityAuditArgs) -> Vec<PromptMessage> {
+    let handlebars = Handlebars::new();
+
+    let context = json!({
+        "audit_target": args.audit_target,
+        "security_disclaimer": SECURITY_DISCLAIMER
+    });
+
+    let content = handlebars
+        .render_template(TEMPLATE, &context)
+        .unwrap_or_else(|e| format!("Template rendering failed: {}", e));
+
+    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
 }
 
 const TEMPLATE: &str = r#"You are a Systems Security Expert specializing in Substrate-based blockchain
@@ -44,6 +52,4 @@ Perform comprehensive analysis with emphasis on:
 - Network protocol vulnerabilities
 - Database access patterns
 - CLI injection risks
-- Resource exhaustion vectors
-
-{{security_disclaimer}}"#;
+- Resource exhaustion vectors"#;

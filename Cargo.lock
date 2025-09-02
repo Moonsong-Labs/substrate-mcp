@@ -5456,6 +5456,7 @@ dependencies = [
  "rmcp",
  "scale-info",
  "scale-value",
+ "schemars",
  "serde",
  "serde_json",
  "serde_yaml",

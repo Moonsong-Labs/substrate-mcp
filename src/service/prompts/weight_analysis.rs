@@ -1,18 +1,26 @@
-use rmcp::model::PromptArgument;
+//! Weight analysis prompt implementation
 
-use super::SubstratePromptDefinition;
+use crate::service::prompts::common::SECURITY_DISCLAIMER;
+use handlebars::Handlebars;
+use rmcp::model::{PromptMessage, PromptMessageRole};
+use serde_json::json;
 
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "weight_analysis".to_string(),
-        description: "Weight-based system breakdown analysis under extreme conditions".to_string(),
-        arguments: vec![PromptArgument {
-            name: "target_pallet".to_string(),
-            description: Some("Pallet to make the analysis for".to_string()),
-            required: Some(true),
-        }],
-        template: TEMPLATE.to_string(),
-    }
+use super::types::WeightAnalysisArgs;
+
+/// Generate weight analysis prompt content
+pub async fn generate_prompt(args: WeightAnalysisArgs) -> Vec<PromptMessage> {
+    let handlebars = Handlebars::new();
+
+    let context = json!({
+        "target_pallet": args.target_pallet,
+        "security_disclaimer": SECURITY_DISCLAIMER
+    });
+
+    let content = handlebars
+        .render_template(TEMPLATE, &context)
+        .unwrap_or_else(|e| format!("Template rendering failed: {}", e));
+
+    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
 }
 
 const TEMPLATE: &str = r#"{{security_disclaimer}}

@@ -1,30 +1,29 @@
-use rmcp::model::PromptArgument;
+//! Incentive analysis prompt implementation
 
-use super::SubstratePromptDefinition;
+use handlebars::Handlebars;
+use rmcp::model::{PromptMessage, PromptMessageRole};
+use serde_json::json;
 
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "incentive_analysis".to_string(),
-        description: "Analyze economic viability of incentives".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "target_pallets".to_string(),
-                description: Some(
-                    "List of pallets that make the scope of the analysis".to_string(),
-                ),
-                required: Some(true),
-            },
-            PromptArgument {
-                name: "analysis_specifications".to_string(),
-                description: Some("Specify incentive mechanism to analyze".to_string()),
-                required: Some(true),
-            },
-        ],
-        template: TEMPLATE.to_string(),
-    }
+use super::common::SECURITY_DISCLAIMER;
+use super::types::IncentiveAnalysisArgs;
+
+/// Generate incentive analysis prompt content
+pub async fn generate_prompt(args: IncentiveAnalysisArgs) -> Vec<PromptMessage> {
+    let handlebars = Handlebars::new();
+
+    let context = json!({
+        "target_pallets": args.target_pallets,
+        "analysis_specifications": args.analysis_specifications,
+        "security_disclaimer": SECURITY_DISCLAIMER
+    });
+
+    let content = handlebars
+        .render_template(TEMPLATE, &context)
+        .unwrap_or_else(|e| format!("Template rendering failed: {}", e));
+
+    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
 }
 
-/// Incentive analysis prompt template
 const TEMPLATE: &str = r#"{{security_disclaimer}}
 
 You are an expert in Cryptoeconomics specializing in Substrate-based
