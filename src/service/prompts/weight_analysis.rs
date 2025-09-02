@@ -86,6 +86,4 @@ Please analyze the pallet's weight calculations, benchmarks, and resource usage 
    - Code optimizations
    - Parameter tuning suggestions
 
-Format your response as a detailed security audit with specific findings, severity ratings, and code examples demonstrating the issues.
-
-{{security_disclaimer}}"#;
+Format your response as a detailed security audit with specific findings, severity ratings, and code examples demonstrating the issues."#;

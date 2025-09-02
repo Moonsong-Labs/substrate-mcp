@@ -77,6 +77,4 @@ Please analyze the code and provide a detailed threat model covering:
    - [ ] Events don't leak sensitive data
    - [ ] Benchmarks exist for all dispatchables
 
-Format your response as a structured security report with clear sections and actionable findings. Include specific line numbers and code references where issues are found.
-
-{{security_disclaimer}}"#;
+Format your response as a structured security report with clear sections and actionable findings. Include specific line numbers and code references where issues are found."#;
