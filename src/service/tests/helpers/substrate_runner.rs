@@ -3,14 +3,14 @@ use std::process::{Child, ChildStderr, Command, Stdio};
 
 // Substrate node runner
 // Simplified version of: https://github.com/paritytech/subxt/blob/master/testing/substrate-runner/src/lib.rs
-pub struct SubstrateRunner {
-    pub proc: Child,
-    pub ws_port: u16,
+pub(crate) struct SubstrateRunner {
+    pub(crate) proc: Child,
+    pub(crate) ws_port: u16,
 }
 
 impl SubstrateRunner {
     /// Spawn a substrate-node process with dynamic port discovery from logs
-    pub fn spawn() -> Result<Self, io::Error> {
+    pub(crate) fn spawn() -> Result<Self, io::Error> {
         // Spawn the substrate-node process with OS-assigned ports
         let mut proc = Command::new("substrate-node")
             .arg("--dev")
@@ -29,12 +29,12 @@ impl SubstrateRunner {
     }
 
     /// Get the WebSocket URL for connecting to the node
-    pub fn ws_url(&self) -> String {
+    pub(crate) fn ws_url(&self) -> String {
         format!("ws://127.0.0.1:{}", self.ws_port)
     }
 
     /// Kill the node process
-    pub fn kill(&mut self) -> io::Result<()> {
+    pub(crate) fn kill(&mut self) -> io::Result<()> {
         self.proc.kill()
     }
 }

@@ -1,6 +1,5 @@
-mod helpers;
+use super::helpers;
 
-use futures::StreamExt;
 use helpers::substrate_runner::SubstrateRunner;
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
@@ -132,3 +131,4 @@ async fn test_spawn_substrate_node_and_submit_extrinsic() {
     // Clean shutdown
     runner.kill().expect("Failed to kill substrate node");
 }
+
