@@ -1,9 +1,9 @@
 use futures::FutureExt;
-use rmcp::model::CallToolResult;
 use rmcp::ErrorData as McpError;
+use rmcp::model::CallToolResult;
 use std::panic::AssertUnwindSafe;
 
-pub fn mcp_error_internal(message: String) -> McpError {
+pub(crate) fn mcp_error_internal(message: String) -> McpError {
     McpError {
         code: rmcp::model::ErrorCode::INTERNAL_ERROR,
         message: message.into(),
@@ -11,7 +11,7 @@ pub fn mcp_error_internal(message: String) -> McpError {
     }
 }
 
-pub fn mcp_error_invalid_params(message: String) -> McpError {
+pub(crate) fn mcp_error_invalid_params(message: String) -> McpError {
     McpError {
         code: rmcp::model::ErrorCode::INVALID_PARAMS,
         message: message.into(),
@@ -20,7 +20,7 @@ pub fn mcp_error_invalid_params(message: String) -> McpError {
 }
 
 /// Executes a handler and returns mcp error on panic.
-pub async fn catch_panic_as_mcp_error<F>(future: F) -> Result<CallToolResult, McpError>
+pub(crate) async fn catch_panic_as_mcp_error<F>(future: F) -> Result<CallToolResult, McpError>
 where
     F: std::future::Future<Output = Result<CallToolResult, McpError>> + Send,
 {

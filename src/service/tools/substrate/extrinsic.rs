@@ -1,64 +1,64 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sp_core::crypto::Ss58Codec;
-use subxt::blocks::{Block, ExtrinsicDetails};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
+use subxt::blocks::{Block, ExtrinsicDetails};
 
 use super::utils;
 
 /// Query extrinsics from blocks
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExtrinsicsQuery {
+pub(crate) struct ExtrinsicsQuery {
     /// Start block (negative = relative to current)
-    pub from_block: i32,
-    /// End block (negative = relative to current)  
-    pub to_block: Option<i32>,
+    pub(crate) from_block: i32,
+    /// End block (negative = relative to current)
+    pub(crate) to_block: Option<i32>,
     /// Optional pallet filter for call
-    pub pallet: Option<String>,
+    pub(crate) pallet: Option<String>,
     /// Optional call name filter
-    pub call: Option<String>,
+    pub(crate) call: Option<String>,
     /// Optional signer address filter
-    pub signer: Option<String>,
+    pub(crate) signer: Option<String>,
 }
 
 /// Result of extrinsics query
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExtrinsicsResult {
+pub(crate) struct ExtrinsicsResult {
     /// Extrinsics found
-    pub extrinsics: Vec<Extrinsic>,
+    pub(crate) extrinsics: Vec<Extrinsic>,
     /// Number of blocks queried
-    pub blocks_queried: u32,
+    pub(crate) blocks_queried: u32,
 }
 
 /// A extrinsic with decoded data
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Extrinsic {
+pub(crate) struct Extrinsic {
     /// Block number
-    pub block_number: u32,
+    pub(crate) block_number: u32,
     /// Block hash
-    pub block_hash: String,
+    pub(crate) block_hash: String,
     /// Extrinsic index in block
-    pub extrinsic_index: u32,
+    pub(crate) extrinsic_index: u32,
     /// Extrinsic hash
-    pub hash: String,
+    pub(crate) hash: String,
     /// Signer address (if signed)
-    pub signer: Option<String>,
+    pub(crate) signer: Option<String>,
     /// Pallet name
-    pub pallet: String,
-    /// Call name  
-    pub call: String,
+    pub(crate) pallet: String,
+    /// Call name
+    pub(crate) call: String,
     /// Call arguments (as JSON)
-    pub args: String,
+    pub(crate) args: String,
     /// Return all events associated with the extrinsic
-    pub events: Vec<String>,
+    pub(crate) events: Vec<String>,
 }
 
 // List of calls to be filtered out
 const FILTERED_CALLS: &[&str] = &["setValidationData"];
 
 /// Query extrinsics using jsonrpsee for RPC and subxt for proper decoding
-pub async fn query_extrinsics(
+pub(crate) async fn query_extrinsics(
     query: ExtrinsicsQuery,
     subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
@@ -176,17 +176,17 @@ async fn process_extrinsic(
     }
 
     // Apply pallet filter
-    if let Some(ref pallet) = pallet_filter {
-        if !pallet_name.eq_ignore_ascii_case(pallet) {
-            return Ok(None);
-        }
+    if let Some(pallet) = &pallet_filter
+        && !pallet_name.eq_ignore_ascii_case(pallet)
+    {
+        return Ok(None);
     }
 
     // Apply call filter
-    if let Some(ref call) = call_filter {
-        if !call_name.eq_ignore_ascii_case(call) {
-            return Ok(None);
-        }
+    if let Some(call) = &call_filter
+        && !call_name.eq_ignore_ascii_case(call)
+    {
+        return Ok(None);
     }
 
     // Extract signer address
@@ -213,7 +213,7 @@ async fn process_extrinsic(
     };
 
     // Apply signer filter
-    if let Some(ref signer) = signer_filter {
+    if let Some(signer) = &signer_filter {
         if let Some(ref addr) = signer_address {
             if !addr.contains(signer) {
                 return Ok(None);
@@ -236,7 +236,7 @@ async fn process_extrinsic(
 
     // Decode call arguments
     let args = match extrinsic.field_values() {
-        Ok(fields) => utils::stringify_composite(&fields)?,
+        Ok(fields) => format!("{}", fields),
         Err(e) => format!("Failed to decode call arguments: {e}"),
     };
 

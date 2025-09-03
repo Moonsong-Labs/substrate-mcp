@@ -11,15 +11,15 @@ use super::common::SECURITY_DISCLAIMER;
 /// Arguments for the incentive analysis prompt
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(description = "Cryptoeconomic incentive analysis")]
-pub struct IncentiveAnalysisArgs {
+pub(crate) struct IncentiveAnalysisArgs {
     #[schemars(description = "Target pallets to analyze")]
-    pub target_pallets: String,
+    pub(crate) target_pallets: String,
     #[schemars(description = "Analysis specifications")]
-    pub analysis_specifications: String,
+    pub(crate) analysis_specifications: String,
 }
 
 /// Generate incentive analysis prompt content
-pub async fn generate_prompt(args: IncentiveAnalysisArgs) -> Vec<PromptMessage> {
+pub(crate) async fn generate_prompt(args: IncentiveAnalysisArgs) -> Vec<PromptMessage> {
     let handlebars = Handlebars::new();
 
     let context = json!({

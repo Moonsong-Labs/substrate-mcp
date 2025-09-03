@@ -11,13 +11,13 @@ use super::common::SECURITY_DISCLAIMER;
 /// Arguments for the automated analysis prompt
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(description = "Comprehensive security and quality analysis")]
-pub struct AutomatedAnalysisArgs {
+pub(crate) struct AutomatedAnalysisArgs {
     #[schemars(description = "Description of the change or feature to analyze")]
-    pub change_description: String,
+    pub(crate) change_description: String,
 }
 
 /// Generate automated analysis prompt content
-pub async fn generate_prompt(args: AutomatedAnalysisArgs) -> Vec<PromptMessage> {
+pub(crate) async fn generate_prompt(args: AutomatedAnalysisArgs) -> Vec<PromptMessage> {
     let handlebars = Handlebars::new();
 
     let context = json!({

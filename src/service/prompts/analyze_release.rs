@@ -8,18 +8,18 @@ use serde_json::json;
 
 use super::common::SECURITY_DISCLAIMER;
 
-/// Arguments for the analyze release prompt  
+/// Arguments for the analyze release prompt
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(description = "Analyze how a Polkadot SDK release impacts your project")]
-pub struct AnalyzeReleaseArgs {
+pub(crate) struct AnalyzeReleaseArgs {
     #[schemars(description = "Release name/version to analyze")]
-    pub release: String,
+    pub(crate) release: String,
     #[schemars(description = "Specific area to focus analysis on")]
-    pub focus: Option<String>,
+    pub(crate) focus: Option<String>,
 }
 
 /// Generate analyze release prompt content
-pub async fn generate_prompt(args: AnalyzeReleaseArgs) -> Vec<PromptMessage> {
+pub(crate) async fn generate_prompt(args: AnalyzeReleaseArgs) -> Vec<PromptMessage> {
     let handlebars = Handlebars::new();
 
     let context = json!({
@@ -638,7 +638,7 @@ cargo test --all
 
 **STANDARD DIRECTORY STRUCTURE - YOU MUST USE THESE EXACT PATHS:**
 ```
-~/.substrate-mcp/                      # Base directory for all substrate-mcp data  
+~/.substrate-mcp/                      # Base directory for all substrate-mcp data
 └── {project}/                      # Project directory (current project's root dir name)
     └── releases/                     # All release data for this project
         └── {{release}}/                # e.g., stable2412-1/

@@ -11,13 +11,13 @@ use super::common::SECURITY_DISCLAIMER;
 /// Arguments for the scaffold pallet prompt
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(description = "Generate pallet structure and implementation templates")]
-pub struct ScaffoldPalletArgs {
+pub(crate) struct ScaffoldPalletArgs {
     #[schemars(description = "Description for the pallet to be created")]
-    pub pallet_description: String,
+    pub(crate) pallet_description: String,
 }
 
 /// Generate scaffold pallet prompt content
-pub async fn generate_prompt(args: ScaffoldPalletArgs) -> Vec<PromptMessage> {
+pub(crate) async fn generate_prompt(args: ScaffoldPalletArgs) -> Vec<PromptMessage> {
     let handlebars = Handlebars::new();
 
     let context = json!({
@@ -52,13 +52,13 @@ use the workspace dependeny (setting `{workspace = true}`)
 
 If the repository is for a substrate chain/s, add the pallet to its runtimes
 unless specified otherwise in the PALLET_DESCRIPTION.
-If the runtime hash generated weights and a way to run benchmarks, 
+If the runtime hash generated weights and a way to run benchmarks,
 adapt this pallet to that flow and give instructions on how get proper pallet
  weights and integrate them into the runtime.
 
-### Pallet Structure 
-Check existing pallets in the workspace and and do a best effort to 
-follow that structure. 
+### Pallet Structure
+Check existing pallets in the workspace and and do a best effort to
+follow that structure.
 To fill in missing blanks, also check kitchensink pallet: https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/examples/kitchensink
 
 

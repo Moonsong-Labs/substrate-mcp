@@ -1,3 +1,5 @@
+#![deny(unreachable_pub)]
+
 use anyhow::Result;
 use rmcp::service::ServiceExt;
 use tokio::io::{stdin, stdout};

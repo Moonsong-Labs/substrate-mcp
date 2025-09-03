@@ -11,17 +11,19 @@ use super::common::SECURITY_DISCLAIMER;
 /// Arguments for the release comparison prompt
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(description = "Compare changes between two Polkadot SDK versions")]
-pub struct ReleaseComparisonArgs {
+pub(crate) struct ReleaseComparisonArgs {
     #[schemars(description = "Version currently being used")]
-    pub current_version: String,
+    pub(crate) current_version: String,
     #[schemars(description = "Version to compare with (must be greater than current)")]
-    pub target_version: String,
+    pub(crate) target_version: String,
     #[schemars(description = "What specific changes to look for")]
-    pub specific_changes: Option<String>,
+    pub(crate) specific_changes: Option<String>,
 }
 
 /// Generate release comparison prompt content
-pub async fn generate_prompt(args: ReleaseComparisonArgs) -> Result<GetPromptResult, McpError> {
+pub(crate) async fn generate_prompt(
+    args: ReleaseComparisonArgs,
+) -> Result<GetPromptResult, McpError> {
     let handlebars = Handlebars::new();
 
     let context = json!({
@@ -37,7 +39,7 @@ pub async fn generate_prompt(args: ReleaseComparisonArgs) -> Result<GetPromptRes
 
     let description = handlebars
       .render_template(
-          "Compare changes between Polkadot SDK versions {{current_version}} and {{target_version}}", 
+          "Compare changes between Polkadot SDK versions {{current_version}} and {{target_version}}",
           &context
       )
       .map_err(|e| McpError::internal_error(format!("Description template rendering failed: {}", e), None))?;
@@ -79,7 +81,7 @@ The tool will:
 - **Stable releases**: Format `stableYYMM[-patch]` where:
   - YYMM = year and month (e.g., 2503 = March 2025)
   - Optional patch suffix (e.g., stable2503-1, stable2503-2)
-  
+
 Note: Stable releases began after semantic versioning, so v1.x.x releases predate stable releases.
 
 ### Resources

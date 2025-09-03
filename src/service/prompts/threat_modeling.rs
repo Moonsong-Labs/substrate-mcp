@@ -11,13 +11,13 @@ use super::common::SECURITY_DISCLAIMER;
 /// Arguments for the threat modeling prompt
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(description = "Threat model analysis")]
-pub struct ThreatModelingArgs {
+pub(crate) struct ThreatModelingArgs {
     #[schemars(description = "Description of the system to threat model")]
-    pub system_description: String,
+    pub(crate) system_description: String,
 }
 
 /// Generate threat modeling prompt content
-pub async fn generate_prompt(args: ThreatModelingArgs) -> Vec<PromptMessage> {
+pub(crate) async fn generate_prompt(args: ThreatModelingArgs) -> Vec<PromptMessage> {
     let handlebars = Handlebars::new();
 
     let context = json!({
