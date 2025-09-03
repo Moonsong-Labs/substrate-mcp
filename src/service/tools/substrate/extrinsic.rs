@@ -176,17 +176,17 @@ async fn process_extrinsic(
     }
 
     // Apply pallet filter
-    if let Some(pallet) = &pallet_filter {
-        if !pallet_name.eq_ignore_ascii_case(pallet) {
-            return Ok(None);
-        }
+    if let Some(pallet) = &pallet_filter
+        && !pallet_name.eq_ignore_ascii_case(pallet)
+    {
+        return Ok(None);
     }
 
     // Apply call filter
-    if let Some(call) = &call_filter {
-        if !call_name.eq_ignore_ascii_case(call) {
-            return Ok(None);
-        }
+    if let Some(call) = &call_filter
+        && !call_name.eq_ignore_ascii_case(call)
+    {
+        return Ok(None);
     }
 
     // Extract signer address

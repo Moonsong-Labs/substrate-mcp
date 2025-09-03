@@ -38,13 +38,12 @@ impl MetadataFilter {
             let pallet_name = pallet.name();
 
             // Check if pallet matches filter
-            if let Some(ref filter_pallet) = self.pallet {
-                if !pallet_name
+            if let Some(ref filter_pallet) = self.pallet
+                && !pallet_name
                     .to_lowercase()
                     .contains(&filter_pallet.to_lowercase())
-                {
-                    continue;
-                }
+            {
+                continue;
             }
 
             // If filtering for pallets specifically
@@ -62,83 +61,83 @@ impl MetadataFilter {
             }
 
             // Process storage entries
-            if self.item_type.is_none() || self.item_type.as_deref() == Some("storage") {
-                if let Some(storage) = pallet.storage() {
-                    for entry in storage.entries() {
-                        if self.matches_name(entry.name()) {
-                            let details = if self.include_details {
-                                serde_json::json!({
-                                    "docs": entry.docs(),
-                                    "modifier": format!("{:?}", entry.modifier()),
-                                    "default": format!("{:?}", entry.default_bytes()),
-                                })
-                            } else {
-                                serde_json::json!({
-                                    "docs": entry.docs(),
-                                })
-                            };
+            if (self.item_type.is_none() || self.item_type.as_deref() == Some("storage"))
+                && let Some(storage) = pallet.storage()
+            {
+                for entry in storage.entries() {
+                    if self.matches_name(entry.name()) {
+                        let details = if self.include_details {
+                            serde_json::json!({
+                                "docs": entry.docs(),
+                                "modifier": format!("{:?}", entry.modifier()),
+                                "default": format!("{:?}", entry.default_bytes()),
+                            })
+                        } else {
+                            serde_json::json!({
+                                "docs": entry.docs(),
+                            })
+                        };
 
-                            results.push(MetadataItem {
-                                item_type: "storage".to_string(),
-                                pallet: pallet_name.to_string(),
-                                name: Some(entry.name().to_string()),
-                                details,
-                            });
-                        }
+                        results.push(MetadataItem {
+                            item_type: "storage".to_string(),
+                            pallet: pallet_name.to_string(),
+                            name: Some(entry.name().to_string()),
+                            details,
+                        });
                     }
                 }
             }
 
             // Process calls
-            if self.item_type.is_none() || self.item_type.as_deref() == Some("call") {
-                if let Some(calls) = pallet.call_variants() {
-                    for variant in calls {
-                        if self.matches_name(&variant.name) {
-                            let details = if self.include_details {
-                                serde_json::json!({
-                                    "docs": &variant.docs,
-                                    "index": variant.index,
-                                })
-                            } else {
-                                serde_json::json!({
-                                    "docs": &variant.docs,
-                                })
-                            };
+            if (self.item_type.is_none() || self.item_type.as_deref() == Some("call"))
+                && let Some(calls) = pallet.call_variants()
+            {
+                for variant in calls {
+                    if self.matches_name(&variant.name) {
+                        let details = if self.include_details {
+                            serde_json::json!({
+                                "docs": &variant.docs,
+                                "index": variant.index,
+                            })
+                        } else {
+                            serde_json::json!({
+                                "docs": &variant.docs,
+                            })
+                        };
 
-                            results.push(MetadataItem {
-                                item_type: "call".to_string(),
-                                pallet: pallet_name.to_string(),
-                                name: Some(variant.name.to_string()),
-                                details,
-                            });
-                        }
+                        results.push(MetadataItem {
+                            item_type: "call".to_string(),
+                            pallet: pallet_name.to_string(),
+                            name: Some(variant.name.to_string()),
+                            details,
+                        });
                     }
                 }
             }
 
             // Process events
-            if self.item_type.is_none() || self.item_type.as_deref() == Some("event") {
-                if let Some(events) = pallet.event_variants() {
-                    for variant in events {
-                        if self.matches_name(&variant.name) {
-                            let details = if self.include_details {
-                                serde_json::json!({
-                                    "docs": &variant.docs,
-                                    "index": variant.index,
-                                })
-                            } else {
-                                serde_json::json!({
-                                    "docs": &variant.docs,
-                                })
-                            };
+            if (self.item_type.is_none() || self.item_type.as_deref() == Some("event"))
+                && let Some(events) = pallet.event_variants()
+            {
+                for variant in events {
+                    if self.matches_name(&variant.name) {
+                        let details = if self.include_details {
+                            serde_json::json!({
+                                "docs": &variant.docs,
+                                "index": variant.index,
+                            })
+                        } else {
+                            serde_json::json!({
+                                "docs": &variant.docs,
+                            })
+                        };
 
-                            results.push(MetadataItem {
-                                item_type: "event".to_string(),
-                                pallet: pallet_name.to_string(),
-                                name: Some(variant.name.to_string()),
-                                details,
-                            });
-                        }
+                        results.push(MetadataItem {
+                            item_type: "event".to_string(),
+                            pallet: pallet_name.to_string(),
+                            name: Some(variant.name.to_string()),
+                            details,
+                        });
                     }
                 }
             }
@@ -169,28 +168,28 @@ impl MetadataFilter {
             }
 
             // Process errors
-            if self.item_type.is_none() || self.item_type.as_deref() == Some("error") {
-                if let Some(errors) = pallet.error_variants() {
-                    for variant in errors {
-                        if self.matches_name(&variant.name) {
-                            let details = if self.include_details {
-                                serde_json::json!({
-                                    "docs": &variant.docs,
-                                    "index": variant.index,
-                                })
-                            } else {
-                                serde_json::json!({
-                                    "docs": &variant.docs,
-                                })
-                            };
+            if (self.item_type.is_none() || self.item_type.as_deref() == Some("error"))
+                && let Some(errors) = pallet.error_variants()
+            {
+                for variant in errors {
+                    if self.matches_name(&variant.name) {
+                        let details = if self.include_details {
+                            serde_json::json!({
+                                "docs": &variant.docs,
+                                "index": variant.index,
+                            })
+                        } else {
+                            serde_json::json!({
+                                "docs": &variant.docs,
+                            })
+                        };
 
-                            results.push(MetadataItem {
-                                item_type: "error".to_string(),
-                                pallet: pallet_name.to_string(),
-                                name: Some(variant.name.to_string()),
-                                details,
-                            });
-                        }
+                        results.push(MetadataItem {
+                            item_type: "error".to_string(),
+                            pallet: pallet_name.to_string(),
+                            name: Some(variant.name.to_string()),
+                            details,
+                        });
                     }
                 }
             }

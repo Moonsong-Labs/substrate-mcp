@@ -111,10 +111,10 @@ struct AudienceInfo {
 
 // Helper function to extract PR number from filename
 fn extract_pr_number(filename: &str) -> Option<u32> {
-    if let Some(name) = filename.strip_prefix("pr_") {
-        if let Some(num_str) = name.strip_suffix(".prdoc") {
-            return num_str.parse().ok();
-        }
+    if let Some(name) = filename.strip_prefix("pr_")
+        && let Some(num_str) = name.strip_suffix(".prdoc")
+    {
+        return num_str.parse().ok();
     }
     None
 }
@@ -134,10 +134,10 @@ fn find_project_root() -> Option<PathBuf> {
         let cargo_toml = dir.join("Cargo.toml");
         if cargo_toml.exists() {
             // Try to read and check if it's a workspace
-            if let Ok(contents) = std::fs::read_to_string(&cargo_toml) {
-                if contents.contains("[workspace]") {
-                    return Some(dir.to_path_buf());
-                }
+            if let Ok(contents) = std::fs::read_to_string(&cargo_toml)
+                && contents.contains("[workspace]")
+            {
+                return Some(dir.to_path_buf());
             }
             // If we found a Cargo.toml but no .git above it, this might be the root
             // Check if there's a parent with Cargo.toml
@@ -455,18 +455,17 @@ async fn fetch_github_labels(client: &reqwest::Client) -> Result<Vec<GitHubLabel
 
         // Check for pagination Link header
         next_url = None;
-        if let Some(link_header) = response.headers().get("link") {
-            if let Ok(link_str) = link_header.to_str() {
-                // Parse Link header for next page
-                for link_part in link_str.split(',') {
-                    if link_part.contains("rel=\"next\"") {
-                        if let Some(url_start) = link_part.find('<') {
-                            if let Some(url_end) = link_part.find('>') {
-                                next_url = Some(link_part[url_start + 1..url_end].to_string());
-                                break;
-                            }
-                        }
-                    }
+        if let Some(link_header) = response.headers().get("link")
+            && let Ok(link_str) = link_header.to_str()
+        {
+            // Parse Link header for next page
+            for link_part in link_str.split(',') {
+                if link_part.contains("rel=\"next\"")
+                    && let Some(url_start) = link_part.find('<')
+                    && let Some(url_end) = link_part.find('>')
+                {
+                    next_url = Some(link_part[url_start + 1..url_end].to_string());
+                    break;
                 }
             }
         }

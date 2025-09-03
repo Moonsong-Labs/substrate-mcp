@@ -155,16 +155,16 @@ async fn decode_events_with_subxt(
         let event = event?;
 
         // Apply filters
-        if let Some(pallet) = &pallet_filter {
-            if !event.pallet_name().eq_ignore_ascii_case(pallet) {
-                continue;
-            }
+        if let Some(pallet) = &pallet_filter
+            && !event.pallet_name().eq_ignore_ascii_case(pallet)
+        {
+            continue;
         }
 
-        if let Some(event_name) = &event_filter {
-            if !event.variant_name().eq_ignore_ascii_case(event_name) {
-                continue;
-            }
+        if let Some(event_name) = &event_filter
+            && !event.variant_name().eq_ignore_ascii_case(event_name)
+        {
+            continue;
         }
 
         // Decode event data
