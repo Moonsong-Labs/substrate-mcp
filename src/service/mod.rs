@@ -20,7 +20,7 @@ mod utils;
 use utils::catch_panic_as_mcp_error;
 
 use crate::service::prompts::{
-    analyze_release, automated_analysis, code_security_audit, economic_security,
+    analyze_release, automated_analysis, code_security_audit, economic_security, get_started,
     incentive_analysis, release_comparison, scaffold_pallet, threat_modeling, weight_analysis,
 };
 
@@ -233,6 +233,18 @@ impl SubstrateService {
         Parameters(args): Parameters<weight_analysis::WeightAnalysisArgs>,
     ) -> Vec<PromptMessage> {
         prompts::weight_analysis::generate_prompt(args).await
+    }
+
+    /// Beginner "get started" onboarding
+    #[prompt(
+        name = "get_started",
+        description = "Get started on polkadot and substrate systems"
+    )]
+    async fn get_started(
+        &self,
+        Parameters(args): Parameters<get_started::GetStartedArgs>,
+    ) -> Vec<PromptMessage> {
+        prompts::get_started::generate_prompt(args).await
     }
 }
 

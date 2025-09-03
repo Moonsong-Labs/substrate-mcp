@@ -9,6 +9,7 @@ pub(crate) mod automated_analysis;
 pub(crate) mod code_security_audit;
 pub(crate) mod common;
 pub(crate) mod economic_security;
+pub(crate) mod get_started;
 pub(crate) mod incentive_analysis;
 pub(crate) mod release_comparison;
 pub(crate) mod scaffold_pallet;

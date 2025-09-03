@@ -100,7 +100,7 @@ fn resources() -> Vec<SubstrateResource> {
             # Substrate Tutorials
 
             Main Tutorial Hub: https://docs.polkadot.com/tutorials/
-            Learn Substrate: https://docs.polkadot.com/tutorials/build-a-blockchain/
+            Parachain/local blockchain development: https://docs.polkadot.com/tutorials/polkadot-sdk/parachains/zero-to-hero/
 
             Step-by-step learning paths:
             - Build your first Substrate blockchain
