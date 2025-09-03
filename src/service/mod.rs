@@ -1,7 +1,7 @@
+use rmcp::handler::server::ServerHandler;
 use rmcp::handler::server::router::prompt::PromptRouter;
 use rmcp::handler::server::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
     CallToolResult, GetPromptRequestParam, GetPromptResult, ListPromptsResult,
     ListResourceTemplatesResult, ListResourcesResult, PaginatedRequestParam, PromptMessage,
@@ -9,7 +9,7 @@ use rmcp::model::{
 };
 use rmcp::service::{RequestContext, RoleServer};
 use rmcp::{
-    prompt, prompt_handler, prompt_router, tool, tool_handler, tool_router, ErrorData as McpError,
+    ErrorData as McpError, prompt, prompt_handler, prompt_router, tool, tool_handler, tool_router,
 };
 
 pub mod prompts;

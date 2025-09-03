@@ -1,11 +1,9 @@
-use anyhow::{anyhow, Result};
-use itertools::Itertools;
+use anyhow::{Result, anyhow};
 use jsonrpsee::core::client::ClientT;
 use jsonrpsee::core::traits::ToRpcParams;
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use rmcp::ErrorData as McpError;
-use scale_value::Composite;
 use serde::de::DeserializeOwned;
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
@@ -65,28 +63,6 @@ pub async fn get_block_range(
     }
 
     Ok((from, to))
-}
-
-pub fn stringify_composite<T>(composite: &Composite<T>) -> Result<String> {
-    match composite {
-        Composite::Named(fields) => {
-            let data = fields
-                .iter()
-                .map(|pair| {
-                    let (name, value) = pair;
-                    format!("{}={}", name, scale_value::stringify::to_string(value))
-                })
-                .join(", ");
-            Ok(data)
-        }
-        Composite::Unnamed(values) => {
-            let array: Vec<_> = values
-                .iter()
-                .map(|value| scale_value::stringify::to_string(value))
-                .collect();
-            Ok(array.join(", "))
-        }
-    }
 }
 
 pub fn get_event_details_from_extrinsic(

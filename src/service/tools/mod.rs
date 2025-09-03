@@ -1,7 +1,8 @@
 use futures::FutureExt;
 use rmcp::{
+    ErrorData as McpError,
     model::{CallToolResult, Content, RawContent, RawTextContent},
-    schemars, ErrorData as McpError,
+    schemars,
 };
 use serde::Deserialize;
 use std::process::Stdio;
@@ -15,10 +16,10 @@ pub mod polkadot_sdk_releases;
 pub mod substrate;
 
 use substrate::{
-    events::{query_events, EventsQuery},
-    extrinsic::{query_extrinsics, ExtrinsicsQuery},
+    events::{EventsQuery, query_events},
+    extrinsic::{ExtrinsicsQuery, query_extrinsics},
     metadata::MetadataFilter,
-    storage::{list_pallet_storage, query_storage, StorageQuery},
+    storage::{StorageQuery, list_pallet_storage, query_storage},
 };
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]

@@ -1,9 +1,9 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sp_core::crypto::Ss58Codec;
-use subxt::blocks::{Block, ExtrinsicDetails};
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
+use subxt::blocks::{Block, ExtrinsicDetails};
 
 use super::utils;
 
@@ -12,7 +12,7 @@ use super::utils;
 pub struct ExtrinsicsQuery {
     /// Start block (negative = relative to current)
     pub from_block: i32,
-    /// End block (negative = relative to current)  
+    /// End block (negative = relative to current)
     pub to_block: Option<i32>,
     /// Optional pallet filter for call
     pub pallet: Option<String>,
@@ -46,7 +46,7 @@ pub struct Extrinsic {
     pub signer: Option<String>,
     /// Pallet name
     pub pallet: String,
-    /// Call name  
+    /// Call name
     pub call: String,
     /// Call arguments (as JSON)
     pub args: String,
@@ -176,14 +176,14 @@ async fn process_extrinsic(
     }
 
     // Apply pallet filter
-    if let Some(ref pallet) = pallet_filter {
+    if let Some(pallet) = &pallet_filter {
         if !pallet_name.eq_ignore_ascii_case(pallet) {
             return Ok(None);
         }
     }
 
     // Apply call filter
-    if let Some(ref call) = call_filter {
+    if let Some(call) = &call_filter {
         if !call_name.eq_ignore_ascii_case(call) {
             return Ok(None);
         }
@@ -213,7 +213,7 @@ async fn process_extrinsic(
     };
 
     // Apply signer filter
-    if let Some(ref signer) = signer_filter {
+    if let Some(signer) = &signer_filter {
         if let Some(ref addr) = signer_address {
             if !addr.contains(signer) {
                 return Ok(None);
@@ -236,7 +236,7 @@ async fn process_extrinsic(
 
     // Decode call arguments
     let args = match extrinsic.field_values() {
-        Ok(fields) => utils::stringify_composite(&fields)?,
+        Ok(fields) => format!("{}", fields),
         Err(e) => format!("Failed to decode call arguments: {e}"),
     };
 

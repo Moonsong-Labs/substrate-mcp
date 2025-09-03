@@ -1,7 +1,9 @@
+#![deny(unreachable_pub)]
+
 [package]
 name = "substrate-mcp"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 rmcp = { version = "0.6.1", features = ["transport-io"] }
@@ -20,8 +22,14 @@ dirs = "5.0"
 itertools = "0.10"
 
 # For RPC client functionality
-jsonrpsee = { version = "0.20", features = ["http-client", "ws-client", "macros"] }
-codec = { package = "parity-scale-codec", version = "3.6", features = ["derive"] }
+jsonrpsee = { version = "0.20", features = [
+    "http-client",
+    "ws-client",
+    "macros",
+] }
+codec = { package = "parity-scale-codec", version = "3.6", features = [
+    "derive",
+] }
 futures = "0.3"
 hex = "0.4"
 
@@ -36,4 +44,3 @@ scale-value = { version = "0.16", features = ["from-string"] }
 scale-info = "2.11"
 sp-core = "33.0"
 tokio-util = "0.7.16"
-

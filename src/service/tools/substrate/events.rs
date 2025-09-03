@@ -42,7 +42,7 @@ pub struct EventFilter {
 pub struct EventsQuery {
     /// Start block (negative = relative to current)
     pub from_block: i32,
-    /// End block (negative = relative to current)  
+    /// End block (negative = relative to current)
     pub to_block: Option<i32>,
     /// Optional pallet filter
     pub pallet: Option<String>,
@@ -68,7 +68,7 @@ pub struct Event {
     pub block_hash: String,
     /// Pallet name
     pub pallet: String,
-    /// Event name  
+    /// Event name
     pub event: String,
     /// Event index in block
     pub event_index: u32,
@@ -155,13 +155,13 @@ async fn decode_events_with_subxt(
         let event = event?;
 
         // Apply filters
-        if let Some(ref pallet) = pallet_filter {
+        if let Some(pallet) = &pallet_filter {
             if !event.pallet_name().eq_ignore_ascii_case(pallet) {
                 continue;
             }
         }
 
-        if let Some(ref event_name) = event_filter {
+        if let Some(event_name) = &event_filter {
             if !event.variant_name().eq_ignore_ascii_case(event_name) {
                 continue;
             }
@@ -169,7 +169,7 @@ async fn decode_events_with_subxt(
 
         // Decode event data
         let data = match event.field_values() {
-            Ok(fields) => utils::stringify_composite(&fields)?,
+            Ok(fields) => format!("{}", fields),
             Err(e) => format!("Failed to decode call arguments: {e}"),
         };
 

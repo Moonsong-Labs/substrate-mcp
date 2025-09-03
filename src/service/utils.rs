@@ -1,6 +1,6 @@
 use futures::FutureExt;
-use rmcp::model::CallToolResult;
 use rmcp::ErrorData as McpError;
+use rmcp::model::CallToolResult;
 use std::panic::AssertUnwindSafe;
 
 pub fn mcp_error_internal(message: String) -> McpError {
