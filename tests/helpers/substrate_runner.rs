@@ -4,8 +4,8 @@ use std::process::{Child, ChildStderr, Command, Stdio};
 // Substrate node runner
 // Simplified version of: https://github.com/paritytech/subxt/blob/master/testing/substrate-runner/src/lib.rs
 pub struct SubstrateRunner {
-    proc: Child,
-    ws_port: u16,
+    pub proc: Child,
+    pub ws_port: u16,
 }
 
 impl SubstrateRunner {
