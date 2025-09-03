@@ -9,56 +9,56 @@ use super::utils;
 
 /// Query extrinsics from blocks
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExtrinsicsQuery {
+pub(crate) struct ExtrinsicsQuery {
     /// Start block (negative = relative to current)
-    pub from_block: i32,
+    pub(crate) from_block: i32,
     /// End block (negative = relative to current)
-    pub to_block: Option<i32>,
+    pub(crate) to_block: Option<i32>,
     /// Optional pallet filter for call
-    pub pallet: Option<String>,
+    pub(crate) pallet: Option<String>,
     /// Optional call name filter
-    pub call: Option<String>,
+    pub(crate) call: Option<String>,
     /// Optional signer address filter
-    pub signer: Option<String>,
+    pub(crate) signer: Option<String>,
 }
 
 /// Result of extrinsics query
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExtrinsicsResult {
+pub(crate) struct ExtrinsicsResult {
     /// Extrinsics found
-    pub extrinsics: Vec<Extrinsic>,
+    pub(crate) extrinsics: Vec<Extrinsic>,
     /// Number of blocks queried
-    pub blocks_queried: u32,
+    pub(crate) blocks_queried: u32,
 }
 
 /// A extrinsic with decoded data
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Extrinsic {
+pub(crate) struct Extrinsic {
     /// Block number
-    pub block_number: u32,
+    pub(crate) block_number: u32,
     /// Block hash
-    pub block_hash: String,
+    pub(crate) block_hash: String,
     /// Extrinsic index in block
-    pub extrinsic_index: u32,
+    pub(crate) extrinsic_index: u32,
     /// Extrinsic hash
-    pub hash: String,
+    pub(crate) hash: String,
     /// Signer address (if signed)
-    pub signer: Option<String>,
+    pub(crate) signer: Option<String>,
     /// Pallet name
-    pub pallet: String,
+    pub(crate) pallet: String,
     /// Call name
-    pub call: String,
+    pub(crate) call: String,
     /// Call arguments (as JSON)
-    pub args: String,
+    pub(crate) args: String,
     /// Return all events associated with the extrinsic
-    pub events: Vec<String>,
+    pub(crate) events: Vec<String>,
 }
 
 // List of calls to be filtered out
 const FILTERED_CALLS: &[&str] = &["setValidationData"];
 
 /// Query extrinsics using jsonrpsee for RPC and subxt for proper decoding
-pub async fn query_extrinsics(
+pub(crate) async fn query_extrinsics(
     query: ExtrinsicsQuery,
     subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,

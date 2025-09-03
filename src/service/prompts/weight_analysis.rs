@@ -11,13 +11,13 @@ use super::common::SECURITY_DISCLAIMER;
 /// Arguments for the weight analysis prompt
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(description = "Weight and benchmark analysis")]
-pub struct WeightAnalysisArgs {
+pub(crate) struct WeightAnalysisArgs {
     #[schemars(description = "Target pallet for weight analysis")]
-    pub target_pallet: String,
+    pub(crate) target_pallet: String,
 }
 
 /// Generate weight analysis prompt content
-pub async fn generate_prompt(args: WeightAnalysisArgs) -> Vec<PromptMessage> {
+pub(crate) async fn generate_prompt(args: WeightAnalysisArgs) -> Vec<PromptMessage> {
     let handlebars = Handlebars::new();
 
     let context = json!({

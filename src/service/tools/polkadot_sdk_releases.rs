@@ -31,12 +31,12 @@ struct LabelsMetadata {
 }
 
 #[derive(Debug, Serialize)]
-pub struct PrdocsResult {
-    pub success: bool,
-    pub release: String,
-    pub output_dir: PathBuf,
-    pub file_count: usize,
-    pub total_size: usize,
+pub(crate) struct PrdocsResult {
+    pub(crate) success: bool,
+    pub(crate) release: String,
+    pub(crate) output_dir: PathBuf,
+    pub(crate) file_count: usize,
+    pub(crate) total_size: usize,
 }
 
 // PRDoc file structure
@@ -170,7 +170,7 @@ fn get_project_name() -> String {
         .unwrap_or_else(|| "default".to_string())
 }
 
-pub async fn fetch_and_analyze_release(release: &str) -> Result<PrdocsResult> {
+pub(crate) async fn fetch_and_analyze_release(release: &str) -> Result<PrdocsResult> {
     let client = reqwest::Client::new();
 
     // Get project name from the current project root

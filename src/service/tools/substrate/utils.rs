@@ -19,7 +19,7 @@ use subxt::PolkadotConfig;
 /// # Returns
 ///
 /// A tuple `(from, to)` containing the absolute block numbers for the range.
-pub async fn get_block_range(
+pub(crate) async fn get_block_range(
     from_block: i32,
     to_block: Option<i32>,
     subxt_client: &OnlineClient<PolkadotConfig>,
@@ -65,7 +65,7 @@ pub async fn get_block_range(
     Ok((from, to))
 }
 
-pub fn get_event_details_from_extrinsic(
+pub(crate) fn get_event_details_from_extrinsic(
     tx_events: &subxt::blocks::ExtrinsicEvents<PolkadotConfig>,
 ) -> Result<Vec<String>, McpError> {
     let mut events_info = Vec::new();
@@ -102,7 +102,7 @@ pub fn get_event_details_from_extrinsic(
 }
 
 /// RPC client that can be either HTTP or WebSocket
-pub enum RpcClient {
+pub(crate) enum RpcClient {
     Http(Box<HttpClient>),
     Ws(WsClient),
 }
@@ -115,7 +115,7 @@ impl RpcClient {
     ///
     /// # Returns
     /// An RPC client appropriate for the URL scheme
-    pub async fn new(rpc_url: &str) -> Result<Self> {
+    pub(crate) async fn new(rpc_url: &str) -> Result<Self> {
         if rpc_url.starts_with("ws://") || rpc_url.starts_with("wss://") {
             let client = WsClientBuilder::default().build(rpc_url).await?;
             Ok(RpcClient::Ws(client))
@@ -128,7 +128,7 @@ impl RpcClient {
     }
 
     /// Make an RPC request
-    pub async fn request<R, Params>(&self, method: &str, params: Params) -> Result<R>
+    pub(crate) async fn request<R, Params>(&self, method: &str, params: Params) -> Result<R>
     where
         R: DeserializeOwned,
         Params: ToRpcParams + Send,

@@ -4,13 +4,13 @@
 //! by the main SubstrateService via delegated function calls.
 
 // Import submodules
-pub mod analyze_release;
-pub mod automated_analysis;
-pub mod code_security_audit;
-pub mod common;
-pub mod economic_security;
-pub mod incentive_analysis;
-pub mod release_comparison;
-pub mod scaffold_pallet;
-pub mod threat_modeling;
-pub mod weight_analysis;
+pub(crate) mod analyze_release;
+pub(crate) mod automated_analysis;
+pub(crate) mod code_security_audit;
+pub(crate) mod common;
+pub(crate) mod economic_security;
+pub(crate) mod incentive_analysis;
+pub(crate) mod release_comparison;
+pub(crate) mod scaffold_pallet;
+pub(crate) mod threat_modeling;
+pub(crate) mod weight_analysis;

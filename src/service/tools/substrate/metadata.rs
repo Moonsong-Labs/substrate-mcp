@@ -4,33 +4,33 @@ use subxt::Metadata;
 
 /// Represents a filtered metadata item
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MetadataItem {
+pub(crate) struct MetadataItem {
     /// The type of item (pallet, storage, call, event, etc.)
-    pub item_type: String,
+    pub(crate) item_type: String,
     /// The pallet name
-    pub pallet: String,
+    pub(crate) pallet: String,
     /// The item name (if applicable)
-    pub name: Option<String>,
+    pub(crate) name: Option<String>,
     /// Additional metadata about the item
-    pub details: serde_json::Value,
+    pub(crate) details: serde_json::Value,
 }
 
 /// Filter criteria for metadata queries
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MetadataFilter {
+pub(crate) struct MetadataFilter {
     /// Filter by item type (e.g., "pallet", "storage", "call", "event", "constant", "error")
-    pub item_type: Option<String>,
+    pub(crate) item_type: Option<String>,
     /// Filter by pallet name (supports partial matching)
-    pub pallet: Option<String>,
+    pub(crate) pallet: Option<String>,
     /// Filter by item name (supports partial matching)
-    pub name: Option<String>,
+    pub(crate) name: Option<String>,
     /// Include detailed type information
-    pub include_details: bool,
+    pub(crate) include_details: bool,
 }
 
 impl MetadataFilter {
     /// Apply the filter to metadata and return matching items
-    pub fn apply(&self, metadata: &Metadata) -> Result<Vec<MetadataItem>> {
+    pub(crate) fn apply(&self, metadata: &Metadata) -> Result<Vec<MetadataItem>> {
         let mut results = Vec::new();
 
         // Iterate through all pallets

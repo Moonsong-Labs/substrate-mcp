@@ -347,7 +347,7 @@ fn resources() -> Vec<SubstrateResource> {
             - Note: Square bracket syntax `[1, 2, 3]` is NOT supported
 
             ## Important: Variant/Enum Syntax
-            
+
             Key rules for variants:
             1. Unit variants (no data) MUST use empty parentheses: `None()`, not `None`
             2. The v-prefix syntax `v"VariantName"` ALWAYS requires parentheses: `v"VariantName"(...)`
@@ -372,14 +372,14 @@ fn resources() -> Vec<SubstrateResource> {
 
             ### Variants (Enums)
             Two syntaxes are supported:
-            
+
             1. **Standard syntax** (recommended):
             ```
             None()
             Some(42)
             Error("Not found")
             ```
-            
+
             2. **Alternative v-prefix syntax**:
             ```
             v"None"()          # Unit variant with v-prefix
@@ -387,7 +387,7 @@ fn resources() -> Vec<SubstrateResource> {
             v"Ok"("hello")
             v"Id"((1, 2, 3, 4))
             ```
-            
+
             ⚠️ IMPORTANT: The v-prefix syntax ALWAYS requires parentheses, even for unit variants.
             `v"None"` without parentheses will fail - use `v"None"()` or `None()`.
 
@@ -465,7 +465,7 @@ fn resources() -> Vec<SubstrateResource> {
             ```
             # Using standard syntax:
             ((144, 181, 171, 32, 92, 105, 116, 201, 234, 132, 27, 230, 136, 134, 70, 51, 220, 156, 168, 163, 87, 132, 62, 234, 207, 35, 20, 100, 153, 101, 254, 34), None(), 500000000000000, 50, (87, 101, 98, 32, 100, 101, 118, 101, 108, 111, 112, 109, 101, 110, 116, 32, 115, 101, 114, 118, 105, 99, 101, 115))
-            
+
             # Using v-prefix syntax (also valid):
             ((144, 181, 171, 32, 92, 105, 116, 201, 234, 132, 27, 230, 136, 134, 70, 51, 220, 156, 168, 163, 87, 132, 62, 234, 207, 35, 20, 100, 153, 101, 254, 34), v"None"(), 500000000000000, 50, (87, 101, 98, 32, 100, 101, 118, 101, 108, 111, 112, 109, 101, 110, 116, 32, 115, 101, 114, 118, 105, 99, 101, 115))
             ```
@@ -487,12 +487,12 @@ fn resources() -> Vec<SubstrateResource> {
 }
 
 /// Get all available resources
-pub fn get_all_resources() -> Vec<Resource> {
+pub(crate) fn get_all_resources() -> Vec<Resource> {
     resources().into_iter().map(|r| r.into()).collect()
 }
 
 /// Get resource content by URI
-pub fn get_resource_content(uri: &str) -> Option<String> {
+pub(crate) fn get_resource_content(uri: &str) -> Option<String> {
     resources()
         .into_iter()
         .find(|r| r.uri == uri)

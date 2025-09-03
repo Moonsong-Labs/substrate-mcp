@@ -9,7 +9,7 @@ use super::utils;
 
 /// Represents a storage entry value
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Storage {
+pub(crate) struct Storage {
     /// The pallet name
     pub pallet: String,
     /// The storage entry name
@@ -24,10 +24,10 @@ pub struct Storage {
 
 /// Query parameters for storage entries
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorageQuery {
+pub(crate) struct StorageQuery {
     /// Start block (negative = relative to current)
     pub from_block: i32,
-    /// End block (negative = relative to current)  
+    /// End block (negative = relative to current)
     pub to_block: Option<i32>,
     /// The pallet name
     pub pallet: String,
@@ -39,14 +39,14 @@ pub struct StorageQuery {
 
 /// Result of storage query
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorageResult {
+pub(crate) struct StorageResult {
     /// Storage found
     pub storage: Vec<Storage>,
     /// Number of blocks queried
     pub blocks_queried: u32,
 }
 
-pub async fn query_storage(
+pub(crate) async fn query_storage(
     query: StorageQuery,
     subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,
@@ -177,7 +177,7 @@ fn build_keys(keys: &Option<Vec<serde_json::Value>>) -> Result<Vec<Value>> {
 }
 
 /// List all storage entries for a pallet
-pub async fn list_pallet_storage(
+pub(crate) async fn list_pallet_storage(
     client: &OnlineClient<PolkadotConfig>,
     pallet_name: &str,
 ) -> Result<Vec<String>> {

@@ -11,13 +11,13 @@ use super::common::SECURITY_DISCLAIMER;
 /// Arguments for the economic security prompt
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(description = "Economic security assessment")]
-pub struct EconomicSecurityArgs {
+pub(crate) struct EconomicSecurityArgs {
     #[schemars(description = "Description of the system to analyze")]
-    pub system_description: String,
+    pub(crate) system_description: String,
 }
 
 /// Generate economic security prompt content
-pub async fn generate_prompt(args: EconomicSecurityArgs) -> Vec<PromptMessage> {
+pub(crate) async fn generate_prompt(args: EconomicSecurityArgs) -> Vec<PromptMessage> {
     let handlebars = Handlebars::new();
 
     let context = json!({

@@ -11,13 +11,13 @@ use super::common::SECURITY_DISCLAIMER;
 /// Arguments for the code security audit prompt
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(description = "Security audit for specific components")]
-pub struct CodeSecurityAuditArgs {
+pub(crate) struct CodeSecurityAuditArgs {
     #[schemars(description = "Component or pallet to audit")]
-    pub audit_target: String,
+    pub(crate) audit_target: String,
 }
 
 /// Generate code security audit prompt content
-pub async fn generate_prompt(args: CodeSecurityAuditArgs) -> Vec<PromptMessage> {
+pub(crate) async fn generate_prompt(args: CodeSecurityAuditArgs) -> Vec<PromptMessage> {
     let handlebars = Handlebars::new();
 
     let context = json!({

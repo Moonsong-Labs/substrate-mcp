@@ -1,5 +1,3 @@
-#![deny(unreachable_pub)]
-
 [package]
 name = "substrate-mcp"
 version = "0.1.0"

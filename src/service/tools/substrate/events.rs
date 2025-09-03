@@ -7,77 +7,77 @@ use super::utils;
 
 /// Represents a decoded event from the chain
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DecodedEvent {
+pub(crate) struct DecodedEvent {
     /// The pallet that emitted the event
-    pub pallet: String,
+    pub(crate) pallet: String,
     /// The event variant name
-    pub variant: String,
+    pub(crate) variant: String,
     /// The block number where the event occurred
-    pub block_number: u32,
+    pub(crate) block_number: u32,
     /// The block hash where the event occurred
-    pub block_hash: String,
+    pub(crate) block_hash: String,
     /// The event index within the block
-    pub event_index: u32,
+    pub(crate) event_index: u32,
     /// The decoded event data as JSON
-    pub data: serde_json::Value,
+    pub(crate) data: serde_json::Value,
 }
 
 /// Filter criteria for event queries
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventFilter {
+pub(crate) struct EventFilter {
     /// Filter by pallet name (supports partial matching)
-    pub pallet: Option<String>,
+    pub(crate) pallet: Option<String>,
     /// Filter by event variant name (supports partial matching)
-    pub variant: Option<String>,
+    pub(crate) variant: Option<String>,
     /// Start block number (inclusive)
-    pub from_block: Option<u32>,
+    pub(crate) from_block: Option<u32>,
     /// End block number (inclusive)
-    pub to_block: Option<u32>,
+    pub(crate) to_block: Option<u32>,
     /// Maximum number of events to return
-    pub limit: Option<usize>,
+    pub(crate) limit: Option<usize>,
 }
 
 /// Query events from blocks
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventsQuery {
+pub(crate) struct EventsQuery {
     /// Start block (negative = relative to current)
-    pub from_block: i32,
+    pub(crate) from_block: i32,
     /// End block (negative = relative to current)
-    pub to_block: Option<i32>,
+    pub(crate) to_block: Option<i32>,
     /// Optional pallet filter
-    pub pallet: Option<String>,
+    pub(crate) pallet: Option<String>,
     /// Optional event name filter
-    pub event: Option<String>,
+    pub(crate) event: Option<String>,
 }
 
 /// Result of events query
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventsResult {
+pub(crate) struct EventsResult {
     /// Events found
-    pub events: Vec<Event>,
+    pub(crate) events: Vec<Event>,
     /// Number of blocks queried
-    pub blocks_queried: u32,
+    pub(crate) blocks_queried: u32,
 }
 
 /// An event with decoded data
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Event {
+pub(crate) struct Event {
     /// Block number
-    pub block_number: u32,
+    pub(crate) block_number: u32,
     /// Block hash
-    pub block_hash: String,
+    pub(crate) block_hash: String,
     /// Pallet name
-    pub pallet: String,
+    pub(crate) pallet: String,
     /// Event name
-    pub event: String,
+    pub(crate) event: String,
     /// Event index in block
-    pub event_index: u32,
+    pub(crate) event_index: u32,
     /// Decoded event data (as JSON)
-    pub data: String,
+    pub(crate) data: String,
 }
 
 /// Query events using substrate-api-client for RPC and subxt for decoding
-pub async fn query_events(
+pub(crate) async fn query_events(
     query: EventsQuery,
     subxt_client: &OnlineClient<PolkadotConfig>,
     rpc_url: &str,

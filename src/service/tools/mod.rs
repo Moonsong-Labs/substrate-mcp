@@ -12,8 +12,8 @@ use tokio::process::Command;
 
 use super::utils::{mcp_error_internal, mcp_error_invalid_params};
 
-pub mod polkadot_sdk_releases;
-pub mod substrate;
+pub(crate) mod polkadot_sdk_releases;
+pub(crate) mod substrate;
 
 use substrate::{
     events::{EventsQuery, query_events},
@@ -23,12 +23,12 @@ use substrate::{
 };
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
-pub struct FetchAndAnalyzeReleaseProperties {
+pub(crate) struct FetchAndAnalyzeReleaseProperties {
     /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412')
-    pub release: String,
+    pub(crate) release: String,
 }
 
-pub async fn handle_fetch_and_analyze_release(
+pub(crate) async fn handle_fetch_and_analyze_release(
     properties: FetchAndAnalyzeReleaseProperties,
 ) -> Result<CallToolResult, McpError> {
     let response = polkadot_sdk_releases::fetch_and_analyze_release(&properties.release)
@@ -49,20 +49,20 @@ pub async fn handle_fetch_and_analyze_release(
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct SubmitExtrinsicProperties {
+pub(crate) struct SubmitExtrinsicProperties {
     /// The RPC URL to connect to
-    pub rpc_url: String,
+    pub(crate) rpc_url: String,
     /// The pallet name (e.g., "System", "Balances")
-    pub pallet: String,
+    pub(crate) pallet: String,
     /// The call/extrinsic name (e.g., "transfer", "set_code")
-    pub call: String,
+    pub(crate) call: String,
     /// The arguments for the call in scale_value string format (see 'substrate:scale-value-format' resource)
-    pub args: String,
+    pub(crate) args: String,
     /// The dev account to use for signing (alice, bob, charlie, dave, eve, ferdie)
-    pub signer: String,
+    pub(crate) signer: String,
 }
 
-pub async fn handle_submit_dev_extrinsic(
+pub(crate) async fn handle_submit_dev_extrinsic(
     properties: SubmitExtrinsicProperties,
 ) -> Result<CallToolResult, McpError> {
     let client = OnlineClient::<PolkadotConfig>::from_url(&properties.rpc_url)
@@ -146,12 +146,12 @@ pub async fn handle_submit_dev_extrinsic(
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct SubxtExecuteProperties {
+pub(crate) struct SubxtExecuteProperties {
     /// The subxt command and arguments to execute (e.g., ["metadata", "-f", "json", "--url", "ws://localhost:9944"])
-    pub args: Vec<String>,
+    pub(crate) args: Vec<String>,
 }
 
-pub async fn handle_subxt_execute(
+pub(crate) async fn handle_subxt_execute(
     properties: SubxtExecuteProperties,
 ) -> Result<CallToolResult, McpError> {
     if properties.args.is_empty() {
@@ -200,20 +200,20 @@ pub async fn handle_subxt_execute(
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct MetadataFilterProperties {
+pub(crate) struct MetadataFilterProperties {
     /// The RPC URL to connect to
-    pub rpc_url: String,
+    pub(crate) rpc_url: String,
     /// Filter by item type (e.g., "pallet", "storage", "call", "event", "constant", "error")
-    pub item_type: Option<String>,
+    pub(crate) item_type: Option<String>,
     /// Filter by pallet name (supports partial matching)
-    pub pallet: Option<String>,
+    pub(crate) pallet: Option<String>,
     /// Filter by item name (supports partial matching)
-    pub name: Option<String>,
+    pub(crate) name: Option<String>,
     /// Include detailed type information
-    pub include_details: Option<bool>,
+    pub(crate) include_details: Option<bool>,
 }
 
-pub async fn handle_filter_metadata(
+pub(crate) async fn handle_filter_metadata(
     properties: MetadataFilterProperties,
 ) -> Result<CallToolResult, McpError> {
     // Connect to the chain using subxt
@@ -249,20 +249,20 @@ pub async fn handle_filter_metadata(
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct QueryEventsProperties {
+pub(crate) struct QueryEventsProperties {
     /// The RPC endpoint to connect to
-    pub rpc_url: String,
+    pub(crate) rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
-    pub from_block: i32,
+    pub(crate) from_block: i32,
     /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
-    pub to_block: Option<i32>,
+    pub(crate) to_block: Option<i32>,
     /// Filter by pallet name (optional)
-    pub pallet: Option<String>,
+    pub(crate) pallet: Option<String>,
     /// Filter by event name (optional)
-    pub event: Option<String>,
+    pub(crate) event: Option<String>,
 }
 
-pub async fn handle_query_events(
+pub(crate) async fn handle_query_events(
     properties: QueryEventsProperties,
 ) -> Result<CallToolResult, McpError> {
     // Connect to the chain using subxt
@@ -295,22 +295,22 @@ pub async fn handle_query_events(
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct QueryStorageProperties {
+pub(crate) struct QueryStorageProperties {
     /// The RPC URL to connect to
-    pub rpc_url: String,
+    pub(crate) rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
-    pub from_block: i32,
+    pub(crate) from_block: i32,
     /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
-    pub to_block: Option<i32>,
+    pub(crate) to_block: Option<i32>,
     /// The pallet name
-    pub pallet: String,
+    pub(crate) pallet: String,
     /// The storage entry name
-    pub entry: String,
+    pub(crate) entry: String,
     /// Optional keys for map-type storage (as JSON array). Supports SS58 addresses which will be automatically decoded to AccountId32
-    pub keys: Option<Vec<serde_json::Value>>,
+    pub(crate) keys: Option<Vec<serde_json::Value>>,
 }
 
-pub async fn handle_query_storage(
+pub(crate) async fn handle_query_storage(
     properties: QueryStorageProperties,
 ) -> Result<CallToolResult, McpError> {
     // Connect to the chain using subxt
@@ -344,14 +344,14 @@ pub async fn handle_query_storage(
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct ListPalletStorageProperties {
+pub(crate) struct ListPalletStorageProperties {
     /// The RPC URL to connect to
-    pub rpc_url: String,
+    pub(crate) rpc_url: String,
     /// The pallet name
-    pub pallet: String,
+    pub(crate) pallet: String,
 }
 
-pub async fn handle_list_pallet_storage(
+pub(crate) async fn handle_list_pallet_storage(
     properties: ListPalletStorageProperties,
 ) -> Result<CallToolResult, McpError> {
     // Connect to the chain using subxt
@@ -376,22 +376,22 @@ pub async fn handle_list_pallet_storage(
 }
 
 #[derive(Debug, Deserialize, Clone, schemars::JsonSchema)]
-pub struct QueryExtrinsicsProperties {
+pub(crate) struct QueryExtrinsicsProperties {
     /// The RPC endpoint to connect to
-    pub rpc_url: String,
+    pub(crate) rpc_url: String,
     /// Start block number (negative = relative to current, e.g. -10 = 10 blocks ago. 0 returns current)
-    pub from_block: i32,
+    pub(crate) from_block: i32,
     /// End block number (negative = relative to current, defaults to from_block. Leaving this blank will return a single block equal to from_block)
-    pub to_block: Option<i32>,
+    pub(crate) to_block: Option<i32>,
     /// Filter by pallet name (optional)
-    pub pallet: Option<String>,
+    pub(crate) pallet: Option<String>,
     /// Filter by call name (optional)
-    pub call: Option<String>,
+    pub(crate) call: Option<String>,
     /// Filter by signer address (optional)
-    pub signer: Option<String>,
+    pub(crate) signer: Option<String>,
 }
 
-pub async fn handle_query_extrinsics(
+pub(crate) async fn handle_query_extrinsics(
     properties: QueryExtrinsicsProperties,
 ) -> Result<CallToolResult, McpError> {
     // Connect to the chain using subxt
