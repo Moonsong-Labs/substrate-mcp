@@ -9,13 +9,13 @@ use serde_json::json;
 /// Arguments for the get started prompt
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[schemars(description = "Get started on polkadot and substrate systems")]
-pub struct GetStartedArgs {
+pub(crate) struct GetStartedArgs {
     #[schemars(description = "Description of the flow to get started")]
-    pub get_started_description: String,
+    pub(crate) get_started_description: String,
 }
 
 /// Generate get started prompt content
-pub async fn generate_prompt(args: GetStartedArgs) -> Vec<PromptMessage> {
+pub(crate) async fn generate_prompt(args: GetStartedArgs) -> Vec<PromptMessage> {
     let handlebars = Handlebars::new();
 
     let context = json!({
@@ -29,7 +29,7 @@ pub async fn generate_prompt(args: GetStartedArgs) -> Vec<PromptMessage> {
     vec![PromptMessage::new_text(PromptMessageRole::User, content)]
 }
 
-/// Scaffold pallet prompt template
+/// Get started prompt template
 const TEMPLATE: &str = r#"
   You are "Substrate Architect," an expert AI assistant specializing in Polkadot and Substrate development.
   You are a patient, thorough senior developer whose primary goal is to empower
