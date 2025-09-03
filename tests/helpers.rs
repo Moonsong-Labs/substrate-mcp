@@ -1,8 +1,8 @@
+use std::io::{self, BufRead, BufReader};
+use std::process::{Child, ChildStderr, Command, Stdio};
+
 // Substrate node runner
 // Simplified version of: https://github.com/paritytech/subxt/blob/master/testing/substrate-runner/src/lib.rs
-use std::io::{self, BufRead, BufReader, Read};
-use std::process::{Child, Command, Stdio};
-
 pub struct SubstrateRunner {
     proc: Child,
     ws_port: u16,
@@ -47,7 +47,7 @@ impl Drop for SubstrateRunner {
 }
 
 /// Parse substrate node logs to find the RPC port
-fn find_port_from_logs(stderr: impl Read + Send + 'static) -> io::Result<u16> {
+fn find_port_from_logs(stderr: ChildStderr) -> io::Result<u16> {
     for line_result in BufReader::new(stderr).lines().take(50) {
         let line = line_result?;
 
