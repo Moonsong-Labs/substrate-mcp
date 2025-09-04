@@ -1,6 +1,7 @@
 use super::helpers::mcp_client::TestMcpClient;
 use crate::service::tools::substrate::metadata::MetadataItem;
 use crate::service::tools::substrate::storage::StorageResult;
+use crate::service::tools::substrate::events::EventsResult;
 use rmcp::model::{RawContent, RawTextContent};
 use serde_json::json;
 
@@ -141,4 +142,106 @@ async fn test_tool_query_storage() {
         decoded.to_lowercase().contains("polkadot"),
         "LastRuntimeUpgrade should reference polkadot"
     );
+}
+
+#[tokio::test]
+async fn test_tool_query_events() {
+    let client = TestMcpClient::new()
+        .await
+        .expect("Failed to create MCP client");
+
+    // Query System::ExtrinsicSuccess events from last 2 blocks - these occur in every block
+    let args = json!({
+        "rpc_url": "wss://rpc.polkadot.io",
+        "from_block": -2,
+        "to_block": -1,
+        "pallet": "System",
+        "event": "ExtrinsicSuccess"
+    });
+
+    let response = client.call_tool("query_events", args).await.unwrap();
+
+    let content = &response.content[0];
+    let text = match &content.raw {
+        RawContent::Text(RawTextContent { text }) => text,
+        _ => panic!("Expected text content"),
+    };
+
+    // Deserialize the JSON response into EventsResult
+    let events_result: EventsResult = serde_json::from_str(text)
+        .expect("Should be able to deserialize response as EventsResult");
+
+    // Validate basic structure
+    assert_eq!(events_result.blocks_queried, 2, "Should query exactly 2 blocks");
+    assert!(
+        !events_result.events.is_empty(),
+        "Should return at least one ExtrinsicSuccess event"
+    );
+
+    // ExtrinsicSuccess events should occur in every block, so we expect multiple events
+    assert!(
+        events_result.events.len() >= 2,
+        "Should have at least 2 ExtrinsicSuccess events across 2 blocks: found {}",
+        events_result.events.len()
+    );
+
+    let mut block_numbers = std::collections::HashSet::new();
+
+    // Validate each event
+    for event in &events_result.events {
+        // Validate event structure
+        assert_eq!(event.pallet, "System");
+        assert_eq!(event.event, "ExtrinsicSuccess");
+        assert!(event.block_number > 0, "Block number should be positive");
+        assert!(!event.block_hash.is_empty(), "Block hash should not be empty");
+        assert!(
+            event.block_hash.starts_with("0x"),
+            "Block hash should start with 0x: {}",
+            event.block_hash
+        );
+        assert!(
+            event.block_hash.len() == 66,
+            "Block hash should be 66 characters (0x + 64 hex): {}",
+            event.block_hash
+        );
+
+        // Validate event data structure
+        assert!(!event.data.is_empty(), "Event data should not be empty");
+        
+        // Parse the event data to validate structure
+        let data_json: serde_json::Value = serde_json::from_str(&event.data)
+            .expect("Event data should be valid JSON");
+        
+        assert!(data_json.is_object(), "Event data should be an object");
+        
+        // ExtrinsicSuccess should have dispatch_info field
+        if let Some(fields) = data_json.get("fields") {
+            assert!(
+                fields.get("dispatch_info").is_some(),
+                "ExtrinsicSuccess should have dispatch_info: {}",
+                event.data
+            );
+        }
+
+        block_numbers.insert(event.block_number);
+    }
+
+    // Should have events from 2 different blocks
+    assert!(
+        block_numbers.len() >= 1,
+        "Should have events from at least 1 block"
+    );
+    
+    // Verify block numbers are sequential (recent blocks)
+    let sorted_blocks: Vec<u32> = block_numbers.iter().cloned().collect();
+    if sorted_blocks.len() >= 2 {
+        let max_block = *sorted_blocks.iter().max().unwrap();
+        let min_block = *sorted_blocks.iter().min().unwrap();
+        assert!(
+            max_block - min_block <= 10,
+            "Block numbers should be close together (recent blocks): min={}, max={}",
+            min_block,
+            max_block
+        );
+    }
 }
