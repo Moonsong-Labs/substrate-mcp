@@ -7,7 +7,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y curl gcc make clang cmake jq unzip
+        sudo apt-get install -y curl jq unzip
         
     - name: Download substrate binary from subxt artifacts
       shell: bash
@@ -54,32 +54,9 @@ runs:
           fi
         fi
         
-        echo "⚠️  Failed to download from subxt artifacts, falling back to building from source..."
-        echo "This may take several minutes..."
-        
-        # Fallback: Install substrate-node from source
-        # This is slower but more reliable for CI environments
-        cargo install --git https://github.com/paritytech/substrate --tag latest-polkadot-v1.0.0 node-cli --force
-        
-        # Create a symlink with the expected name
-        ln -s $(which node-template) substrate-node || true
-        ln -s $(which substrate) substrate-node || true
-        
-        # If still no substrate-node, try to find it
-        if ! command -v substrate-node >/dev/null 2>&1; then
-          echo "Looking for substrate binary in cargo bin..."
-          find ~/.cargo/bin -name "*substrate*" -o -name "*node*" | head -5
-          
-          # Try to use any substrate-like binary we find
-          SUBSTRATE_BIN=$(find ~/.cargo/bin -name "*substrate*" -o -name "*node*" | grep -v "substrate-mcp" | head -1)
-          if [ -n "$SUBSTRATE_BIN" ]; then
-            echo "Found substrate binary at: $SUBSTRATE_BIN"
-            sudo ln -s "$SUBSTRATE_BIN" /usr/local/bin/substrate-node
-          else
-            echo "❌ Could not find or install substrate-node"
-            exit 1
-          fi
-        fi
+        echo "❌ Failed to download substrate-node from subxt artifacts"
+        echo "No fallback installation available - failing the action"
+        exit 1
         
     - name: Prepare binary
       shell: bash
