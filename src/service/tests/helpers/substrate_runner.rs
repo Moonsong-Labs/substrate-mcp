@@ -32,11 +32,6 @@ impl SubstrateRunner {
     pub(crate) fn ws_url(&self) -> String {
         format!("ws://127.0.0.1:{}", self.ws_port)
     }
-
-    /// Kill the node process
-    pub(crate) fn kill(&mut self) -> io::Result<()> {
-        self.proc.kill()
-    }
 }
 
 impl Drop for SubstrateRunner {
