@@ -103,26 +103,10 @@ The Substrate MCP server provides several specialized prompts for Substrate deve
 **Arguments**:
 - `change_description` (required): Description of the changes made to the code that trigger this analysis (PR description, new release, etc)
 
-#### code_security_audit
-**Description**: Audit specific component for common code-related vulnerabilities  
-**Arguments**:
-- `audit_target` (required): Describe the target of the audit
-
 #### economic_security
 **Description**: Do an economic security analysis on a specific subsystem  
 **Arguments**:
 - `system_description` (required): Description of the system to make the analysis for (all pallets, a specific group/flow, etc)
-
-#### incentive_analysis
-**Description**: Analyze economic viability of incentives  
-**Arguments**:
-- `target_pallets` (required): List of pallets that make the scope of the analysis
-- `analysis_specifications` (required): Specify incentive mechanism to analyze
-
-#### threat_modeling
-**Description**: Do threat modeling of a specific part of the system  
-**Arguments**:
-- `system_description` (required): Description of the system to make the analysis for (all pallets, a specific group/flow, node, etc)
 
 #### weight_analysis
 **Description**: Weight-based system breakdown analysis under extreme conditions  
