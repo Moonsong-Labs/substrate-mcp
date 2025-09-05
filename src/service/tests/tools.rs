@@ -1,7 +1,8 @@
 use super::helpers::mcp_client::TestMcpClient;
+use super::helpers::substrate_runner::SubstrateRunner;
+use crate::service::tools::substrate::events::EventsResult;
 use crate::service::tools::substrate::metadata::MetadataItem;
 use crate::service::tools::substrate::storage::StorageResult;
-use crate::service::tools::substrate::events::EventsResult;
 use rmcp::model::{RawContent, RawTextContent};
 use serde_json::json;
 
@@ -145,103 +146,127 @@ async fn test_tool_query_storage() {
 }
 
 #[tokio::test]
-async fn test_tool_query_events() {
+async fn test_submit_dev_extrinsic_and_related_queries() {
+    // Spawn a local substrate node
+    let _runner = SubstrateRunner::spawn().expect("Failed to spawn a substrate node");
+
+    // Get the WebSocket URL
+    let ws_url = _runner.ws_url();
+
+    // Wait for node to fully initialize
+    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
+    // Create MCP client
     let client = TestMcpClient::new()
         .await
         .expect("Failed to create MCP client");
 
-    // Query System::ExtrinsicSuccess events from last 2 blocks - these occur in every block
-    let args = json!({
-        "rpc_url": "wss://rpc.polkadot.io",
-        "from_block": -2,
-        "to_block": -1,
-        "pallet": "System",
-        "event": "ExtrinsicSuccess"
+    let submit_args = json!({
+        "rpc_url": ws_url,
+        "pallet": "Balances",
+        "call": "transfer_allow_death",
+        "args": r#"{
+            dest: Id((144, 181, 171, 32, 92, 105, 116, 201, 234, 132, 27, 230, 136, 134, 70, 51, 220, 156, 168, 163, 87, 132, 62, 234, 207, 35, 20, 100, 153, 101, 254, 34)),
+            value: 1000000000000
+        }"#,
+        "signer": "alice"
     });
 
-    let response = client.call_tool("query_events", args).await.unwrap();
+    let submit_response = client
+        .call_tool("submit_dev_extrinsic", submit_args)
+        .await
+        .expect("Failed to submit extrinsic");
 
-    let content = &response.content[0];
-    let text = match &content.raw {
+    let submit_content = &submit_response.content[0];
+    let submit_text = match &submit_content.raw {
         RawContent::Text(RawTextContent { text }) => text,
-        _ => panic!("Expected text content"),
+        _ => panic!("Expected text content from submit_dev_extrinsic"),
     };
 
-    // Deserialize the JSON response into EventsResult
-    let events_result: EventsResult = serde_json::from_str(text)
-        .expect("Should be able to deserialize response as EventsResult");
-
-    // Validate basic structure
-    assert_eq!(events_result.blocks_queried, 2, "Should query exactly 2 blocks");
     assert!(
-        !events_result.events.is_empty(),
-        "Should return at least one ExtrinsicSuccess event"
+        submit_text.contains("block_hash")
+            || submit_text.contains("success")
+            || submit_text.contains("0x"),
+        "Extrinsic submission should indicate success: {submit_text}",
     );
 
-    // ExtrinsicSuccess events should occur in every block, so we expect multiple events
+    let events_args = json!({
+        "rpc_url": ws_url,
+        "from_block": -10,
+        "to_block": 0,
+        "pallet": "Balances",
+        "event": "Transfer"
+    });
+
+    let events_response = client
+        .call_tool("query_events", events_args)
+        .await
+        .expect("Failed to query events");
+
+    let events_content = &events_response.content[0];
+    let events_text = match &events_content.raw {
+        RawContent::Text(RawTextContent { text }) => text,
+        _ => panic!("Expected text content from query_events"),
+    };
+
+    let events_result: EventsResult =
+        serde_json::from_str(events_text).expect("Should be able to deserialize events response");
+
+    // Verify the event data structure
+    let transfer_event = &events_result.events[0];
+    assert_eq!(transfer_event.pallet, "Balances");
+    assert_eq!(transfer_event.event, "Transfer");
     assert!(
-        events_result.events.len() >= 2,
-        "Should have at least 2 ExtrinsicSuccess events across 2 blocks: found {}",
-        events_result.events.len()
+        transfer_event.block_number > 0,
+        "Event should have block number"
+    );
+    assert!(
+        transfer_event.data.contains("from")
+            || transfer_event.data.contains("to")
+            || transfer_event.data.contains("amount"),
+        "Transfer event should contain transfer data: {}",
+        transfer_event.data
     );
 
-    let mut block_numbers = std::collections::HashSet::new();
+    let storage_args = json!({
+        "rpc_url": ws_url,
+        "from_block": 0, // Current block
+        "pallet": "System",
+        "entry": "Account",
+        "keys": ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"] // Alice's address
+    });
 
-    // Validate each event
-    for event in &events_result.events {
-        // Validate event structure
-        assert_eq!(event.pallet, "System");
-        assert_eq!(event.event, "ExtrinsicSuccess");
-        assert!(event.block_number > 0, "Block number should be positive");
-        assert!(!event.block_hash.is_empty(), "Block hash should not be empty");
-        assert!(
-            event.block_hash.starts_with("0x"),
-            "Block hash should start with 0x: {}",
-            event.block_hash
-        );
-        assert!(
-            event.block_hash.len() == 66,
-            "Block hash should be 66 characters (0x + 64 hex): {}",
-            event.block_hash
-        );
+    let storage_response = client
+        .call_tool("query_storage", storage_args)
+        .await
+        .expect("Failed to query storage");
 
-        // Validate event data structure
-        assert!(!event.data.is_empty(), "Event data should not be empty");
-        
-        // Parse the event data to validate structure
-        let data_json: serde_json::Value = serde_json::from_str(&event.data)
-            .expect("Event data should be valid JSON");
-        
-        assert!(data_json.is_object(), "Event data should be an object");
-        
-        // ExtrinsicSuccess should have dispatch_info field
-        if let Some(fields) = data_json.get("fields") {
-            assert!(
-                fields.get("dispatch_info").is_some(),
-                "ExtrinsicSuccess should have dispatch_info: {}",
-                event.data
-            );
-        }
+    let storage_content = &storage_response.content[0];
+    let storage_text = match &storage_content.raw {
+        RawContent::Text(RawTextContent { text }) => text,
+        _ => panic!("Expected text content from query_storage"),
+    };
 
-        block_numbers.insert(event.block_number);
-    }
+    let storage_result: StorageResult =
+        serde_json::from_str(storage_text).expect("Should be able to deserialize storage response");
+    assert_eq!(storage_result.blocks_queried, 1);
+    assert_eq!(storage_result.storage.len(), 1);
 
-    // Should have events from 2 different blocks
+    let account_storage = &storage_result.storage[0];
+    assert_eq!(account_storage.pallet, "System");
+    assert_eq!(account_storage.entry, "Account");
     assert!(
-        block_numbers.len() >= 1,
-        "Should have events from at least 1 block"
+        account_storage.at_block.is_some(),
+        "Storage should have block number"
     );
-    
-    // Verify block numbers are sequential (recent blocks)
-    let sorted_blocks: Vec<u32> = block_numbers.iter().cloned().collect();
-    if sorted_blocks.len() >= 2 {
-        let max_block = *sorted_blocks.iter().max().unwrap();
-        let min_block = *sorted_blocks.iter().min().unwrap();
-        assert!(
-            max_block - min_block <= 10,
-            "Block numbers should be close together (recent blocks): min={}, max={}",
-            min_block,
-            max_block
-        );
-    }
+    let account_value = account_storage.value.as_object().unwrap();
+    assert!(
+        account_value.contains_key("decoded"),
+        "Account storage should have decoded field"
+    );
+    let decoded_account = account_value.get("decoded").unwrap().as_str().unwrap();
+    assert!(
+        decoded_account.contains("free") || decoded_account.contains("data"),
+        "Account storage should contain balance information: {decoded_account}"
+    );
 }

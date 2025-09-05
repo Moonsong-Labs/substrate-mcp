@@ -281,7 +281,7 @@ pub(crate) async fn handle_query_events(
     // Query historical events
     let result = query_events(query, &client, &properties.rpc_url)
         .await
-        .map_err(|e| mcp_error_internal(format!("Failed to query historical events: {e}")))?;
+        .map_err(|e| mcp_error_internal(format!("Failed to query events: {e}")))?;
 
     // Convert to JSON
     let json_result = serde_json::to_string_pretty(&result)

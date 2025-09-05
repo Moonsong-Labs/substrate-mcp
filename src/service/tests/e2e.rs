@@ -127,8 +127,4 @@ async fn test_spawn_substrate_node_and_submit_extrinsic() {
             }
         }
     }
-
-    // Clean shutdown
-    runner.kill().expect("Failed to kill substrate node");
 }
-

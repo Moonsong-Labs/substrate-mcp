@@ -53,4 +53,3 @@ impl TestMcpClient {
         Ok(self.client.call_tool(request).await?)
     }
 }
-
