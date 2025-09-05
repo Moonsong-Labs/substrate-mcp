@@ -1,6 +1,7 @@
 use super::helpers::mcp_client::TestMcpClient;
 use super::helpers::substrate_runner::SubstrateRunner;
 use crate::service::tools::substrate::events::EventsResult;
+use crate::service::tools::substrate::extrinsic::ExtrinsicsResult;
 use crate::service::tools::substrate::metadata::MetadataItem;
 use crate::service::tools::substrate::storage::StorageResult;
 use rmcp::model::{RawContent, RawTextContent};
@@ -212,7 +213,6 @@ async fn test_submit_dev_extrinsic_and_related_queries() {
     let events_result: EventsResult =
         serde_json::from_str(events_text).expect("Should be able to deserialize events response");
 
-    // Verify the event data structure
     let transfer_event = &events_result.events[0];
     assert_eq!(transfer_event.pallet, "Balances");
     assert_eq!(transfer_event.event, "Transfer");
@@ -228,45 +228,48 @@ async fn test_submit_dev_extrinsic_and_related_queries() {
         transfer_event.data
     );
 
-    let storage_args = json!({
+    let extrinsics_args = json!({
         "rpc_url": ws_url,
-        "from_block": 0, // Current block
-        "pallet": "System",
-        "entry": "Account",
-        "keys": ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"] // Alice's address
+        "from_block": -10,
+        "to_block": 0,
+        "pallet": "Balances",
+        "call": "transfer_allow_death"
     });
 
-    let storage_response = client
-        .call_tool("query_storage", storage_args)
+    let extrinsics_response = client
+        .call_tool("query_extrinsics", extrinsics_args)
         .await
-        .expect("Failed to query storage");
+        .expect("Failed to query extrinsics");
 
-    let storage_content = &storage_response.content[0];
-    let storage_text = match &storage_content.raw {
+    let extrinsics_content = &extrinsics_response.content[0];
+    let extrinsics_text = match &extrinsics_content.raw {
         RawContent::Text(RawTextContent { text }) => text,
-        _ => panic!("Expected text content from query_storage"),
+        _ => panic!("Expected text content from query_extrinsics"),
     };
 
-    let storage_result: StorageResult =
-        serde_json::from_str(storage_text).expect("Should be able to deserialize storage response");
-    assert_eq!(storage_result.blocks_queried, 1);
-    assert_eq!(storage_result.storage.len(), 1);
+    // Parse and verify extrinsics response
+    let extrinsics_result: ExtrinsicsResult = serde_json::from_str(extrinsics_text)
+        .expect("Should be able to deserialize extrinsics response");
 
-    let account_storage = &storage_result.storage[0];
-    assert_eq!(account_storage.pallet, "System");
-    assert_eq!(account_storage.entry, "Account");
+    let first_extrinsic = &extrinsics_result.extrinsics[0];
+    assert_eq!(first_extrinsic.pallet, "Balances");
+    assert_eq!(first_extrinsic.call, "transfer_allow_death");
     assert!(
-        account_storage.at_block.is_some(),
-        "Storage should have block number"
+        first_extrinsic.block_number > 0,
+        "Extrinsic should have block number"
     );
-    let account_value = account_storage.value.as_object().unwrap();
     assert!(
-        account_value.contains_key("decoded"),
-        "Account storage should have decoded field"
+        first_extrinsic.signer.is_some(),
+        "Extrinsic should have signer information"
     );
-    let decoded_account = account_value.get("decoded").unwrap().as_str().unwrap();
     assert!(
-        decoded_account.contains("free") || decoded_account.contains("data"),
-        "Account storage should contain balance information: {decoded_account}"
+        !first_extrinsic.args.is_empty(),
+        "Extrinsic should have arguments"
+    );
+
+    println!(
+        "Found {} extrinsics across {} blocks",
+        extrinsics_result.extrinsics.len(),
+        extrinsics_result.blocks_queried
     );
 }
