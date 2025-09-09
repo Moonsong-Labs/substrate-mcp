@@ -3,18 +3,19 @@
 //! tools, and references for Substrate blockchain development.
 
 use indoc::indoc;
-use rmcp::model::{Annotations, RawResource, Resource};
+use rmcp::model::{Annotations, RawResource, Resource, Role};
 
-struct SubstrateResource {
+struct MarkdownResource {
     uri: String,
     name: String,
     description: String,
     content: String,
     priority: f32,
+    audience: Option<Vec<Role>>,
 }
 
-impl From<SubstrateResource> for Resource {
-    fn from(val: SubstrateResource) -> Self {
+impl From<MarkdownResource> for Resource {
+    fn from(val: MarkdownResource) -> Self {
         Resource::new(
             RawResource {
                 uri: val.uri,
@@ -24,7 +25,7 @@ impl From<SubstrateResource> for Resource {
                 size: Some(val.content.len() as u32),
             },
             Some(Annotations {
-                audience: None,
+                audience: val.audience,
                 priority: Some(val.priority),
                 timestamp: None,
             }),
@@ -32,37 +33,12 @@ impl From<SubstrateResource> for Resource {
     }
 }
 
-fn resources() -> Vec<SubstrateResource> {
+fn markdown_resources() -> Vec<MarkdownResource> {
     vec![
-        SubstrateResource {
-            uri: "substrate:polkadot-context-links".to_string(),
-            name: "Polkadot Context Links".to_string(),
-            description: "Links to important Polkadot and Substrate context.".to_string(),
-            content: indoc! {r#"
-            # Polkadot Documentation
-            ## Description
-            Index with LLM friendly Polkadot documentation. Use this to get proper context on how Polkadot works or how to perform a specific within Polkadot or Substrate based chains (e.g: create a pallet, add benchmarks or work with XCM).
-            ## Link
-            https://docs.polkadot.com/llms.txt
-
-            # Github Repository
-            ## Description
-            Polkadot SDK GitHub repository
-            ## Link
-            https://github.com/paritytech/polkadot-sdk
-            
-            # Rust crate Documentation
-            ## Description
-            `polkadot-sdk` crate documentation.
-            ## Link
-            https://docs.rs/crate/polkadot-sdk/latest
-            "#}.to_string(),
-            priority: 0.95,
-        },
-        SubstrateResource {
-            uri: "substrate:scale-value-format".to_string(),
+        MarkdownResource {
+            uri: "file:///scale-value-format.md".to_string(),
             name: "scale_value String Format Guide".to_string(),
-            description: "Guide for using scale_value string format when submitting extrinsics to Substrate chains".to_string(),
+            description: "Guide for using scale_value string format when submitting extrinsics to Substrate chains. Must read when calling substrate-mcp tools that require string representation of scale values".to_string(),
             content: indoc! {r#"
             # scale_value String Format Guide
 
@@ -223,18 +199,66 @@ fn resources() -> Vec<SubstrateResource> {
             7. The v-prefix syntax is an alternative way to write variants - it always requires parentheses after the variant name
             "#}.to_string(),
             priority: 0.95,
-        },
+            audience: Some(vec![Role::Assistant]),
+        }
+    ]
+}
+
+fn https_resources() -> Vec<Resource> {
+    vec![
+        Resource::new(
+            RawResource {
+                uri: "https://docs.polkadot.com/llms.txt".to_string(),
+                name: "Polkadot Documentation".to_string(),
+                description: Some("Index with LLM friendly Polkadot documentation. Use this to get proper context on how Polkadot works or how to perform a specific within Polkadot or Substrate based chains (e.g: create a pallet, add benchmarks or work with XCM)".into()),
+                mime_type: None,
+                size: None,
+            },
+            Some(Annotations {
+                audience: Some(vec![Role::Assistant]),
+                priority: Some(0.95),
+                timestamp: None,
+            })
+        ),
+        Resource::new(
+            RawResource {
+                uri: "https://github.com/paritytech/polkadot-sdk".to_string(),
+                name: "Polkadot GitHub Repository".to_string(),
+                description: Some("Polkadot SDK GitHub Repository.".into()),
+                mime_type: None,
+                size: None,
+            },
+            Some(Annotations {
+                audience: Some(vec![Role::Assistant, Role::User]),
+                priority: Some(0.95),
+                timestamp: None,
+            })
+        ),
+        Resource::new(
+            RawResource {
+                uri: "https://docs.rs/crate/polkadot-sdk/latest".to_string(),
+                name: "Rust crate Documentation".to_string(),
+                description: Some("`polkadot-sdk` crate documentation".into()),
+                mime_type: None,
+                size: None,
+            },
+            Some(Annotations {
+                audience: Some(vec![Role::Assistant, Role::User]),
+                priority: Some(0.95),
+                timestamp: None,
+            })
+        ),
     ]
 }
 
 /// Get all available resources
 pub(crate) fn get_all_resources() -> Vec<Resource> {
-    resources().into_iter().map(|r| r.into()).collect()
+    markdown_resources().into_iter().map(|r| r.into()).collect()
 }
 
 /// Get resource content by URI
 pub(crate) fn get_resource_content(uri: &str) -> Option<String> {
-    resources()
+    markdown_resources()
         .into_iter()
         .find(|r| r.uri == uri)
         .map(|r| r.content)
