@@ -27,7 +27,7 @@ impl From<MarkdownResource> for Resource {
             Some(Annotations {
                 audience: val.audience,
                 priority: Some(val.priority),
-                timestamp: None,
+                last_modified: None,
             }),
         )
     }
@@ -217,7 +217,7 @@ fn https_resources() -> Vec<Resource> {
             Some(Annotations {
                 audience: Some(vec![Role::Assistant]),
                 priority: Some(0.95),
-                timestamp: None,
+                last_modified: None,
             })
         ),
         Resource::new(
@@ -231,7 +231,7 @@ fn https_resources() -> Vec<Resource> {
             Some(Annotations {
                 audience: Some(vec![Role::Assistant, Role::User]),
                 priority: Some(0.95),
-                timestamp: None,
+                last_modified: None,
             })
         ),
         Resource::new(
@@ -245,7 +245,7 @@ fn https_resources() -> Vec<Resource> {
             Some(Annotations {
                 audience: Some(vec![Role::Assistant, Role::User]),
                 priority: Some(0.95),
-                timestamp: None,
+                last_modified: None,
             })
         ),
     ]
@@ -253,7 +253,9 @@ fn https_resources() -> Vec<Resource> {
 
 /// Get all available resources
 pub(crate) fn get_all_resources() -> Vec<Resource> {
-    markdown_resources().into_iter().map(|r| r.into()).collect()
+    let mut resources: Vec<Resource> = markdown_resources().into_iter().map(|r| r.into()).collect();
+    resources.extend(https_resources());
+    resources
 }
 
 /// Get resource content by URI
