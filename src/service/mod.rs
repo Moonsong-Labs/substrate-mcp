@@ -24,6 +24,9 @@ use crate::service::prompts::{
     incentive_analysis, release_comparison, scaffold_pallet, threat_modeling, weight_analysis,
 };
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Clone)]
 pub(crate) struct SubstrateService {
     tool_router: ToolRouter<Self>,

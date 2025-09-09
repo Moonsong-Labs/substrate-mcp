@@ -7,7 +7,7 @@ An MCP (Model Context Protocol) server that provides tools for working with Subs
 
 ### Option 1: Install from GitHub
 ```bash
-cargo install --git https://github.com/Moonsong-Labs/substrate-mcp
+cargo install --locked --git https://github.com/Moonsong-Labs/substrate-mcp
 ```
 
 ### Option 2: Build locally (Requires cargo)
