@@ -43,6 +43,7 @@ pub(crate) async fn handle_fetch_and_analyze_release(
         annotations: None,
         raw: RawContent::Text(RawTextContent {
             text: response_text,
+            meta: None,
         }),
     }]);
     Ok(result)
@@ -140,7 +141,10 @@ pub(crate) async fn handle_submit_dev_extrinsic(
 
     let result = CallToolResult::success(vec![Content {
         annotations: None,
-        raw: RawContent::Text(RawTextContent { text: result_text }),
+        raw: RawContent::Text(RawTextContent {
+            text: result_text,
+            meta: None,
+        }),
     }]);
     Ok(result)
 }
@@ -194,7 +198,10 @@ pub(crate) async fn handle_subxt_execute(
 
     let result = CallToolResult::success(vec![Content {
         annotations: None,
-        raw: RawContent::Text(RawTextContent { text: result }),
+        raw: RawContent::Text(RawTextContent {
+            text: result,
+            meta: None,
+        }),
     }]);
     Ok(result)
 }
@@ -243,7 +250,10 @@ pub(crate) async fn handle_filter_metadata(
 
     let result = CallToolResult::success(vec![Content {
         annotations: None,
-        raw: RawContent::Text(RawTextContent { text: json_result }),
+        raw: RawContent::Text(RawTextContent {
+            text: json_result,
+            meta: None,
+        }),
     }]);
     Ok(result)
 }
@@ -289,7 +299,10 @@ pub(crate) async fn handle_query_events(
 
     let result = CallToolResult::success(vec![Content {
         annotations: None,
-        raw: RawContent::Text(RawTextContent { text: json_result }),
+        raw: RawContent::Text(RawTextContent {
+            text: json_result,
+            meta: None,
+        }),
     }]);
     Ok(result)
 }
@@ -338,7 +351,10 @@ pub(crate) async fn handle_query_storage(
 
     let result = CallToolResult::success(vec![Content {
         annotations: None,
-        raw: RawContent::Text(RawTextContent { text: json_result }),
+        raw: RawContent::Text(RawTextContent {
+            text: json_result,
+            meta: None,
+        }),
     }]);
     Ok(result)
 }
@@ -370,7 +386,10 @@ pub(crate) async fn handle_list_pallet_storage(
 
     let result = CallToolResult::success(vec![Content {
         annotations: None,
-        raw: RawContent::Text(RawTextContent { text: json_result }),
+        raw: RawContent::Text(RawTextContent {
+            text: json_result,
+            meta: None,
+        }),
     }]);
     Ok(result)
 }
@@ -424,7 +443,10 @@ pub(crate) async fn handle_query_extrinsics(
 
     let result = CallToolResult::success(vec![Content {
         annotations: None,
-        raw: RawContent::Text(RawTextContent { text: json_result }),
+        raw: RawContent::Text(RawTextContent {
+            text: json_result,
+            meta: None,
+        }),
     }]);
     Ok(result)
 }
