@@ -32,7 +32,7 @@ pub(crate) async fn get_block_range(
 
         // Calculate actual block range
         from = if from_block < 0 {
-            (current_block as i32 + from_block) as u32
+            (current_block as i32 + from_block).max(0) as u32
         } else {
             current_block
         };
@@ -53,6 +53,12 @@ pub(crate) async fn get_block_range(
             Some(b) => b as u32,
             None => from,
         };
+    }
+
+    if to < from {
+        return Err(anyhow!(
+            "Invalid range to_block({to}) should be smaller than from_block({from})",
+        ));
     }
 
     if to - from > 100 {
