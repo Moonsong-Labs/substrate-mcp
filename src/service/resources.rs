@@ -26,7 +26,7 @@ impl From<SubstrateResource> for Resource {
             Some(Annotations {
                 audience: None,
                 priority: Some(val.priority),
-                timestamp: None,
+                last_modified: None,
             }),
         )
     }
