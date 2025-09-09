@@ -230,7 +230,7 @@ fn https_resources() -> Vec<Resource> {
             },
             Some(Annotations {
                 audience: Some(vec![Role::Assistant, Role::User]),
-                priority: Some(0.95),
+                priority: Some(0.90),
                 last_modified: None,
             })
         ),
@@ -244,7 +244,7 @@ fn https_resources() -> Vec<Resource> {
             },
             Some(Annotations {
                 audience: Some(vec![Role::Assistant, Role::User]),
-                priority: Some(0.95),
+                priority: Some(0.90),
                 last_modified: None,
             })
         ),
@@ -259,9 +259,26 @@ pub(crate) fn get_all_resources() -> Vec<Resource> {
 }
 
 /// Get resource content by URI
-pub(crate) fn get_resource_content(uri: &str) -> Option<String> {
-    markdown_resources()
+pub(crate) async fn get_resource_content(uri: &str) -> Option<String> {
+    // First check if it's a markdown resource
+    if let Some(content) = markdown_resources()
         .into_iter()
         .find(|r| r.uri == uri)
         .map(|r| r.content)
+    {
+        return Some(content);
+    }
+
+    // NOTE: if the resource is exposed via https protocol, the client
+    // should in theory fetch it on its own. However this is not the case
+    // many times in practice so we fall back to fetching it and forwarding
+    // the content
+    if uri.starts_with("https://") {
+        match reqwest::get(uri).await {
+            Ok(response) => response.text().await.ok(),
+            Err(_) => None,
+        }
+    } else {
+        None
+    }
 }

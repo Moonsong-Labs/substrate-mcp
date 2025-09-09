@@ -293,7 +293,7 @@ impl ServerHandler for SubstrateService {
         request: ReadResourceRequestParam,
         _context: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResult, McpError> {
-        match resources::get_resource_content(&request.uri) {
+        match resources::get_resource_content(&request.uri).await {
             Some(content) => Ok(ReadResourceResult {
                 contents: vec![ResourceContents::text(content, request.uri.clone())],
             }),
