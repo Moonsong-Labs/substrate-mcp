@@ -198,7 +198,7 @@ fn markdown_resources() -> Vec<MarkdownResource> {
             6. When in doubt, use the standard syntax (without v-prefix) as it works for all variants
             7. The v-prefix syntax is an alternative way to write variants - it always requires parentheses after the variant name
             "#}.to_string(),
-            priority: 0.95,
+            priority: 1.00,
             audience: Some(vec![Role::Assistant]),
         }
     ]
@@ -216,7 +216,7 @@ fn https_resources() -> Vec<Resource> {
             },
             Some(Annotations {
                 audience: Some(vec![Role::Assistant]),
-                priority: Some(0.95),
+                priority: Some(1.00),
                 last_modified: None,
             })
         ),
