@@ -128,8 +128,6 @@ impl SubstrateService {
         catch_panic_as_mcp_error(tools::handle_query_extrinsics(properties)).await
     }
 
-    // Prompt implementations
-    /// Compare changes between two Polkadot SDK versions
     #[prompt(
         name = "release_comparison",
         description = "List changes between two polkadot-sdk release versions"
@@ -141,7 +139,6 @@ impl SubstrateService {
         prompts::release_comparison::generate_prompt(args).await
     }
 
-    /// Analyze how a Polkadot SDK release impacts your project
     #[prompt(
         name = "analyze_release",
         description = "Analyze how specific release(s) impact your current project"
@@ -153,10 +150,9 @@ impl SubstrateService {
         prompts::analyze_release::generate_prompt(args).await
     }
 
-    /// Generate pallet structure and implementation templates
     #[prompt(
         name = "scaffold_pallet",
-        description = "Generate pallet structure and implementation templates"
+        description = "Generate a pallet from given specifications"
     )]
     async fn scaffold_pallet(
         &self,
@@ -165,9 +161,8 @@ impl SubstrateService {
         prompts::scaffold_pallet::generate_prompt(args).await
     }
 
-    /// Security review for Substrate components
     #[prompt(
-        name = "security_review", 
+        name = "security_review",
         description = "Security review covering code security, economic threats, and performance analysis"
     )]
     async fn security_review(
@@ -177,7 +172,6 @@ impl SubstrateService {
         prompts::security_review::generate_prompt(args).await
     }
 
-    /// Beginner "get started" onboarding
     #[prompt(
         name = "get_started",
         description = "Get started on polkadot and substrate systems"
