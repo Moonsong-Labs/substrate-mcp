@@ -7,6 +7,7 @@
 pub(crate) mod analyze_release;
 pub(crate) mod common;
 pub(crate) mod get_started;
+pub(crate) mod polkadot_upgrade;
 pub(crate) mod release_comparison;
 pub(crate) mod scaffold_pallet;
 pub(crate) mod security_review;

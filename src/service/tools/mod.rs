@@ -13,8 +13,10 @@ use tokio::process::Command;
 use super::utils::{mcp_error_internal, mcp_error_invalid_params};
 
 pub(crate) mod polkadot_sdk_releases;
+pub(crate) mod runtime_discovery;
 pub(crate) mod substrate;
 
+pub(crate) use runtime_discovery::{FindRuntimePalletsProperties, handle_find_runtime_pallets};
 use substrate::{
     events::{EventsQuery, query_events},
     extrinsic::{ExtrinsicsQuery, query_extrinsics},
@@ -31,7 +33,7 @@ pub(crate) struct FetchAndAnalyzeReleaseProperties {
 pub(crate) async fn handle_fetch_and_analyze_release(
     properties: FetchAndAnalyzeReleaseProperties,
 ) -> Result<CallToolResult, McpError> {
-    let response = polkadot_sdk_releases::fetch_and_analyze_release(&properties.release)
+    let response = polkadot_sdk_releases::fetch_and_analyze_release_enhanced(&properties.release)
         .await
         .map_err(|e| mcp_error_internal(format!("Failed to fetch and analyze release: {e}")))?;
 
@@ -44,6 +46,23 @@ pub(crate) async fn handle_fetch_and_analyze_release(
         raw: RawContent::Text(RawTextContent {
             text: response_text,
             meta: None,
+        }),
+    }]);
+    Ok(result)
+}
+
+pub(crate) async fn handle_list_polkadot_releases() -> Result<CallToolResult, McpError> {
+    let available_releases = polkadot_sdk_releases::list_available_releases()
+        .await
+        .map_err(|e| mcp_error_internal(format!("Failed to list available releases: {e}")))?;
+
+    let response_text = serde_json::to_string_pretty(&available_releases)
+        .map_err(|e| mcp_error_internal(format!("Failed to serialize response: {e}")))?;
+
+    let result = CallToolResult::success(vec![Content {
+        annotations: None,
+        raw: RawContent::Text(RawTextContent {
+            text: response_text,
         }),
     }]);
     Ok(result)
