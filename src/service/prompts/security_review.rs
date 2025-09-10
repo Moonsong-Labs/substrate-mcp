@@ -113,4 +113,3 @@ List all identified security issues with:
 Focus on concrete, actionable findings with code examples and specific remediation steps.
 
 {{security_disclaimer}}"#;
-
