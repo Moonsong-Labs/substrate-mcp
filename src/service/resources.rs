@@ -273,7 +273,7 @@ pub(crate) async fn get_resource_content(uri: &str) -> Option<String> {
     // should in theory fetch it on its own. However this is not the case
     // many times in practice so we fall back to fetching it and forwarding
     // the content
-    if uri.starts_with("https://") {
+    if https_resources().iter().any(|r| r.uri == uri) {
         match reqwest::get(uri).await {
             Ok(response) => response.text().await.ok(),
             Err(_) => None,
