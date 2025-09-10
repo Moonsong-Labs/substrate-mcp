@@ -212,7 +212,7 @@ fn https_resources() -> Vec<Resource> {
             RawResource {
                 uri: "https://docs.polkadot.com/llms.txt".to_string(),
                 name: "Polkadot Documentation".to_string(),
-                description: Some("Index with LLM friendly Polkadot documentation. Use this to get proper context on how Polkadot works or how to perform a specific within Polkadot or Substrate based chains (e.g: create a pallet, add benchmarks or work with XCM)".into()),
+                description: Some("Index with LLM friendly Polkadot documentation. Use this to get proper context on how Polkadot works or how to perform a specific task within Polkadot or Substrate based chains (e.g: create a pallet, add benchmarks or work with XCM)".into()),
                 mime_type: None,
                 size: None,
             },
