@@ -1,83 +1,24 @@
 name: 'Use substrate-node binary'
-description: 'Downloads and configures the substrate and polkadot binaries built by subxt/build-nodes'
+description: 'Uses the pre-built substrate-node binary from polkadot-sdk staging-node-cli'
 runs:
   using: 'composite'
   steps:
-    - name: Install dependencies
+    - name: Check for local substrate-node binary
       shell: bash
       run: |
-        sudo apt-get update
-        sudo apt-get install -y curl jq unzip
-        
-    - name: Download substrate binary from subxt artifacts
-      shell: bash
-      run: |
-        echo "Downloading substrate-node binary from subxt repository artifacts..."
-        
-        # Try to get latest successful workflow run with authentication
-        if [ -n "${{ github.token }}" ]; then
-          echo "Using GitHub token for authenticated requests..."
-          
-          # Get the latest successful workflow run
-          LATEST_RUN_ID=$(curl -s \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token ${{ github.token }}" \
-            "https://api.github.com/repos/paritytech/subxt/actions/workflows/build-nodes.yml/runs?status=success&per_page=1" \
-            | jq -r '.workflow_runs[0].id')
-          
-          echo "Latest successful run ID: $LATEST_RUN_ID"
-          
-          if [ "$LATEST_RUN_ID" != "null" ] && [ -n "$LATEST_RUN_ID" ]; then
-            # Get substrate binary artifact download URL
-            SUBSTRATE_ARTIFACT_URL=$(curl -s \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Authorization: token ${{ github.token }}" \
-              "https://api.github.com/repos/paritytech/subxt/actions/runs/$LATEST_RUN_ID/artifacts" \
-              | jq -r '.artifacts[] | select(.name == "nightly-substrate-binary") | .archive_download_url')
-            
-            echo "Substrate artifact URL: $SUBSTRATE_ARTIFACT_URL"
-            
-            if [ "$SUBSTRATE_ARTIFACT_URL" != "null" ] && [ -n "$SUBSTRATE_ARTIFACT_URL" ]; then
-              # Download and extract substrate binary
-              curl -L \
-                -H "Authorization: token ${{ github.token }}" \
-                -o substrate-binary.zip \
-                "$SUBSTRATE_ARTIFACT_URL"
-              
-              unzip substrate-binary.zip
-              
-              if [ -f "substrate-node" ]; then
-                echo "✅ Successfully downloaded substrate-node from subxt artifacts"
-                exit 0
-              fi
-            fi
-          fi
-        fi
-        
-        echo "❌ Failed to download substrate-node from subxt artifacts"
-        echo "No fallback installation available - failing the action"
-        exit 1
-        
-    - name: Prepare binary
-      shell: bash
-      run: |
-        # Find substrate-node binary (could be in current dir or PATH)
-        if [ -f "substrate-node" ]; then
-          SUBSTRATE_PATH="./substrate-node"
-        elif command -v substrate-node >/dev/null 2>&1; then
-          SUBSTRATE_PATH="substrate-node"
+        if [ -f ".github/bin/substrate-node" ]; then
+          echo "✅ Found local substrate-node binary"
+          chmod +x .github/bin/substrate-node
+          sudo cp .github/bin/substrate-node /usr/local/bin/substrate-node
         else
-          echo "❌ substrate-node not found"
+          echo "❌ Local substrate-node binary not found at .github/bin/substrate-node"
+          echo "Please ensure the binary is built and committed to the repository"
           exit 1
         fi
         
-        # Make executable if it's a local file
-        if [ -f "substrate-node" ]; then
-          chmod +x substrate-node
-          sudo mv substrate-node /usr/local/bin/
-        fi
-        
-        # Verify substrate-node is available
+    - name: Verify binary
+      shell: bash
+      run: |
         echo "Substrate node version:"
         substrate-node --version
         

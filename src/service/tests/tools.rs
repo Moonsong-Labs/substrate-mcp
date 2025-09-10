@@ -23,7 +23,7 @@ async fn test_tool_filter_metadata() {
 
     let content = &response.content[0];
     let text = match &content.raw {
-        RawContent::Text(RawTextContent { text }) => text,
+        RawContent::Text(RawTextContent { text, .. }) => text,
         _ => panic!("Expected text content"),
     };
     let metadata_items: Vec<MetadataItem> = serde_json::from_str(text)
@@ -67,7 +67,7 @@ async fn test_tool_list_pallet_storage() {
 
     let content = &response.content[0];
     let text = match &content.raw {
-        RawContent::Text(RawTextContent { text }) => text,
+        RawContent::Text(RawTextContent { text, .. }) => text,
         _ => panic!("Expected text content"),
     };
 
@@ -107,7 +107,7 @@ async fn test_tool_query_storage() {
 
     let content = &response.content[0];
     let text = match &content.raw {
-        RawContent::Text(RawTextContent { text }) => text,
+        RawContent::Text(RawTextContent { text, .. }) => text,
         _ => panic!("Expected text content"),
     };
 
@@ -180,7 +180,7 @@ async fn test_submit_dev_extrinsic_and_related_queries() {
 
     let submit_content = &submit_response.content[0];
     let submit_text = match &submit_content.raw {
-        RawContent::Text(RawTextContent { text }) => text,
+        RawContent::Text(RawTextContent { text, .. }) => text,
         _ => panic!("Expected text content from submit_dev_extrinsic"),
     };
 
@@ -206,7 +206,7 @@ async fn test_submit_dev_extrinsic_and_related_queries() {
 
     let events_content = &events_response.content[0];
     let events_text = match &events_content.raw {
-        RawContent::Text(RawTextContent { text }) => text,
+        RawContent::Text(RawTextContent { text, .. }) => text,
         _ => panic!("Expected text content from query_events"),
     };
 
@@ -243,7 +243,7 @@ async fn test_submit_dev_extrinsic_and_related_queries() {
 
     let extrinsics_content = &extrinsics_response.content[0];
     let extrinsics_text = match &extrinsics_content.raw {
-        RawContent::Text(RawTextContent { text }) => text,
+        RawContent::Text(RawTextContent { text, .. }) => text,
         _ => panic!("Expected text content from query_extrinsics"),
     };
 

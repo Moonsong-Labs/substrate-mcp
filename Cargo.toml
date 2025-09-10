@@ -44,4 +44,4 @@ sp-core = "33.0"
 tokio-util = "0.7.16"
 
 [dev-dependencies]
-rmcp = { version = "0.6.1", features = ["transport-io", "client"] }
+rmcp = { version = "0.6.3", features = ["transport-io", "client"] }
