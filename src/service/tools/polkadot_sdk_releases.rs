@@ -10,13 +10,13 @@ use zeroize::Zeroizing;
 /// Uses GITHUB_TOKEN environment variable if available for higher rate limits
 fn create_github_client() -> reqwest::Client {
     let mut headers = reqwest::header::HeaderMap::new();
-    
+
     // Always add User-Agent header
     headers.insert(
         reqwest::header::USER_AGENT,
         reqwest::header::HeaderValue::from_static("substrate-mcp"),
     );
-    
+
     // Check for GitHub token and add Authorization header if present
     if let Ok(token_str) = env::var("GITHUB_TOKEN") {
         let token = Zeroizing::new(token_str);
@@ -32,7 +32,7 @@ fn create_github_client() -> reqwest::Client {
     } else {
         log::debug!("No GITHUB_TOKEN found, using unauthenticated requests (60 req/hour limit)");
     }
-    
+
     reqwest::Client::builder()
         .default_headers(headers)
         .build()
@@ -88,7 +88,6 @@ struct LabelsMetadata {
     labels: Vec<GitHubLabel>,
 }
 
-
 /// New structured result for the refactored workflow
 #[derive(Debug, Serialize)]
 pub(crate) struct EnhancedPrdocsResult {
@@ -113,8 +112,6 @@ pub(crate) struct ReleaseDownloadSummary {
     pub(crate) download_date: String,
     pub(crate) output_directory: String,
 }
-
-
 
 // Helper function to extract PR number from filename
 fn extract_pr_number(filename: &str) -> Option<u32> {
@@ -201,7 +198,7 @@ pub(crate) async fn list_available_releases() -> Result<AvailableReleases> {
     if !response.status().is_success() {
         let status = response.status();
         let error_text = response.text().await.unwrap_or_default();
-        
+
         // Check for rate limiting error and provide helpful guidance
         if status == 403 && error_text.contains("rate limit exceeded") {
             let token_hint = if env::var("GITHUB_TOKEN").is_err() {
@@ -212,14 +209,14 @@ pub(crate) async fn list_available_releases() -> Result<AvailableReleases> {
             } else {
                 ""
             };
-            
+
             return Err(anyhow!(
-                "GitHub API rate limit exceeded: {}{}", 
+                "GitHub API rate limit exceeded: {}{}",
                 error_text,
                 token_hint
             ));
         }
-        
+
         return Err(anyhow!(
             "GitHub API returned status {}: {}",
             status,
@@ -249,7 +246,6 @@ pub(crate) async fn list_available_releases() -> Result<AvailableReleases> {
         fetched_at: chrono::Utc::now().to_rfc3339(),
     })
 }
-
 
 // Helper function to fetch GitHub labels with pagination support
 async fn fetch_github_labels(client: &reqwest::Client) -> Result<Vec<GitHubLabel>> {
@@ -362,7 +358,9 @@ async fn fetch_and_save_github_labels(
 }
 
 /// Enhanced version that returns structured data for parallel sub-agent workflow
-pub(crate) async fn fetch_and_analyze_release_enhanced(release: &str) -> Result<EnhancedPrdocsResult> {
+pub(crate) async fn fetch_and_analyze_release_enhanced(
+    release: &str,
+) -> Result<EnhancedPrdocsResult> {
     let client = create_github_client();
 
     // Get project name from the current project root
@@ -394,13 +392,13 @@ pub(crate) async fn fetch_and_analyze_release_enhanced(release: &str) -> Result<
 
     if !response.status().is_success() {
         let status = response.status();
-        
+
         if status == 404 {
             return Err(anyhow!("Release '{}' not found", release));
         }
-        
+
         let error_text = response.text().await.unwrap_or_default();
-        
+
         // Check for rate limiting error and provide helpful guidance
         if status == 403 && error_text.contains("rate limit exceeded") {
             let token_hint = if env::var("GITHUB_TOKEN").is_err() {
@@ -411,14 +409,14 @@ pub(crate) async fn fetch_and_analyze_release_enhanced(release: &str) -> Result<
             } else {
                 ""
             };
-            
+
             return Err(anyhow!(
-                "GitHub API rate limit exceeded: {}{}", 
+                "GitHub API rate limit exceeded: {}{}",
                 error_text,
                 token_hint
             ));
         }
-        
+
         return Err(anyhow!(
             "GitHub API returned status {}: {}",
             status,
@@ -479,9 +477,9 @@ pub(crate) async fn fetch_and_analyze_release_enhanced(release: &str) -> Result<
 
                     // Save to disk
                     let file_path = output_dir.join(&file.name);
-                    fs::write(&file_path, &content)
-                        .await
-                        .map_err(|e| anyhow!("Failed to write file {}: {}", file_path.display(), e))?;
+                    fs::write(&file_path, &content).await.map_err(|e| {
+                        anyhow!("Failed to write file {}: {}", file_path.display(), e)
+                    })?;
 
                     // Fetch labels for this PR
                     let labels = fetch_pr_labels(&client, pr_num).await.unwrap_or_default();
@@ -503,7 +501,7 @@ pub(crate) async fn fetch_and_analyze_release_enhanced(release: &str) -> Result<
 
     // Also save the traditional manifest files for compatibility
     let pr_numbers: Vec<u32> = prdocs_with_labels.iter().map(|p| p.pr_number).collect();
-    
+
     // Save labels.json for compatibility
     if let Err(e) = fetch_and_save_github_labels(&client, &output_dir, &pr_numbers).await {
         eprintln!("Warning: Failed to save GitHub labels: {e}");
@@ -524,9 +522,6 @@ pub(crate) async fn fetch_and_analyze_release_enhanced(release: &str) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
-
-
-
 
     #[tokio::test]
     async fn test_list_available_releases() {

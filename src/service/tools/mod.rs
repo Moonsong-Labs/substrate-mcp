@@ -63,6 +63,7 @@ pub(crate) async fn handle_list_polkadot_releases() -> Result<CallToolResult, Mc
         annotations: None,
         raw: RawContent::Text(RawTextContent {
             text: response_text,
+            meta: None,
         }),
     }]);
     Ok(result)

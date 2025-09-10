@@ -43,6 +43,7 @@ pub(crate) async fn handle_find_runtime_pallets(
         annotations: None,
         raw: RawContent::Text(RawTextContent {
             text: response_text,
+            meta: None,
         }),
     }]);
     Ok(result)
@@ -101,31 +102,28 @@ pub(crate) async fn find_frame_runtime_definitions(
             .types(types)
             .build();
 
-        for result in walker {
-            if let Ok(entry) = result {
-                let path = entry.path();
-                if let Ok(content) = std::fs::read_to_string(path) {
-                    if content.contains("#[frame_support::runtime]")
-                        || content.contains("#[runtime::runtime]")
-                    {
-                        let relative_path = path
-                            .strip_prefix(&project_root)
-                            .unwrap_or(path)
-                            .to_string_lossy()
-                            .to_string();
+        for entry in walker.flatten() {
+            let path = entry.path();
+            if let Ok(content) = std::fs::read_to_string(path)
+                && (content.contains("#[frame_support::runtime]")
+                    || content.contains("#[runtime::runtime]"))
+                {
+                    let relative_path = path
+                        .strip_prefix(&project_root)
+                        .unwrap_or(path)
+                        .to_string_lossy()
+                        .to_string();
 
-                        paths.push(RuntimePath {
-                            file_path: path.to_string_lossy().to_string(),
-                            relative_path,
-                        });
+                    paths.push(RuntimePath {
+                        file_path: path.to_string_lossy().to_string(),
+                        relative_path,
+                    });
 
-                        let pallets = parse_runtime_definition(&content);
-                        for pallet in pallets {
-                            pallet_paths.insert(pallet.pallet_path);
-                        }
+                    let pallets = parse_runtime_definition(&content);
+                    for pallet in pallets {
+                        pallet_paths.insert(pallet.pallet_path);
                     }
                 }
-            }
         }
         (paths, pallet_paths)
     })
