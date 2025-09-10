@@ -148,12 +148,11 @@ async fn test_tool_query_storage() {
 
 #[tokio::test]
 async fn test_submit_dev_extrinsic_and_related_queries() {
-    // Skip test if substrate-node is not available
+    // Check if substrate-node is available
     if !SubstrateRunner::is_available() {
-        eprintln!(
-            "Skipping test: substrate-node binary not found. Install it to run integration tests."
+        panic!(
+            "substrate-node binary is required to run this test. Please install substrate-node first."
         );
-        return;
     }
 
     // Spawn a local substrate node

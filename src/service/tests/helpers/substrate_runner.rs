@@ -23,7 +23,7 @@ impl SubstrateRunner {
         if !Self::is_available() {
             return Err(io::Error::new(
                 io::ErrorKind::NotFound,
-                "substrate-node binary not found. Please install it to run integration tests.",
+                "substrate-node binary is required. Please install substrate-node first.",
             ));
         }
 
