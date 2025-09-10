@@ -36,7 +36,6 @@ Security Analysis Complete:
 - Found 3 potential vulnerabilities
 - Recommended fixes implemented
 
-<disclaimer>
 ## ⚠️ AI ANALYSIS DISCLAIMER ⚠️
 
 **This is NOT a professional security audit.** This AI-generated analysis:
@@ -46,7 +45,6 @@ Security Analysis Complete:
 - Must be verified by professionals
 
 Use this ONLY as a supplementary tool for initial review. For production systems, always engage qualified security auditors.
-</disclaimer>
 ```
 
 **REMEMBER**: You MUST include this disclaimer at the end of your response. This is non-negotiable"#;
