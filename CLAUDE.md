@@ -15,11 +15,19 @@ substrate-mcp/
 ├── CLAUDE.md           # This file - development guidance
 └── src/
     ├── main.rs         # Entry point with tokio async runtime
-    ├── server.rs       # MCP server implementation with tool routing
-    ├── prompts/        # MCP prompt templates
-    │   └── mod.rs      # Prompt registry and handlers
-    └── substrate/      # Substrate client implementation
-        └── client.rs   # RPC client for interacting with nodes
+    └── service/        # MCP service implementation
+        ├── mod.rs      # Main service with tool and prompt routing
+        ├── prompts/    # MCP prompt templates
+        │   ├── mod.rs                      # Prompt module registry
+        │   ├── analyze_release.rs          # Release impact analysis
+        │   ├── get_started.rs              # Getting started guide
+        │   ├── release_comparison.rs       # Release comparison
+        │   ├── scaffold_pallet.rs          # Pallet scaffolding
+        │   ├── security_review.rs          # Security review (merged from multiple security prompts)
+        │   └── common.rs                   # Common prompt utilities
+        ├── resources/  # MCP resources (documentation, references)
+        ├── tools/      # MCP tools implementation
+        └── utils.rs    # Service utilities
 
 ## Development Commands
 
@@ -56,7 +64,7 @@ cargo fmt
 
 ### Core Structure
 - **src/main.rs**: Entry point that initializes the MCP server with stdin/stdout transport using tokio async runtime
-- **src/server.rs**: Implements `SubstrateService` with MCP tool routing using the `rmcp` crate
+- **src/service/mod.rs**: Implements `SubstrateService` with MCP tool and prompt routing using the `rmcp` crate
 
 ### MCP Server Pattern
 This server follows the standard MCP communication pattern:
@@ -70,19 +78,21 @@ This server follows the standard MCP communication pattern:
 ### Current State
 The server currently has:
 - Basic MCP server infrastructure set up
-- Several functional tools:
+- Multiple functional tools for blockchain interaction:
   - `fetch_and_analyze_release`: Fetches and analyzes Polkadot SDK releases (downloads PRDocs and generates summaries)
-  - `chain_storage_bisect`: Finds storage changes between blocks
-- Comprehensive prompt templates for Substrate development:
+  - `subxt_execute`: Execute subxt commands for blockchain exploration
+  - `filter_metadata`: Filter and search chain metadata
+  - `query_extrinsics`: Query extrinsics from blocks
+  - `query_events`: Query events from blocks
+  - `query_storage`: Query chain storage entries
+  - `list_pallet_storage`: List storage entries in a pallet
+  - `submit_dev_extrinsic`: Submit extrinsics using dev accounts
+- Current prompt templates for Substrate development:
   - `release_comparison`: Compare changes between Polkadot SDK versions
   - `analyze_release`: Analyze how releases impact your project
   - `scaffold_pallet`: Generate pallet implementation scaffolding
-  - `automated_analysis`: Comprehensive security and quality analysis
-  - `code_security_audit`: Audit components for vulnerabilities
-  - `economic_security`: Economic security assessment
-  - `incentive_analysis`: Cryptoeconomic incentive analysis
-  - `threat_modeling`: Threat model analysis
-  - `weight_analysis`: Weight and benchmark analysis
+  - `security_review`: Comprehensive security review covering code security, economic threats, and performance analysis
+  - `get_started`: Get started guide for Substrate/Polkadot development
 - Server info indicating it's for Substrate-based blockchain development
 - Tools, resources, and prompts capabilities enabled
 - Server name: "substrate-mcp" (version 0.1.0)
@@ -94,45 +104,58 @@ The server uses a modular prompt template system built with Handlebars:
 #### Prompt Structure
 Each prompt module follows this pattern:
 ```rust
-use rmcp::model::PromptArgument;
-use super::SubstratePromptDefinition;
+use handlebars::Handlebars;
+use rmcp::model::{PromptMessage, PromptMessageRole};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-pub fn prompt_definition() -> SubstratePromptDefinition {
-    SubstratePromptDefinition {
-        name: "prompt_name".to_string(),
-        description: "What this prompt does".to_string(),
-        arguments: vec![
-            PromptArgument {
-                name: "arg_name".to_string(),
-                description: Some("Argument description".to_string()),
-                required: Some(true),
-            }
-        ],
-        template: TEMPLATE.to_string(),
-    }
+/// Arguments for the prompt
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[schemars(description = "Description of what this prompt does")]
+pub(crate) struct PromptArgs {
+    #[schemars(description = "Description of the argument")]
+    pub(crate) arg_name: String,
+}
+
+/// Generate prompt content
+pub(crate) async fn generate_prompt(args: PromptArgs) -> Vec<PromptMessage> {
+    let handlebars = Handlebars::new();
+    
+    let context = json!({
+        "arg_name": args.arg_name,
+        "security_disclaimer": SECURITY_DISCLAIMER // if needed
+    });
+
+    let content = handlebars
+        .render_template(TEMPLATE, &context)
+        .unwrap_or_else(|e| format!("Template rendering failed: {}", e));
+
+    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
 }
 
 const TEMPLATE: &str = r#"Your prompt template with {{variables}}"#;
 ```
 
 #### Key Components
-- **SubstratePromptDefinition**: Core struct containing prompt metadata and template
+- **JsonSchema derive**: Arguments use schemars for automatic schema generation
 - **Handlebars Templates**: Support variable interpolation with `{{variable_name}}`
 - **Security Disclaimer**: Automatically injected into security-related prompts via `{{security_disclaimer}}`
-- **Strict Mode**: Templates use Handlebars strict mode to catch undefined variables
+- **Async Functions**: All prompt generation is async and returns `Vec<PromptMessage>`
 
 #### Adding New Prompts
-1. Create a new module in `src/prompts/` (e.g., `my_prompt.rs`)
-2. Define the template constant and prompt_definition function
-3. Import the module in `src/prompts/mod.rs`
-4. Add to the `prompt_definitions()` vector
+1. Create a new module in `src/service/prompts/` (e.g., `my_prompt.rs`)
+2. Define the args struct with JsonSchema derive and generate_prompt function
+3. Import the module in `src/service/prompts/mod.rs`
+4. Add prompt handler to `src/service/mod.rs` using `#[prompt]` macro
 5. Write tests following the existing pattern
 
 ### Adding New Tools
 To add new Substrate-related tools:
-1. Add tool functions to `src/server.rs` with the `#[tool]` macro
+1. Add tool functions to `src/service/mod.rs` with the `#[tool]` macro
 2. Tools should return `Result<CallToolResult, McpError>`
 3. Use descriptive names and proper error handling
+4. Implementation can be in separate modules in `src/service/tools/`
 
 Example pattern from existing code:
 ```rust

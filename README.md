@@ -84,34 +84,26 @@ The Substrate MCP server provides several specialized prompts for Substrate deve
 - `specific_changes` (optional): What specific changes to look for (e.g: was there any change in `pallet_treasury` ?)
 
 #### analyze_release
-**Description**: Analyzes how Polkadot SDK release changes impact your project using parallel processing  
+**Description**: Analyze how specific release(s) impact your current project  
 **Arguments**:
 - `release` (required): The release version(s) to analyze. Examples: 'stable2503-7' for single release, 'stable2502,stable2503' for comparison
 - `focus` (optional): Specific aspect to focus on (e.g., 'breaking changes', 'migrations', 'security'). Leave empty for comprehensive analysis
 
-### Scaffolding
+### Development & Scaffolding
 
 #### scaffold_pallet
 **Description**: Generate pallet structure and implementation templates  
 **Arguments**:
 - `pallet_description` (required): Description for the pallet
 
-### Analysis
+### Security Analysis
 
-#### automated_analysis
-**Description**: Template for automated code and runtime analysis  
+#### security_review
+**Description**: Security review covering code security, economic threats, and performance analysis  
 **Arguments**:
-- `change_description` (required): Description of the changes made to the code that trigger this analysis (PR description, new release, etc)
+- `target` (required): Target component/pallet/system to review
 
-#### economic_security
-**Description**: Do an economic security analysis on a specific subsystem  
-**Arguments**:
-- `system_description` (required): Description of the system to make the analysis for (all pallets, a specific group/flow, etc)
-
-#### weight_analysis
-**Description**: Weight-based system breakdown analysis under extreme conditions  
-**Arguments**:
-- `target_pallet` (required): Pallet to make the analysis for
+This prompt combines code security audit, economic security assessment, threat modeling, and weight analysis into a comprehensive security review. NOTE: This prompt is designed to be used during development as a tool to provide an extra layer of analysis. It is not meant to replace professional security audits.
 
 ## License
 

@@ -20,8 +20,7 @@ mod utils;
 use utils::catch_panic_as_mcp_error;
 
 use crate::service::prompts::{
-    analyze_release, automated_analysis, code_security_audit, economic_security, get_started,
-    incentive_analysis, release_comparison, scaffold_pallet, threat_modeling, weight_analysis,
+    analyze_release, get_started, release_comparison, scaffold_pallet, security_review,
 };
 
 #[cfg(test)]
@@ -129,8 +128,6 @@ impl SubstrateService {
         catch_panic_as_mcp_error(tools::handle_query_extrinsics(properties)).await
     }
 
-    // Prompt implementations
-    /// Compare changes between two Polkadot SDK versions
     #[prompt(
         name = "release_comparison",
         description = "List changes between two polkadot-sdk release versions"
@@ -142,7 +139,6 @@ impl SubstrateService {
         prompts::release_comparison::generate_prompt(args).await
     }
 
-    /// Analyze how a Polkadot SDK release impacts your project
     #[prompt(
         name = "analyze_release",
         description = "Analyze how specific release(s) impact your current project"
@@ -154,10 +150,9 @@ impl SubstrateService {
         prompts::analyze_release::generate_prompt(args).await
     }
 
-    /// Generate pallet structure and implementation templates
     #[prompt(
         name = "scaffold_pallet",
-        description = "Generate pallet structure and implementation templates"
+        description = "Generate a pallet from given specifications"
     )]
     async fn scaffold_pallet(
         &self,
@@ -166,79 +161,17 @@ impl SubstrateService {
         prompts::scaffold_pallet::generate_prompt(args).await
     }
 
-    /// Comprehensive security and quality analysis
     #[prompt(
-        name = "automated_analysis",
-        description = "Automated comprehensive security and quality analysis"
+        name = "security_review",
+        description = "Security review covering code security, economic threats, and performance analysis"
     )]
-    async fn automated_analysis(
+    async fn security_review(
         &self,
-        Parameters(args): Parameters<automated_analysis::AutomatedAnalysisArgs>,
+        Parameters(args): Parameters<security_review::SecurityReviewArgs>,
     ) -> Vec<PromptMessage> {
-        prompts::automated_analysis::generate_prompt(args).await
+        prompts::security_review::generate_prompt(args).await
     }
 
-    /// Security audit for specific components
-    #[prompt(
-        name = "code_security_audit",
-        description = "Security audit for specific components or pallets"
-    )]
-    async fn code_security_audit(
-        &self,
-        Parameters(args): Parameters<code_security_audit::CodeSecurityAuditArgs>,
-    ) -> Vec<PromptMessage> {
-        prompts::code_security_audit::generate_prompt(args).await
-    }
-
-    /// Economic security assessment
-    #[prompt(
-        name = "economic_security",
-        description = "Economic security assessment for blockchain systems"
-    )]
-    async fn economic_security(
-        &self,
-        Parameters(args): Parameters<economic_security::EconomicSecurityArgs>,
-    ) -> Vec<PromptMessage> {
-        prompts::economic_security::generate_prompt(args).await
-    }
-
-    /// Cryptoeconomic incentive analysis
-    #[prompt(
-        name = "incentive_analysis",
-        description = "Cryptoeconomic incentive analysis for specific pallets"
-    )]
-    async fn incentive_analysis(
-        &self,
-        Parameters(args): Parameters<incentive_analysis::IncentiveAnalysisArgs>,
-    ) -> Vec<PromptMessage> {
-        prompts::incentive_analysis::generate_prompt(args).await
-    }
-
-    /// Threat model analysis
-    #[prompt(
-        name = "threat_modeling",
-        description = "Comprehensive threat model analysis"
-    )]
-    async fn threat_modeling(
-        &self,
-        Parameters(args): Parameters<threat_modeling::ThreatModelingArgs>,
-    ) -> Vec<PromptMessage> {
-        prompts::threat_modeling::generate_prompt(args).await
-    }
-
-    /// Weight and benchmark analysis
-    #[prompt(
-        name = "weight_analysis",
-        description = "Weight and benchmark analysis for Substrate pallets"
-    )]
-    async fn weight_analysis(
-        &self,
-        Parameters(args): Parameters<weight_analysis::WeightAnalysisArgs>,
-    ) -> Vec<PromptMessage> {
-        prompts::weight_analysis::generate_prompt(args).await
-    }
-
-    /// Beginner "get started" onboarding
     #[prompt(
         name = "get_started",
         description = "Get started on polkadot and substrate systems"
