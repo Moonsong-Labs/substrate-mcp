@@ -1,0 +1,27 @@
+[package]
+name = "pallet-escrow"
+description = "A decentralized escrow pallet for secure transactions between parties"
+version = "0.1.0"
+license = "MIT-0"
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+publish = false
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+frame = { workspace = true, features = ["experimental", "runtime"], default-features = false }
+scale-info = { features = ["derive"], workspace = true }
+
+[dev-dependencies]
+polkadot-sdk = { workspace = true, features = ["pallet-balances", "pallet-timestamp"], default-features = true }
+
+[features]
+default = ["std"]
+runtime-benchmarks = ["frame/runtime-benchmarks"]
+std = ["codec/std", "frame/std", "scale-info/std"]
+try-runtime = ["frame/try-runtime"]
