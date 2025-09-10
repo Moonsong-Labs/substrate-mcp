@@ -116,7 +116,7 @@ async function main() {
   console.log(`Created tmp directory: ${tmpDir}`);
 
   // 3. Copy escrow example to temp directory
-  const escrowSource = join(process.cwd(), 'escrow');
+  const escrowSource = join(process.cwd(), 'examples', 'escrow');
   await cp(escrowSource, tmpDir, { recursive: true });
   console.log('Copied escrow example to temp directory');
 
