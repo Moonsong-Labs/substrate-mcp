@@ -2,7 +2,9 @@
 //! These resources serve as an index for agents to know where to find official documentation,
 //! tools, and references for Substrate blockchain development.
 
+use crate::service::utils::mcp_error_internal;
 use indoc::indoc;
+use rmcp::ErrorData as McpError;
 use rmcp::model::{Annotations, RawResource, Resource, Role};
 
 struct MarkdownResource {
@@ -259,14 +261,14 @@ pub(crate) fn get_all_resources() -> Vec<Resource> {
 }
 
 /// Get resource content by URI
-pub(crate) async fn get_resource_content(uri: &str) -> Option<String> {
+pub(crate) async fn get_resource_content(uri: &str) -> Result<Option<String>, McpError> {
     // First check if it's a markdown resource
     if let Some(content) = markdown_resources()
         .into_iter()
         .find(|r| r.uri == uri)
         .map(|r| r.content)
     {
-        return Some(content);
+        return Ok(Some(content));
     }
 
     // NOTE: if the resource is exposed via https protocol, the client
@@ -274,11 +276,14 @@ pub(crate) async fn get_resource_content(uri: &str) -> Option<String> {
     // many times in practice so we fall back to fetching it and forwarding
     // the content
     if https_resources().iter().any(|r| r.uri == uri) {
-        match reqwest::get(uri).await {
-            Ok(response) => response.text().await.ok(),
-            Err(_) => None,
-        }
+        let content = reqwest::get(uri)
+            .await
+            .map_err(|e| mcp_error_internal(format!("Error requesting {uri}: {e}")))?
+            .text()
+            .await
+            .map_err(|e| mcp_error_internal(format!("Error requesting {uri}: {e}")))?;
+        Ok(Some(content))
     } else {
-        None
+        Ok(None)
     }
 }
