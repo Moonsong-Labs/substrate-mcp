@@ -107,23 +107,23 @@ pub(crate) async fn find_frame_runtime_definitions(
             if let Ok(content) = std::fs::read_to_string(path)
                 && (content.contains("#[frame_support::runtime]")
                     || content.contains("#[runtime::runtime]"))
-                {
-                    let relative_path = path
-                        .strip_prefix(&project_root)
-                        .unwrap_or(path)
-                        .to_string_lossy()
-                        .to_string();
+            {
+                let relative_path = path
+                    .strip_prefix(&project_root)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .to_string();
 
-                    paths.push(RuntimePath {
-                        file_path: path.to_string_lossy().to_string(),
-                        relative_path,
-                    });
+                paths.push(RuntimePath {
+                    file_path: path.to_string_lossy().to_string(),
+                    relative_path,
+                });
 
-                    let pallets = parse_runtime_definition(&content);
-                    for pallet in pallets {
-                        pallet_paths.insert(pallet.pallet_path);
-                    }
+                let pallets = parse_runtime_definition(&content);
+                for pallet in pallets {
+                    pallet_paths.insert(pallet.pallet_path);
                 }
+            }
         }
         (paths, pallet_paths)
     })
