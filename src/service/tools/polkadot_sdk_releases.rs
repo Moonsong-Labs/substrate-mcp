@@ -358,9 +358,7 @@ async fn fetch_and_save_github_labels(
 }
 
 /// Enhanced version that returns structured data for parallel sub-agent workflow
-pub(crate) async fn fetch_and_analyze_release_enhanced(
-    release: &str,
-) -> Result<EnhancedPrdocsResult> {
+pub(crate) async fn fetch_and_analyze_release(release: &str) -> Result<EnhancedPrdocsResult> {
     let client = create_github_client();
 
     // Get project name from the current project root

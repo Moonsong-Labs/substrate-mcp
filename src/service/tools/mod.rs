@@ -33,7 +33,7 @@ pub(crate) struct FetchAndAnalyzeReleaseProperties {
 pub(crate) async fn handle_fetch_and_analyze_release(
     properties: FetchAndAnalyzeReleaseProperties,
 ) -> Result<CallToolResult, McpError> {
-    let response = polkadot_sdk_releases::fetch_and_analyze_release_enhanced(&properties.release)
+    let response = polkadot_sdk_releases::fetch_and_analyze_release(&properties.release)
         .await
         .map_err(|e| mcp_error_internal(format!("Failed to fetch and analyze release: {e}")))?;
 
