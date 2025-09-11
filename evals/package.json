@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "security-review": "bun run code_review.ts"
+    "security-review": "bun run code_review.ts",
+    "clean": "bun run clean.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"
