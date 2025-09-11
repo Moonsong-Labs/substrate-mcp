@@ -5,7 +5,7 @@ interface RunResult {
   runId: string;
   timestamp: string;
   tmpDir: string;
-  securityReviewOutput: string;
+  securityReviewOutput: string[];
 }
 
 function cleanEvals() {

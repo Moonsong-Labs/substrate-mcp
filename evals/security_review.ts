@@ -1,7 +1,7 @@
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
-import { query } from '@anthropic-ai/claude-code';
+import { query, type SDKMessage, type SDKAssistantMessage } from '@anthropic-ai/claude-code';
 import { Result, ok, err } from 'neverthrow';
 import { mkdtempSync, cpSync, mkdirSync, writeFileSync } from 'fs';
 import { config } from 'dotenv';
@@ -10,7 +10,7 @@ interface EvaluationResult {
   runId: string;
   timestamp: string;
   tmpDir: string;
-  securityReviewOutput: string;
+  securityReviewOutput: string[];
   evaluationOutput: string;
   metadata: {
     hasSecurityDisclaimer: boolean;
@@ -24,11 +24,11 @@ function generateRunId(evalName: string): string {
   return `${evalName}-${randomBytes(4).toString('hex')}`;
 }
 
-async function runSecurityReview(cwd: string): Promise<Result<string, Error>> {
+async function runSecurityReview(cwd: string): Promise<Result<string[], Error>> {
 
-  let result = '';
+  const assistantMessages: string[] = [];
 
-  for await (const message of query({
+  for await (const message: SDKMessage of query({
     prompt: 'Use the substrate MCP server security_review prompt to analyze this escrow pallet implementation for security vulnerabilities, economic risks, and code quality issues.',
     options: {
       cwd: cwd,
@@ -42,9 +42,32 @@ async function runSecurityReview(cwd: string): Promise<Result<string, Error>> {
       maxTurns: 100
     }
   })) {
+    // Debug: Log all messages
+    console.log('=== DEBUG MESSAGE ===');
+    console.log('Type:', message.type);
+    if (message.type === 'assistant') {
+      console.log('Content:', message.message.content);
+    }
+    console.log('Full message:', JSON.stringify(message, null, 2));
+    console.log('=====================');
+
+    // Collect assistant text messages with proper type checking
+    if (message.type === 'assistant') {
+      const assistantMessage = message as SDKAssistantMessage;
+      // Check if content is a string (text content) rather than an array (structured content)
+      if (typeof assistantMessage.message.content === 'string') {
+        assistantMessages.push(assistantMessage.message.content);
+      } else if (Array.isArray(assistantMessage.message.content)) {
+        // Handle structured content - extract text blocks
+        for (const block of assistantMessage.message.content) {
+          if (block.type === 'text') {
+            assistantMessages.push(block.text);
+          }
+        }
+      }
+    }
+
     if (message.type === 'result' && message.subtype === 'success') {
-      console.log(message);
-      result = message.result;
       break;
     } else if (message.type === 'result' && message.is_error) {
       // Handle structured errors  
@@ -53,15 +76,21 @@ async function runSecurityReview(cwd: string): Promise<Result<string, Error>> {
     }
   }
 
-  return ok(result);
+  console.log("FINAL MESSAGES");
+  console.log(assistantMessages);
+
+  return ok(assistantMessages);
 }
 
-async function evaluateSecurityReview(securityReviewOutput: string): Promise<Result<{
+async function evaluateSecurityReview(securityReviewMessages: string[]): Promise<Result<{
   evaluationOutput: string;
   hasSecurityDisclaimer: boolean;
   caughtEscrowExpiration: boolean;
   evaluationScore: number;
 }, Error>> {
+  // Concatenate all assistant messages for evaluation
+  const securityReviewOutput = securityReviewMessages.join('\n\n');
+
   const evaluationPrompt = `
 You are evaluating a security review of a Substrate escrow pallet. Please analyze the security review output and provide a structured evaluation.
 
@@ -148,11 +177,11 @@ async function main() {
     process.exit(1);
   }
 
-  const securityReviewOutput = securityReviewResult.value;
+  const securityReviewMessages = securityReviewResult.value;
 
   // 5. Evaluate the security review with a fresh Claude Code instance
   console.log('Evaluating the security review...');
-  const evaluationResult = await evaluateSecurityReview(securityReviewOutput);
+  const evaluationResult = await evaluateSecurityReview(securityReviewMessages);
 
   if (evaluationResult.isErr()) {
     console.error('Security review evaluation failed:', evaluationResult.error.message);
@@ -171,7 +200,7 @@ async function main() {
     runId,
     timestamp: new Date().toISOString(),
     tmpDir,
-    securityReviewOutput
+    securityReviewOutput: securityReviewMessages
   };
 
   const runFile = join(runDir, 'run.json');
