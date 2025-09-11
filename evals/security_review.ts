@@ -18,30 +18,26 @@ interface EvaluationResult {
   };
 }
 
+// Create fromThrowable wrappers for operations that might throw
+const safeMkdtemp = fromThrowable(mkdtemp, (error) => error as Error);
+const safeCp = fromThrowable(cp, (error) => error as Error);
+const safeMkdir = fromThrowable(mkdir, (error) => error as Error);
+const safeWriteFile = fromThrowable(writeFile, (error) => error as Error);
+const safeJsonParse = fromThrowable(JSON.parse, (error) => error as Error);
+
 function generateRunId(): string {
   return `eval-${Date.now()}-${randomBytes(4).toString('hex')}`;
 }
 
 async function runSecurityReview(cwd: string): Promise<Result<string, Error>> {
-  // Set environment variables for authentication if they exist
-  const env: Record<string, string> = {};
-  if (process.env.ANTHROPIC_BASE_URL) {
-    env.ANTHROPIC_BASE_URL = process.env.ANTHROPIC_BASE_URL;
-  }
-  if (process.env.ANTHROPIC_API_KEY) {
-    env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-  }
-  if (process.env.ANTHROPIC_AUTH_TOKEN) {
-    env.ANTHROPIC_AUTH_TOKEN = process.env.ANTHROPIC_AUTH_TOKEN;
-  }
 
   let result = '';
 
   for await (const message of query({
     prompt: 'Use the substrate MCP server security_review prompt to analyze this escrow pallet implementation for security vulnerabilities, economic risks, and code quality issues.',
     options: {
-      workingDirectory: cwd,
-      env,
+      cwd: cwd,
+      env: process.env,
       mcpServers: {
         'substrate-mcp': {
           command: 'substrate-mcp',
@@ -103,23 +99,12 @@ Respond with a JSON object containing:
 
   let result = '';
 
-  // Set environment variables for authentication if they exist
-  const env: Record<string, string> = {};
-  if (process.env.ANTHROPIC_BASE_URL) {
-    env.ANTHROPIC_BASE_URL = process.env.ANTHROPIC_BASE_URL;
-  }
-  if (process.env.ANTHROPIC_API_KEY) {
-    env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-  }
-  if (process.env.ANTHROPIC_AUTH_TOKEN) {
-    env.ANTHROPIC_AUTH_TOKEN = process.env.ANTHROPIC_AUTH_TOKEN;
-  }
 
   try {
     for await (const message of query({
       prompt: evaluationPrompt,
       options: {
-        env,
+        env: process.env,
         maxTurns: 3
       }
     })) {
@@ -153,7 +138,7 @@ Respond with a JSON object containing:
       if (parseResult.isErr()) {
         return err(new Error(`Failed to parse evaluation JSON: ${parseResult.error.message}`));
       }
-      
+
       const parsed = parseResult.value;
       return ok({
         evaluationOutput: result,
@@ -171,14 +156,8 @@ Respond with a JSON object containing:
     }
   }
 
-// Create fromThrowable wrappers for operations that might throw
-const safeMkdtemp = fromThrowable(mkdtemp, (error) => error as Error);
-const safeCp = fromThrowable(cp, (error) => error as Error);
-const safeMkdir = fromThrowable(mkdir, (error) => error as Error);
-const safeWriteFile = fromThrowable(writeFile, (error) => error as Error);
-const safeJsonParse = fromThrowable(JSON.parse, (error) => error as Error);
 
-async function main() {
+  async function main() {
     console.log('Starting security review evaluation...');
 
     // 1. Generate run ID
