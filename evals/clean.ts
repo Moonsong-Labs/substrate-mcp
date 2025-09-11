@@ -1,7 +1,13 @@
 import { readdir, readFile, rm } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { tryCatch } from './utils.js';
+import { Result, ok, err, fromThrowable } from 'neverthrow';
+
+// Create fromThrowable wrappers for operations that might throw
+const safeReaddir = fromThrowable(readdir, (error) => error as Error);
+const safeReadFile = fromThrowable(readFile, (error) => error as Error);
+const safeJsonParse = fromThrowable(JSON.parse, (error) => error as Error);
+const safeRm = fromThrowable(rm, (error) => error as Error);
 
 interface EvaluationResult {
   runId: string;
@@ -24,13 +30,13 @@ async function cleanEvals() {
     return;
   }
 
-  const filesResult = await tryCatch(readdir(evalsDir));
-  if (filesResult.error) {
+  const filesResult = await safeReaddir(evalsDir);
+  if (filesResult.isErr()) {
     console.error('Error reading .evals directory:', filesResult.error);
     return;
   }
 
-  const jsonFiles = filesResult.data.filter(file => file.endsWith('.json'));
+  const jsonFiles = filesResult.value.filter(file => file.endsWith('.json'));
   
   if (jsonFiles.length === 0) {
     console.log('No evaluation files found in .evals directory');
@@ -42,25 +48,25 @@ async function cleanEvals() {
   for (const file of jsonFiles) {
     const filePath = join(evalsDir, file);
     
-    const contentResult = await tryCatch(readFile(filePath, 'utf-8'));
-    if (contentResult.error) {
+    const contentResult = await safeReadFile(filePath, 'utf-8');
+    if (contentResult.isErr()) {
       console.error(`Error reading ${file}:`, contentResult.error);
       continue;
     }
 
-    const parseResult = await tryCatch(Promise.resolve(JSON.parse(contentResult.data)));
-    if (parseResult.error) {
+    const parseResult = safeJsonParse(contentResult.value);
+    if (parseResult.isErr()) {
       console.error(`Error parsing ${file}:`, parseResult.error);
       continue;
     }
 
-    const evalResult: EvaluationResult = parseResult.data;
+    const evalResult: EvaluationResult = parseResult.value;
     
     // Clean up tmp directory if it exists
     if (evalResult.tmpDir && existsSync(evalResult.tmpDir)) {
       console.log(`Removing tmp directory: ${evalResult.tmpDir}`);
-      const rmDirResult = await tryCatch(rm(evalResult.tmpDir, { recursive: true, force: true }));
-      if (rmDirResult.error) {
+      const rmDirResult = await safeRm(evalResult.tmpDir, { recursive: true, force: true });
+      if (rmDirResult.isErr()) {
         console.error(`Error removing tmp directory ${evalResult.tmpDir}:`, rmDirResult.error);
       }
     } else {
@@ -69,8 +75,8 @@ async function cleanEvals() {
     
     // Remove the JSON file
     console.log(`Removing evaluation file: ${file}`);
-    const rmFileResult = await tryCatch(rm(filePath));
-    if (rmFileResult.error) {
+    const rmFileResult = await safeRm(filePath);
+    if (rmFileResult.isErr()) {
       console.error(`Error removing file ${file}:`, rmFileResult.error);
     }
   }
