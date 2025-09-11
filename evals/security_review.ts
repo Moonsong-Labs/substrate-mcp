@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 import { query } from '@anthropic-ai/claude-code';
 import { Result, ok, err } from 'neverthrow';
 import { mkdtempSync, cpSync, mkdirSync, writeFileSync } from 'fs';
+import { config } from 'dotenv';
 
 interface EvaluationResult {
   runId: string;
@@ -19,8 +20,8 @@ interface EvaluationResult {
 }
 
 
-function generateRunId(): string {
-  return `eval-${randomBytes(4).toString('hex')}`;
+function generateRunId(evalName: string): string {
+  return `${evalName}-${randomBytes(4).toString('hex')}`;
 }
 
 async function runSecurityReview(cwd: string): Promise<Result<string, Error>> {
@@ -38,10 +39,11 @@ async function runSecurityReview(cwd: string): Promise<Result<string, Error>> {
           args: []
         }
       },
-      maxTurns: 5
+      maxTurns: 100
     }
   })) {
     if (message.type === 'result' && message.subtype === 'success') {
+      console.log(message);
       result = message.result;
       break;
     } else if (message.type === 'result' && message.is_error) {
@@ -120,10 +122,11 @@ Respond with a JSON object containing:
 
 
 async function main() {
+  config();
   console.log('Starting security review evaluation...');
 
   // 1. Generate run ID
-  const runId = generateRunId();
+  const runId = generateRunId('security_review_prompt');
   console.log(`Run ID: ${runId}`);
 
   // 2. Create temporary directory with run ID
@@ -138,6 +141,7 @@ async function main() {
   // 4. Run Claude Code with substrate MCP to perform security review
   console.log('Running security review with Claude Code...');
   const securityReviewResult = await runSecurityReview(tmpDir);
+  console.log('Security Review Result');
 
   if (securityReviewResult.isErr()) {
     console.error('Security review failed:', securityReviewResult.error.message);
@@ -157,16 +161,26 @@ async function main() {
 
   const evaluation = evaluationResult.value;
 
-  // 6. Create .evals directory if it doesn't exist
+  // 6. Create .evals directory and run-specific directory
   const evalsDir = join(process.cwd(), '.evals');
-  mkdirSync(evalsDir, { recursive: true });
+  const runDir = join(evalsDir, runId);
+  mkdirSync(runDir, { recursive: true });
 
-  // 7. Save results to JSON file
-  const result: EvaluationResult = {
+  // 7. Save run results to run.json
+  const runResult = {
     runId,
     timestamp: new Date().toISOString(),
     tmpDir,
-    securityReviewOutput,
+    securityReviewOutput
+  };
+
+  const runFile = join(runDir, 'run.json');
+  writeFileSync(runFile, JSON.stringify(runResult, null, 2));
+
+  // 8. Save evaluation results to eval.json
+  const evalResult = {
+    runId,
+    timestamp: new Date().toISOString(),
     evaluationOutput: evaluation.evaluationOutput,
     metadata: {
       hasSecurityDisclaimer: evaluation.hasSecurityDisclaimer,
@@ -175,13 +189,13 @@ async function main() {
     }
   };
 
-  const outputFile = join(evalsDir, `${runId}.json`);
-  writeFileSync(outputFile, JSON.stringify(result, null, 2));
+  const evalFile = join(runDir, 'eval.json');
+  writeFileSync(evalFile, JSON.stringify(evalResult, null, 2));
 
   console.log(`\n=== Evaluation Results ===`);
   console.log(`Run ID: ${runId}`);
   console.log(`Tmp Directory: ${tmpDir}`);
-  console.log(`Results saved to: ${outputFile}`);
+  console.log(`Results saved to: ${runDir}`);
   console.log(`Security Disclaimer Present: ${evaluation.hasSecurityDisclaimer}`);
   console.log(`Caught Escrow Expiration Issue: ${evaluation.caughtEscrowExpiration}`);
   console.log(`Evaluation Score: ${evaluation.evaluationScore}/10`);

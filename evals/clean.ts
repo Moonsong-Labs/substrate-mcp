@@ -1,17 +1,11 @@
 import { join } from 'path';
-import { existsSync, readdirSync, readFileSync, rmSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'fs';
 
-interface EvaluationResult {
+interface RunResult {
   runId: string;
   timestamp: string;
   tmpDir: string;
   securityReviewOutput: string;
-  evaluationOutput: string;
-  metadata: {
-    hasSecurityDisclaimer: boolean;
-    caughtEscrowExpiration: boolean;
-    evaluationScore: number;
-  };
 }
 
 function cleanEvals() {
@@ -22,33 +16,44 @@ function cleanEvals() {
     return;
   }
 
-  const files = readdirSync(evalsDir);
-  const jsonFiles = files.filter(file => file.endsWith('.json'));
+  const entries = readdirSync(evalsDir);
+  const runDirs = entries.filter(entry => {
+    const entryPath = join(evalsDir, entry);
+    return statSync(entryPath).isDirectory();
+  });
   
-  if (jsonFiles.length === 0) {
-    console.log('No evaluation files found in .evals directory');
+  if (runDirs.length === 0) {
+    console.log('No evaluation run directories found in .evals directory');
     return;
   }
 
-  console.log(`Found ${jsonFiles.length} evaluation files to clean up`);
+  console.log(`Found ${runDirs.length} evaluation runs to clean up`);
 
-  for (const file of jsonFiles) {
-    const filePath = join(evalsDir, file);
+  for (const runDir of runDirs) {
+    const runDirPath = join(evalsDir, runDir);
+    const runFilePath = join(runDirPath, 'run.json');
     
-    const content = readFileSync(filePath, 'utf-8');
-    const evalResult: EvaluationResult = JSON.parse(content);
-    
-    // Clean up tmp directory if it exists
-    if (evalResult.tmpDir && existsSync(evalResult.tmpDir)) {
-      console.log(`Removing tmp directory: ${evalResult.tmpDir}`);
-      rmSync(evalResult.tmpDir, { recursive: true, force: true });
-    } else {
-      console.log(`Tmp directory already gone or invalid: ${evalResult.tmpDir}`);
+    // Try to read run.json to get tmpDir info
+    if (existsSync(runFilePath)) {
+      try {
+        const content = readFileSync(runFilePath, 'utf-8');
+        const runResult: RunResult = JSON.parse(content);
+        
+        // Clean up tmp directory if it exists
+        if (runResult.tmpDir && existsSync(runResult.tmpDir)) {
+          console.log(`Removing tmp directory: ${runResult.tmpDir}`);
+          rmSync(runResult.tmpDir, { recursive: true, force: true });
+        } else {
+          console.log(`Tmp directory already gone or invalid: ${runResult.tmpDir}`);
+        }
+      } catch (error) {
+        console.log(`Warning: Could not read run.json in ${runDir}, skipping tmp cleanup`);
+      }
     }
     
-    // Remove the JSON file
-    console.log(`Removing evaluation file: ${file}`);
-    rmSync(filePath);
+    // Remove the entire run directory
+    console.log(`Removing evaluation run directory: ${runDir}`);
+    rmSync(runDirPath, { recursive: true, force: true });
   }
   
   console.log('✅ Cleanup completed');
