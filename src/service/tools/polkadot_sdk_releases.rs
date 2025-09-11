@@ -113,6 +113,21 @@ pub(crate) struct ReleaseDownloadSummary {
     pub(crate) output_directory: String,
 }
 
+/// Normalize release input to handle different formats users might provide
+/// Strips common prefixes like 'polkadot-' or 'release-' that come from git tags
+fn normalize_release_input(input: &str) -> String {
+    // First trim whitespace
+    let trimmed = input.trim();
+
+    // Strip common prefixes that users might include from git tags
+    let normalized = trimmed
+        .strip_prefix("polkadot-")
+        .or_else(|| trimmed.strip_prefix("release-"))
+        .unwrap_or(trimmed);
+
+    normalized.to_string()
+}
+
 // Helper function to extract PR number from filename
 fn extract_pr_number(filename: &str) -> Option<u32> {
     if let Some(name) = filename.strip_prefix("pr_")
@@ -361,16 +376,30 @@ async fn fetch_and_save_github_labels(
 pub(crate) async fn fetch_and_analyze_release(release: &str) -> Result<EnhancedPrdocsResult> {
     let client = create_github_client();
 
+    // Normalize the release input to handle different formats
+    // This strips prefixes like 'polkadot-' that users might include from git tags
+    let normalized_release = normalize_release_input(release);
+
+    // Log if normalization changed the input
+    if normalized_release != release {
+        log::info!(
+            "Normalized release name from '{}' to '{}'",
+            release,
+            normalized_release
+        );
+    }
+
     // Get project name from the current project root
     let project_name = get_project_name();
 
     // Create directory under ~/.substrate-mcp/{project}/releases/{release}/pr-docs
+    // We use the normalized release name for the directory structure
     let home_dir = dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
     let output_dir = home_dir
         .join(".substrate-mcp")
         .join(project_name.clone())
         .join("releases")
-        .join(release)
+        .join(&normalized_release)
         .join("pr-docs");
 
     // Create directory if it doesn't exist
@@ -379,8 +408,9 @@ pub(crate) async fn fetch_and_analyze_release(release: &str) -> Result<EnhancedP
         .map_err(|e| anyhow!("Failed to create directory {}: {}", output_dir.display(), e))?;
 
     // First, get the list of files in the prdoc/{release} folder
-    let api_url =
-        format!("https://api.github.com/repos/paritytech/polkadot-sdk/contents/prdoc/{release}");
+    let api_url = format!(
+        "https://api.github.com/repos/paritytech/polkadot-sdk/contents/prdoc/{normalized_release}"
+    );
 
     let response = client
         .get(&api_url)
@@ -392,7 +422,15 @@ pub(crate) async fn fetch_and_analyze_release(release: &str) -> Result<EnhancedP
         let status = response.status();
 
         if status == 404 {
-            return Err(anyhow!("Release '{}' not found", release));
+            return Err(anyhow!(
+                "Release '{}' not found. This means the directory 'prdoc/{}' does not exist on the main branch.\n\
+                Common issues:\n\
+                - If you used a git tag like 'polkadot-stable2503-8', it was normalized to 'stable2503-8'\n\
+                - The release may not exist yet or may use a different naming format\n\
+                - Check available releases at: https://github.com/paritytech/polkadot-sdk/tree/master/prdoc",
+                normalized_release,
+                normalized_release
+            ));
         }
 
         let error_text = response.text().await.unwrap_or_default();
@@ -439,7 +477,7 @@ pub(crate) async fn fetch_and_analyze_release(release: &str) -> Result<EnhancedP
             prdocs: vec![],
             label_definitions: HashMap::new(),
             summary: ReleaseDownloadSummary {
-                release: release.to_string(),
+                release: normalized_release.to_string(),
                 total_prs: 0,
                 download_date: chrono::Utc::now().to_rfc3339(),
                 output_directory: output_dir.to_string_lossy().to_string(),
@@ -509,7 +547,7 @@ pub(crate) async fn fetch_and_analyze_release(release: &str) -> Result<EnhancedP
         prdocs: prdocs_with_labels.clone(),
         label_definitions,
         summary: ReleaseDownloadSummary {
-            release: release.to_string(),
+            release: normalized_release.to_string(),
             total_prs: prdocs_with_labels.len(),
             download_date: chrono::Utc::now().to_rfc3339(),
             output_directory: output_dir.to_string_lossy().to_string(),
@@ -520,6 +558,36 @@ pub(crate) async fn fetch_and_analyze_release(release: &str) -> Result<EnhancedP
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_normalize_release_input() {
+        // Test stripping polkadot- prefix
+        assert_eq!(
+            normalize_release_input("polkadot-stable2503-8"),
+            "stable2503-8"
+        );
+        assert_eq!(
+            normalize_release_input("polkadot-stable2412-1"),
+            "stable2412-1"
+        );
+        assert_eq!(normalize_release_input("polkadot-v1.9.0"), "v1.9.0");
+
+        // Test stripping release- prefix
+        assert_eq!(normalize_release_input("release-v1.9.0"), "v1.9.0");
+        assert_eq!(normalize_release_input("release-stable2503"), "stable2503");
+
+        // Test no change for already normalized inputs
+        assert_eq!(normalize_release_input("stable2503-8"), "stable2503-8");
+        assert_eq!(normalize_release_input("1.9.0"), "1.9.0");
+        assert_eq!(normalize_release_input("v1.9.0"), "v1.9.0");
+
+        // Test trimming whitespace
+        assert_eq!(normalize_release_input("  stable2503-8  "), "stable2503-8");
+        assert_eq!(
+            normalize_release_input("  polkadot-stable2503-8  "),
+            "stable2503-8"
+        );
+    }
 
     #[tokio::test]
     async fn test_list_available_releases() {
@@ -535,5 +603,22 @@ mod tests {
         assert!(releases.releases.contains(&"stable2503".to_string()));
         assert!(releases.releases.contains(&"stable2412".to_string()));
         assert!(releases.releases.iter().any(|name| name.starts_with("1.")));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_with_normalized_input() {
+        // Test that fetch works with prefixed input (requires network)
+        let result = fetch_and_analyze_release("polkadot-stable2412-1").await;
+
+        if result.is_ok() {
+            let enhanced_result = result.unwrap();
+            // The normalized release name should be stored
+            assert_eq!(enhanced_result.summary.release, "stable2412-1");
+            assert!(enhanced_result.summary.total_prs > 0);
+        } else {
+            // If network is not available, just ensure the error is reasonable
+            let error_message = result.unwrap_err().to_string();
+            assert!(error_message.contains("stable2412-1"));
+        }
     }
 }

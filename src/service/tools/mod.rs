@@ -26,7 +26,7 @@ use substrate::{
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
 pub(crate) struct FetchAndAnalyzeReleaseProperties {
-    /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412')
+    /// polkadot-sdk release (examples: 'polkadot-stable2412-3', 'stable2412-1', '1.9.0')
     pub(crate) release: String,
 }
 

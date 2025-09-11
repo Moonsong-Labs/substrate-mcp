@@ -19,8 +19,6 @@ mod template;
 pub(crate) struct PolkadotUpgradeArgs {
     #[schemars(description = "Release name/version to analyze")]
     pub(crate) release: String,
-    #[schemars(description = "Specific area to focus analysis on")]
-    pub(crate) focus: Option<String>,
 }
 
 /// Generate analyze release prompt content
@@ -31,7 +29,6 @@ pub(crate) async fn generate_prompt(args: PolkadotUpgradeArgs) -> Vec<PromptMess
     let handlebars = Handlebars::new();
     let context = json!({
         "release": args.release,
-        "focus": args.focus,
         "security_disclaimer": SECURITY_DISCLAIMER,
         "project_name": get_project_name(),
     });
