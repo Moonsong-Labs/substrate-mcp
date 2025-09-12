@@ -80,7 +80,7 @@ pub(crate) struct GitHubLabel {
 }
 
 // Label metadata structure
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct LabelsMetadata {
     fetched_at: String,
     repository: String,
@@ -372,8 +372,94 @@ async fn fetch_and_save_github_labels(
     Ok(())
 }
 
+/// Load cached PR docs from disk
+async fn load_cached_prdocs(output_dir: &Path) -> Result<EnhancedPrdocsResult> {
+    // Read all .prdoc files from the directory
+    let mut prdocs_with_labels = Vec::new();
+    let mut entries = fs::read_dir(output_dir).await?;
+
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+        if let Some(filename) = path.file_name()
+            && let Some(filename_str) = filename.to_str()
+            && filename_str.ends_with(".prdoc")
+            && let Some(pr_num) = extract_pr_number(filename_str) {
+                // For cached data, we store labels in the labels.json file
+                // Individual PR labels aren't preserved in cache, but we have the PR number
+                prdocs_with_labels.push(PrDocWithLabels {
+                    pr_number: pr_num,
+                    file_path: path.to_string_lossy().to_string(),
+                    labels: vec![], // Labels would need to be fetched again if needed
+                });
+            }
+    }
+
+    // Sort by PR number for consistency
+    prdocs_with_labels.sort_by(|a, b| a.pr_number.cmp(&b.pr_number));
+
+    // Load label definitions from labels.json if it exists
+    let mut label_definitions = HashMap::new();
+    let labels_path = output_dir.join("labels.json");
+    if labels_path.exists() {
+        let labels_content = fs::read_to_string(&labels_path).await?;
+        if let Ok(labels_metadata) = serde_json::from_str::<LabelsMetadata>(&labels_content) {
+            for label in labels_metadata.labels {
+                label_definitions.insert(label.name.clone(), label);
+            }
+        }
+    }
+
+    // Get release name from the directory structure
+    let release_name = output_dir
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown")
+        .to_string();
+
+    Ok(EnhancedPrdocsResult {
+        prdocs: prdocs_with_labels.clone(),
+        label_definitions,
+        summary: ReleaseDownloadSummary {
+            release: release_name,
+            total_prs: prdocs_with_labels.len(),
+            download_date: "cached".to_string(), // Indicate this is from cache
+            output_directory: output_dir.to_string_lossy().to_string(),
+        },
+    })
+}
+
+/// Check if cached data exists and is valid
+async fn has_valid_cache(output_dir: &Path) -> bool {
+    // Check if directory exists
+    if !output_dir.exists() {
+        return false;
+    }
+
+    // Check if we have at least one .prdoc file and labels.json
+    let mut has_prdoc = false;
+    let has_labels = output_dir.join("labels.json").exists();
+
+    if let Ok(mut entries) = fs::read_dir(output_dir).await {
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            if let Some(filename) = entry.path().file_name()
+                && let Some(filename_str) = filename.to_str()
+                && filename_str.ends_with(".prdoc")
+            {
+                has_prdoc = true;
+                break;
+            }
+        }
+    }
+
+    has_prdoc && has_labels
+}
+
 /// Enhanced version that returns structured data for parallel sub-agent workflow
-pub(crate) async fn fetch_and_analyze_release(release: &str) -> Result<EnhancedPrdocsResult> {
+pub(crate) async fn fetch_and_analyze_release(
+    release: &str,
+    force: bool,
+) -> Result<EnhancedPrdocsResult> {
     let client = create_github_client();
 
     // Normalize the release input to handle different formats
@@ -401,6 +487,24 @@ pub(crate) async fn fetch_and_analyze_release(release: &str) -> Result<EnhancedP
         .join("releases")
         .join(&normalized_release)
         .join("pr-docs");
+
+    // Check if we have valid cached data and force is not set
+    if !force && has_valid_cache(&output_dir).await {
+        log::info!(
+            "Using cached PR docs for release '{}' from {}",
+            normalized_release,
+            output_dir.display()
+        );
+        return load_cached_prdocs(&output_dir).await;
+    }
+
+    // If force is set, log that we're re-downloading
+    if force && output_dir.exists() {
+        log::info!(
+            "Force flag set, re-downloading PR docs for release '{}' (replacing existing cache)",
+            normalized_release
+        );
+    }
 
     // Create directory if it doesn't exist
     fs::create_dir_all(&output_dir)
@@ -608,7 +712,7 @@ mod tests {
     #[tokio::test]
     async fn test_fetch_with_normalized_input() {
         // Test that fetch works with prefixed input (requires network)
-        let result = fetch_and_analyze_release("polkadot-stable2412-1").await;
+        let result = fetch_and_analyze_release("polkadot-stable2412-1", false).await;
 
         if result.is_ok() {
             let enhanced_result = result.unwrap();

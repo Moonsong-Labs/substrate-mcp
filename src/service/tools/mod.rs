@@ -28,14 +28,18 @@ use substrate::{
 pub(crate) struct FetchAndAnalyzeReleaseProperties {
     /// polkadot-sdk release (examples: 'polkadot-stable2412-3', 'stable2412-1', '1.9.0')
     pub(crate) release: String,
+    /// Force re-download even if cached data exists (default: false)
+    #[serde(default)]
+    pub(crate) force: bool,
 }
 
 pub(crate) async fn handle_fetch_and_analyze_release(
     properties: FetchAndAnalyzeReleaseProperties,
 ) -> Result<CallToolResult, McpError> {
-    let response = polkadot_sdk_releases::fetch_and_analyze_release(&properties.release)
-        .await
-        .map_err(|e| mcp_error_internal(format!("Failed to fetch and analyze release: {e}")))?;
+    let response =
+        polkadot_sdk_releases::fetch_and_analyze_release(&properties.release, properties.force)
+            .await
+            .map_err(|e| mcp_error_internal(format!("Failed to fetch and analyze release: {e}")))?;
 
     // Format the response as JSON string
     let response_text = serde_json::to_string_pretty(&response)
