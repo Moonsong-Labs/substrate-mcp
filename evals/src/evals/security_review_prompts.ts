@@ -27,7 +27,7 @@ interface Score {
 interface Eval {
   runId: string;
   output: {
-    evaluatorReasoning: string;
+    evaluatorOutput: string;
     scores: Score[];
   };
 }
@@ -185,15 +185,15 @@ Respond with a JSON object containing:
     caughtEscrowExpiration = parsed.caughtEscrowExpiration || false;
     evaluationScore = parsed.evaluationScore || 0;
   } else {
-    hasSecurityDisclaimer = result.toLowerCase().includes('security') && result.toLowerCase().includes('disclaimer');
-    caughtEscrowExpiration = result.toLowerCase().includes('expir') && result.toLowerCase().includes('buyer');
+    hasSecurityDisclaimer = false;
+    caughtEscrowExpiration = false;
     evaluationScore = -1;
   }
 
   const evalResult: Eval = {
     runId: runMetadata.id,
     output: {
-      evaluatorReasoning: result,
+      evaluatorOutput: result,
       scores: [
         { key: 'hasSecurityDisclaimer', score: hasSecurityDisclaimer ? 1 : 0 },
         { key: 'caughtEscrowExpiration', score: caughtEscrowExpiration ? 1 : 0 },
