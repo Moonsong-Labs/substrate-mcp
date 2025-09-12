@@ -7,16 +7,29 @@ import { mkdtempSync, cpSync, mkdirSync, writeFileSync } from 'fs';
 import { config } from 'dotenv';
 import { logger } from './utils/logger.ts';
 
-interface EvaluationResult {
-  runId: string;
+interface RunMetadata {
+  id: string;
+  directory: string;
   timestamp: string;
-  tmpDir: string;
-  securityReviewOutput: string[];
-  evaluationOutput: string;
-  metadata: {
-    hasSecurityDisclaimer: boolean;
-    caughtEscrowExpiration: boolean;
-    evaluationScore: number;
+}
+
+interface Run {
+  metadata: RunMetadata;
+  output: {
+    assistantMessages: string[];
+  };
+}
+
+interface Score {
+  key: string;
+  score: number;
+}
+
+interface Eval {
+  runId: string;
+  output: {
+    evaluatorReasoning: string;
+    scores: Score[];
   };
 }
 
@@ -25,14 +38,32 @@ function generateRunId(evalName: string): string {
   return `${evalName}-${randomBytes(4).toString('hex')}`;
 }
 
-async function runSecurityReview(cwd: string): Promise<Result<string[], Error>> {
+function getRunDirectory(runId: string): string {
+  return join(process.cwd(), '.evals', runId);
+}
+
+function setup(evalName: string, exampleName: string): RunMetadata {
+  const runId = generateRunId(evalName);
+  const runDir = mkdtempSync(join(tmpdir(), `substrate-eval-${runId}-`));
+
+  const exampleSource = join(process.cwd(), 'examples', exampleName);
+  cpSync(exampleSource, runDir, { recursive: true });
+
+  return {
+    id: runId,
+    directory: runDir,
+    timestamp: new Date().toISOString()
+  };
+}
+
+async function run(metadata: RunMetadata): Promise<Result<Run, Error>> {
 
   const assistantMessages: string[] = [];
 
   for await (const message: SDKMessage of query({
     prompt: 'Use the substrate MCP server security_review prompt to analyze this escrow pallet implementation for security vulnerabilities, economic risks, and code quality issues.',
     options: {
-      cwd: cwd,
+      cwd: metadata.directory,
       env: process.env,
       mcpServers: {
         'substrate-mcp': {
@@ -76,17 +107,27 @@ async function runSecurityReview(cwd: string): Promise<Result<string[], Error>> 
     }
   }
 
-  return ok(assistantMessages);
+  const runResult: Run = {
+    metadata,
+    output: {
+      assistantMessages
+    }
+  };
+
+  // Create .evals directory and run-specific directory
+  const runDir = getRunDirectory(metadata.id);
+  mkdirSync(runDir, { recursive: true });
+
+  // Save run results to run.json
+  const runFile = join(runDir, 'run.json');
+  writeFileSync(runFile, JSON.stringify(runResult, null, 2));
+
+  return ok(runResult);
 }
 
-async function evaluateSecurityReview(securityReviewMessages: string[]): Promise<Result<{
-  evaluationOutput: string;
-  hasSecurityDisclaimer: boolean;
-  caughtEscrowExpiration: boolean;
-  evaluationScore: number;
-}, Error>> {
+async function evaluate(run: Run): Promise<Result<Eval, Error>> {
   // Concatenate all assistant messages for evaluation
-  const securityReviewOutput = securityReviewMessages.join('\n\n');
+  const securityReviewOutput = run.output.assistantMessages.join('\n\n');
 
   const evaluationPrompt = `
 You are evaluating a security review of a Substrate escrow pallet. Please analyze the security review output and provide a structured evaluation.
@@ -128,109 +169,75 @@ Respond with a JSON object containing:
 
   // Extract JSON from the output
   const jsonMatch = result.match(/\{[\s\S]*\}/);
+  let hasSecurityDisclaimer, caughtEscrowExpiration, evaluationScore;
+
   if (jsonMatch) {
     const parsed = JSON.parse(jsonMatch[0]);
-    return ok({
-      evaluationOutput: result,
-      hasSecurityDisclaimer: parsed.hasSecurityDisclaimer || false,
-      caughtEscrowExpiration: parsed.caughtEscrowExpiration || false,
-      evaluationScore: parsed.evaluationScore || 0
-    });
+    hasSecurityDisclaimer = parsed.hasSecurityDisclaimer || false;
+    caughtEscrowExpiration = parsed.caughtEscrowExpiration || false;
+    evaluationScore = parsed.evaluationScore || 0;
   } else {
-    return ok({
-      evaluationOutput: result,
-      hasSecurityDisclaimer: result.toLowerCase().includes('security') && result.toLowerCase().includes('disclaimer'),
-      caughtEscrowExpiration: result.toLowerCase().includes('expir') && result.toLowerCase().includes('buyer'),
-      evaluationScore: 5
-    });
+    hasSecurityDisclaimer = result.toLowerCase().includes('security') && result.toLowerCase().includes('disclaimer');
+    caughtEscrowExpiration = result.toLowerCase().includes('expir') && result.toLowerCase().includes('buyer');
+    evaluationScore = 5;
   }
+
+  const evalResult: Eval = {
+    runId: run.metadata.id,
+    output: {
+      evaluatorReasoning: result,
+      scores: [
+        { key: 'hasSecurityDisclaimer', score: hasSecurityDisclaimer ? 1 : 0 },
+        { key: 'caughtEscrowExpiration', score: caughtEscrowExpiration ? 1 : 0 },
+        { key: 'evaluationScore', score: evaluationScore }
+      ]
+    }
+  };
+
+  // Save evaluation results to eval.json
+  const runDir = getRunDirectory(run.metadata.id);
+  const evalFile = join(runDir, 'eval.json');
+  writeFileSync(evalFile, JSON.stringify(evalResult, null, 2));
+
+  return ok(evalResult);
 }
 
 
 async function main() {
   config();
-  logger.info('Starting security review evaluation...');
+  logger.info('Starting security review prompt evaluation...');
 
-  // 1. Generate run ID
-  const runId = generateRunId('security_review_prompt');
-  logger.info(`Run ID: ${runId}`);
+  const runMetadata = setup('security_review_prompt', 'escrow');
 
-  // 2. Create temporary directory with run ID
-  const tmpDir = mkdtempSync(join(tmpdir(), `substrate-eval-${runId}-`));
-  logger.info(`Created tmp directory: ${tmpDir}`);
+  // Run Claude Code with substrate MCP to perform security review
+  logger.info(`Starting run ${runMetadata.id} on ${runMetadata.directory}`);
+  const runResult = await run(runMetadata);
 
-  // 3. Copy escrow example to temp directory
-  const escrowSource = join(process.cwd(), 'examples', 'escrow');
-  cpSync(escrowSource, tmpDir, { recursive: true });
-  logger.info('Copied escrow example to temp directory');
 
-  // 4. Run Claude Code with substrate MCP to perform security review
-  logger.info('Running security review with Claude Code...');
-  const securityReviewResult = await runSecurityReview(tmpDir);
-  logger.info('Security Review Result');
-
-  if (securityReviewResult.isErr()) {
-    logger.info('Security review failed:', securityReviewResult.error.message);
+  if (runResult.isErr()) {
+    logger.error('Security review failed:', runResult.error.message);
     process.exit(1);
   }
 
-  const securityReviewMessages = securityReviewResult.value;
+  const run = runResult.value;
+  logger.info(`\n=== Run Results ===`);
+  logger.info(JSON.stringify(run, null, 2));
 
-  // 5. Evaluate the security review with a fresh Claude Code instance
+  // Evaluate the security review with a fresh Claude Code instance
   logger.info('Evaluating the security review...');
-  const evaluationResult = await evaluateSecurityReview(securityReviewMessages);
+  const evaluationResult = await evaluate(run);
 
-  if (evaluationResult.isErr()) {
-    logger.info('Security review evaluation failed:', evaluationResult.error.message);
+  if (evalResult.isErr()) {
+    logger.error('Security review evaluation failed:', evaluationResult.error.message);
     process.exit(1);
   }
 
-  const evaluation = evaluationResult.value;
+  const eval = evalResult.value;
 
-  // 6. Create .evals directory and run-specific directory
-  const evalsDir = join(process.cwd(), '.evals');
-  const runDir = join(evalsDir, runId);
-  mkdirSync(runDir, { recursive: true });
+  logger.info(`\n=== Eval Results ===`);
+  logger.info(JSON.stringify(eval, null, 2));
 
-  // 7. Save run results to run.json
-  const runResult = {
-    runId,
-    timestamp: new Date().toISOString(),
-    tmpDir,
-    securityReviewOutput: securityReviewMessages
-  };
-
-  const runFile = join(runDir, 'run.json');
-  writeFileSync(runFile, JSON.stringify(runResult, null, 2));
-
-  // 8. Save evaluation results to eval.json
-  const evalResult = {
-    runId,
-    timestamp: new Date().toISOString(),
-    evaluationOutput: evaluation.evaluationOutput,
-    metadata: {
-      hasSecurityDisclaimer: evaluation.hasSecurityDisclaimer,
-      caughtEscrowExpiration: evaluation.caughtEscrowExpiration,
-      evaluationScore: evaluation.evaluationScore
-    }
-  };
-
-  const evalFile = join(runDir, 'eval.json');
-  writeFileSync(evalFile, JSON.stringify(evalResult, null, 2));
-
-  logger.info(`\n=== Evaluation Results ===`);
-  logger.info(`Run ID: ${runId}`);
-  logger.info(`Tmp Directory: ${tmpDir}`);
-  logger.info(`Results saved to: ${runDir}`);
-  logger.info(`Security Disclaimer Present: ${evaluation.hasSecurityDisclaimer}`);
-  logger.info(`Caught Escrow Expiration Issue: ${evaluation.caughtEscrowExpiration}`);
-  logger.info(`Evaluation Score: ${evaluation.evaluationScore}/10`);
-
-  if (evaluation.caughtEscrowExpiration && evaluation.hasSecurityDisclaimer) {
-    logger.info('✅ Security review passed all key criteria!');
-  } else {
-    logger.info('❌ Security review missed some key criteria');
-  }
+  logger.info(`Results saved to: ${getRunDirectory(runMetadata.id)}`);
 }
 
 if (import.meta.main) {
