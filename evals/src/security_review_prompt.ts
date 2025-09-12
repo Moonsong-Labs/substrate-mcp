@@ -70,15 +70,18 @@ async function runTask(metadata: RunMetadata): Promise<Result<TaskResult, Error>
   const assistantMessages: string[] = [];
 
   for await (const message: SDKMessage of query({
-    prompt: 'Use the substrate MCP server security_review prompt to analyze this escrow pallet implementation for security vulnerabilities, economic risks, and code quality issues.',
+    prompt: `/substrateMcp:security_review (MCP) "Analyze the escrow pallet"`,
     options: {
       cwd: metadata.task_directory,
       env: process.env,
       mcpServers: {
-        'substrate-mcp': {
+        substrateMcp: {
           command: 'substrate-mcp',
           args: []
         }
+      },
+      permissions: {
+        allowRead: true,
       },
       maxTurns: 100
     }
@@ -130,7 +133,7 @@ async function runTask(metadata: RunMetadata): Promise<Result<TaskResult, Error>
   return ok(taskResult);
 }
 
-async function eval(taskResult: TaskResult, runMetadata: RunMetadata): Promise<Result<Eval, Error>> {
+async function runEval(taskResult: TaskResult, runMetadata: RunMetadata): Promise<Result<Eval, Error>> {
   // Concatenate all assistant messages for evaluation
   const securityReviewOutput = taskResult.output.assistantMessages.join('\n\n');
 
@@ -229,7 +232,7 @@ async function main() {
 
   // Evaluate the security review with a fresh Claude Code instance
   logger.info('Evaluating the security review...');
-  const evaluationResult = await eval(taskObj, runMetadata);
+  const evaluationResult = await runEval(taskObj, runMetadata);
 
   if (evaluationResult.isErr()) {
     logger.error('Security review evaluation failed:', evaluationResult.error.message);
