@@ -187,7 +187,7 @@ Respond with a JSON object containing:
   } else {
     hasSecurityDisclaimer = result.toLowerCase().includes('security') && result.toLowerCase().includes('disclaimer');
     caughtEscrowExpiration = result.toLowerCase().includes('expir') && result.toLowerCase().includes('buyer');
-    evaluationScore = 5;
+    evaluationScore = -1;
   }
 
   const evalResult: Eval = {
