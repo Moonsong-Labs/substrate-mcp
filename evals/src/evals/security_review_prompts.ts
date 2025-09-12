@@ -5,7 +5,7 @@ import { query, type SDKMessage, type SDKAssistantMessage } from '@anthropic-ai/
 import { Result, ok, err } from 'neverthrow';
 import { mkdtempSync, cpSync, mkdirSync, writeFileSync } from 'fs';
 import { config } from 'dotenv';
-import { logger } from './utils/logger.ts';
+import { logger } from '../utils/logger.ts';
 
 interface RunMetadata {
   id: string;
