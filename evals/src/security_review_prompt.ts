@@ -5,6 +5,7 @@ import { query, type SDKMessage, type SDKAssistantMessage } from '@anthropic-ai/
 import { Result, ok, err } from 'neverthrow';
 import { mkdtempSync, cpSync, mkdirSync, writeFileSync } from 'fs';
 import { config } from 'dotenv';
+import { logger } from './utils/logger.ts';
 
 interface EvaluationResult {
   runId: string;
@@ -42,14 +43,13 @@ async function runSecurityReview(cwd: string): Promise<Result<string[], Error>> 
       maxTurns: 100
     }
   })) {
-    // Debug: Log all messages
-    console.log('=== DEBUG MESSAGE ===');
-    console.log('Type:', message.type);
+    logger.debug('=== DEBUG MESSAGE ===');
+    logger.debug('Type:', message.type);
     if (message.type === 'assistant') {
-      console.log('Content:', message.message.content);
+      logger.debug('Content:', message.message.content);
     }
-    console.log('Full message:', JSON.stringify(message, null, 2));
-    console.log('=====================');
+    logger.debug('Full message:', JSON.stringify(message, null, 2));
+    logger.debug('=====================');
 
     // Collect assistant text messages with proper type checking
     if (message.type === 'assistant') {
@@ -75,9 +75,6 @@ async function runSecurityReview(cwd: string): Promise<Result<string[], Error>> 
       return err(new Error(errorMessage));
     }
   }
-
-  console.log("FINAL MESSAGES");
-  console.log(assistantMessages);
 
   return ok(assistantMessages);
 }
@@ -152,39 +149,39 @@ Respond with a JSON object containing:
 
 async function main() {
   config();
-  console.log('Starting security review evaluation...');
+  logger.info('Starting security review evaluation...');
 
   // 1. Generate run ID
   const runId = generateRunId('security_review_prompt');
-  console.log(`Run ID: ${runId}`);
+  logger.info(`Run ID: ${runId}`);
 
   // 2. Create temporary directory with run ID
   const tmpDir = mkdtempSync(join(tmpdir(), `substrate-eval-${runId}-`));
-  console.log(`Created tmp directory: ${tmpDir}`);
+  logger.info(`Created tmp directory: ${tmpDir}`);
 
   // 3. Copy escrow example to temp directory
   const escrowSource = join(process.cwd(), 'examples', 'escrow');
   cpSync(escrowSource, tmpDir, { recursive: true });
-  console.log('Copied escrow example to temp directory');
+  logger.info('Copied escrow example to temp directory');
 
   // 4. Run Claude Code with substrate MCP to perform security review
-  console.log('Running security review with Claude Code...');
+  logger.info('Running security review with Claude Code...');
   const securityReviewResult = await runSecurityReview(tmpDir);
-  console.log('Security Review Result');
+  logger.info('Security Review Result');
 
   if (securityReviewResult.isErr()) {
-    console.error('Security review failed:', securityReviewResult.error.message);
+    logger.info('Security review failed:', securityReviewResult.error.message);
     process.exit(1);
   }
 
   const securityReviewMessages = securityReviewResult.value;
 
   // 5. Evaluate the security review with a fresh Claude Code instance
-  console.log('Evaluating the security review...');
+  logger.info('Evaluating the security review...');
   const evaluationResult = await evaluateSecurityReview(securityReviewMessages);
 
   if (evaluationResult.isErr()) {
-    console.error('Security review evaluation failed:', evaluationResult.error.message);
+    logger.info('Security review evaluation failed:', evaluationResult.error.message);
     process.exit(1);
   }
 
@@ -221,18 +218,18 @@ async function main() {
   const evalFile = join(runDir, 'eval.json');
   writeFileSync(evalFile, JSON.stringify(evalResult, null, 2));
 
-  console.log(`\n=== Evaluation Results ===`);
-  console.log(`Run ID: ${runId}`);
-  console.log(`Tmp Directory: ${tmpDir}`);
-  console.log(`Results saved to: ${runDir}`);
-  console.log(`Security Disclaimer Present: ${evaluation.hasSecurityDisclaimer}`);
-  console.log(`Caught Escrow Expiration Issue: ${evaluation.caughtEscrowExpiration}`);
-  console.log(`Evaluation Score: ${evaluation.evaluationScore}/10`);
+  logger.info(`\n=== Evaluation Results ===`);
+  logger.info(`Run ID: ${runId}`);
+  logger.info(`Tmp Directory: ${tmpDir}`);
+  logger.info(`Results saved to: ${runDir}`);
+  logger.info(`Security Disclaimer Present: ${evaluation.hasSecurityDisclaimer}`);
+  logger.info(`Caught Escrow Expiration Issue: ${evaluation.caughtEscrowExpiration}`);
+  logger.info(`Evaluation Score: ${evaluation.evaluationScore}/10`);
 
   if (evaluation.caughtEscrowExpiration && evaluation.hasSecurityDisclaimer) {
-    console.log('✅ Security review passed all key criteria!');
+    logger.info('✅ Security review passed all key criteria!');
   } else {
-    console.log('❌ Security review missed some key criteria');
+    logger.info('❌ Security review missed some key criteria');
   }
 }
 

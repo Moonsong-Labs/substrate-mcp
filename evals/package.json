@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "security-review": "bun run code_review.ts",
-    "clean": "bun run clean.ts"
+    "clean": "bun run scripts/clean.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"
