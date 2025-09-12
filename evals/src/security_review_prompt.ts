@@ -9,12 +9,11 @@ import { logger } from './utils/logger.ts';
 
 interface RunMetadata {
   id: string;
-  directory: string;
+  task_directory: string;
   timestamp: string;
 }
 
-interface Run {
-  metadata: RunMetadata;
+interface TaskResult {
   output: {
     assistantMessages: string[];
   };
@@ -49,21 +48,31 @@ function setup(evalName: string, exampleName: string): RunMetadata {
   const exampleSource = join(process.cwd(), 'examples', exampleName);
   cpSync(exampleSource, runDir, { recursive: true });
 
-  return {
+  const runMetadata: RunMetadata = {
     id: runId,
-    directory: runDir,
+    task_directory: runDir,
     timestamp: new Date().toISOString()
   };
+
+  // Create .evals directory and run-specific directory
+  const evalsRunDir = getRunDirectory(runId);
+  mkdirSync(evalsRunDir, { recursive: true });
+
+  // Save run metadata to run_metadata.json
+  const runMetadataFile = join(evalsRunDir, 'run_metadata.json');
+  writeFileSync(runMetadataFile, JSON.stringify(runMetadata, null, 2));
+
+  return runMetadata;
 }
 
-async function run(metadata: RunMetadata): Promise<Result<Run, Error>> {
+async function runTask(metadata: RunMetadata): Promise<Result<TaskResult, Error>> {
 
   const assistantMessages: string[] = [];
 
   for await (const message: SDKMessage of query({
     prompt: 'Use the substrate MCP server security_review prompt to analyze this escrow pallet implementation for security vulnerabilities, economic risks, and code quality issues.',
     options: {
-      cwd: metadata.directory,
+      cwd: metadata.task_directory,
       env: process.env,
       mcpServers: {
         'substrate-mcp': {
@@ -107,27 +116,23 @@ async function run(metadata: RunMetadata): Promise<Result<Run, Error>> {
     }
   }
 
-  const runResult: Run = {
-    metadata,
+  const taskResult: TaskResult = {
     output: {
       assistantMessages
     }
   };
 
-  // Create .evals directory and run-specific directory
+  // Save task results to task.json
   const runDir = getRunDirectory(metadata.id);
-  mkdirSync(runDir, { recursive: true });
+  const taskFile = join(runDir, 'task_result.json');
+  writeFileSync(taskFile, JSON.stringify(taskResult, null, 2));
 
-  // Save run results to run.json
-  const runFile = join(runDir, 'run.json');
-  writeFileSync(runFile, JSON.stringify(runResult, null, 2));
-
-  return ok(runResult);
+  return ok(taskResult);
 }
 
-async function evaluate(run: Run): Promise<Result<Eval, Error>> {
+async function eval(taskResult: TaskResult, runMetadata: RunMetadata): Promise<Result<Eval, Error>> {
   // Concatenate all assistant messages for evaluation
-  const securityReviewOutput = run.output.assistantMessages.join('\n\n');
+  const securityReviewOutput = taskResult.output.assistantMessages.join('\n\n');
 
   const evaluationPrompt = `
 You are evaluating a security review of a Substrate escrow pallet. Please analyze the security review output and provide a structured evaluation.
@@ -183,7 +188,7 @@ Respond with a JSON object containing:
   }
 
   const evalResult: Eval = {
-    runId: run.metadata.id,
+    runId: runMetadata.id,
     output: {
       evaluatorReasoning: result,
       scores: [
@@ -195,7 +200,7 @@ Respond with a JSON object containing:
   };
 
   // Save evaluation results to eval.json
-  const runDir = getRunDirectory(run.metadata.id);
+  const runDir = getRunDirectory(runMetadata.id);
   const evalFile = join(runDir, 'eval.json');
   writeFileSync(evalFile, JSON.stringify(evalResult, null, 2));
 
@@ -210,32 +215,31 @@ async function main() {
   const runMetadata = setup('security_review_prompt', 'escrow');
 
   // Run Claude Code with substrate MCP to perform security review
-  logger.info(`Starting run ${runMetadata.id} on ${runMetadata.directory}`);
-  const runResult = await run(runMetadata);
+  logger.info(`Starting run ${runMetadata.id} on ${runMetadata.task_directory}`);
+  const taskResult = await runTask(runMetadata);
 
-
-  if (runResult.isErr()) {
-    logger.error('Security review failed:', runResult.error.message);
+  if (taskResult.isErr()) {
+    logger.error('Security review failed:', taskResult.error.message);
     process.exit(1);
   }
 
-  const run = runResult.value;
-  logger.info(`\n=== Run Results ===`);
-  logger.info(JSON.stringify(run, null, 2));
+  const taskObj = taskResult.value;
+  logger.info(`\n=== Task Results ===`);
+  logger.info(JSON.stringify(taskObj, null, 2));
 
   // Evaluate the security review with a fresh Claude Code instance
   logger.info('Evaluating the security review...');
-  const evaluationResult = await evaluate(run);
+  const evaluationResult = await eval(taskObj, runMetadata);
 
-  if (evalResult.isErr()) {
+  if (evaluationResult.isErr()) {
     logger.error('Security review evaluation failed:', evaluationResult.error.message);
     process.exit(1);
   }
 
-  const eval = evalResult.value;
+  const evalResult = evaluationResult.value;
 
   logger.info(`\n=== Eval Results ===`);
-  logger.info(JSON.stringify(eval, null, 2));
+  logger.info(JSON.stringify(evalResult, null, 2));
 
   logger.info(`Results saved to: ${getRunDirectory(runMetadata.id)}`);
 }

@@ -2,11 +2,10 @@ import { join } from 'path';
 import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'fs';
 import { logger } from '../src/utils/logger.ts';
 
-interface RunResult {
-  runId: string;
+interface RunMetadata {
+  id: string;
+  task_directory: string;
   timestamp: string;
-  tmpDir: string;
-  securityReviewOutput: string[];
 }
 
 function cleanEvals() {
@@ -32,23 +31,23 @@ function cleanEvals() {
 
   for (const runDir of runDirs) {
     const runDirPath = join(evalsDir, runDir);
-    const runFilePath = join(runDirPath, 'run.json');
+    const runMetadataPath = join(runDirPath, 'run_metadata.json');
 
-    // Try to read run.json to get tmpDir info
-    if (existsSync(runFilePath)) {
+    // Try to read run_metadata.json to get task_directory info
+    if (existsSync(runMetadataPath)) {
       try {
-        const content = readFileSync(runFilePath, 'utf-8');
-        const runResult: RunResult = JSON.parse(content);
+        const content = readFileSync(runMetadataPath, 'utf-8');
+        const runMetadata: RunMetadata = JSON.parse(content);
 
-        // Clean up tmp directory if it exists
-        if (runResult.tmpDir && existsSync(runResult.tmpDir)) {
-          logger.info(`Removing tmp directory: ${runResult.tmpDir}`);
-          rmSync(runResult.tmpDir, { recursive: true, force: true });
+        // Clean up task directory if it exists
+        if (runMetadata.task_directory && existsSync(runMetadata.task_directory)) {
+          logger.info(`Removing task directory: ${runMetadata.task_directory}`);
+          rmSync(runMetadata.task_directory, { recursive: true, force: true });
         } else {
-          logger.info(`Tmp directory already gone or invalid: ${runResult.tmpDir}`);
+          logger.info(`Task directory already gone or invalid: ${runMetadata.task_directory}`);
         }
       } catch (error) {
-        logger.warn(`Warning: Could not read run.json in ${runDir}, skipping tmp cleanup`);
+        logger.warn(`Warning: Could not read run_metadata.json in ${runDir}, skipping task cleanup`);
       }
     }
 
