@@ -1,0 +1,23 @@
+{
+  "name": "evals",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "clean": "bun run scripts/clean.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-code": "^1.0.113",
+    "@langchain/anthropic": "^0.3.27",
+    "dotenv": "^17.2.2",
+    "langchain": "^0.3.33",
+    "neverthrow": "^8.2.0",
+    "zod": "^4.1.8"
+  }
+}
