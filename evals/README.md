@@ -32,7 +32,7 @@ An eval `run` will work on an `example` (by copying it in a `tmp` directory) and
 
 1. Set up environment variables in `.env`:
    ```bash
-   # Add Agent configuration (e.g: Claude Code credentials) if needed
+   # Add Agent configuration (e.g: Anthropic credentials) if needed
    LOG_LEVEL=INFO
    ```
 

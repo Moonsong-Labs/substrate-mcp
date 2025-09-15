@@ -6,6 +6,8 @@ import { Result, ok, err } from 'neverthrow';
 import { mkdtempSync, cpSync, mkdirSync, writeFileSync } from 'fs';
 import { config } from 'dotenv';
 import { logger } from '../utils/logger.ts';
+import { ChatAnthropic } from "@langchain/anthropic";
+import { z } from "zod";
 
 interface RunMetadata {
   id: string;
@@ -133,6 +135,13 @@ async function runTask(metadata: RunMetadata): Promise<Result<TaskResult, Error>
   return ok(taskResult);
 }
 
+const EvaluationSchema = z.object({
+  hasSecurityDisclaimer: z.boolean(),
+  caughtEscrowExpiration: z.boolean(),
+  evaluationScore: z.number().min(1).max(10),
+  reasoning: z.string()
+});
+
 async function runEval(taskResult: TaskResult, runMetadata: RunMetadata): Promise<Result<Eval, Error>> {
   // Concatenate all assistant messages for evaluation
   const securityReviewOutput = taskResult.output.assistantMessages.join('\n\n');
@@ -147,57 +156,22 @@ Please evaluate:
 1. Does the review include a proper security disclaimer?
 2. Did it identify the critical vulnerability where a buyer can wait for escrow expiration instead of releasing funds to avoid payment?
 3. Overall quality of the security analysis (rate 1-10)
-
-Respond with a JSON object containing:
-- hasSecurityDisclaimer: boolean
-- caughtEscrowExpiration: boolean  
-- evaluationScore: number (1-10)
-- reasoning: string explaining your evaluation
 `;
 
-  let result = '';
+  const llm = new ChatAnthropic({
+    model: "claude-3-5-sonnet-20241022",
+  });
 
-
-  for await (const message of query({
-    prompt: evaluationPrompt,
-    options: {
-      env: process.env,
-      maxTurns: 3
-    }
-  })) {
-    if (message.type === 'result' && message.subtype === 'success') {
-      result = message.result;
-      break;
-    } else if (message.type === 'result' && message.is_error) {
-      // Handle structured errors
-      const errorMessage = `Claude Code error (${message.subtype}): Unknown error`;
-      return err(new Error(errorMessage));
-    }
-  }
-
-  // Extract JSON from the output
-  const jsonMatch = result.match(/\{[\s\S]*\}/);
-  let hasSecurityDisclaimer, caughtEscrowExpiration, evaluationScore;
-
-  if (jsonMatch) {
-    const parsed = JSON.parse(jsonMatch[0]);
-    hasSecurityDisclaimer = parsed.hasSecurityDisclaimer || false;
-    caughtEscrowExpiration = parsed.caughtEscrowExpiration || false;
-    evaluationScore = parsed.evaluationScore || 0;
-  } else {
-    hasSecurityDisclaimer = false;
-    caughtEscrowExpiration = false;
-    evaluationScore = -1;
-  }
+  const evaluationResult = await llm.withStructuredOutput(EvaluationSchema).invoke(evaluationPrompt);
 
   const evalResult: Eval = {
     runId: runMetadata.id,
     output: {
-      evaluatorOutput: result,
+      evaluatorOutput: JSON.stringify(evaluationResult, null, 2),
       scores: [
-        { key: 'hasSecurityDisclaimer', score: hasSecurityDisclaimer ? 1 : 0 },
-        { key: 'caughtEscrowExpiration', score: caughtEscrowExpiration ? 1 : 0 },
-        { key: 'evaluationScore', score: evaluationScore }
+        { key: 'hasSecurityDisclaimer', score: evaluationResult.hasSecurityDisclaimer ? 1 : 0 },
+        { key: 'caughtEscrowExpiration', score: evaluationResult.caughtEscrowExpiration ? 1 : 0 },
+        { key: 'evaluationScore', score: evaluationResult.evaluationScore }
       ]
     }
   };
