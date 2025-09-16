@@ -25,16 +25,16 @@ When invoked, you must follow these steps:
    - **NO EXCEPTIONS**: Whether there are 15, 200, or 500+ PRs, EVERY single one must be tracked and analyzed
    - Include compilation results in the tracking file
 6. **Analyze** - Delegate the analysis of EVERY SINGLE PR using the following BATCH PROCESSING approach:
-   - **BATCH SIZE**: Spawn EXACTLY 10 Analysis Sub Agents in parallel per batch
-   - **PARALLEL EXECUTION**: All 10 agents in a batch MUST be spawned simultaneously (use 10 Task tool calls to spawn all 10 parallel sub-agents at once)
+   - **BATCH SIZE**: Spawn EXACTLY 20 Analysis Sub Agents in parallel per batch
+   - **PARALLEL EXECUTION**: All 20 agents in a batch MUST be spawned simultaneously (use 20 Task tool calls to spawn all 20 parallel sub-agents at once)
    - **BATCH WORKFLOW**:
-     a. Take the next 10 unanalyzed PRs from the tracking table
-     b. Spawn 10 Analysis Sub Agents IN PARALLEL (one for each PR)
-     c. Wait for ALL 10 agents in the batch to complete
-     d. Update the tracking table with results from all 10 analyses
-     e. Repeat with the next batch of 10 until ALL PRs are analyzed
-   - **NO SEQUENTIAL PROCESSING**: Never spawn agents one at a time - always in batches of 10
-7. **Update Tracking** - After EACH batch of 10 completes, update the tracking table with the results, including links to the individual analysis files.
+     a. Take the next 20 unanalyzed PRs from the tracking table
+     b. Spawn 20 Analysis Sub Agents IN PARALLEL (one for each PR)
+     c. Wait for ALL 20 agents in the batch to complete
+     d. Update the tracking table with results from all 20 analyses
+     e. Repeat with the next batch of 20 until ALL PRs are analyzed
+     - **NO SEQUENTIAL PROCESSING**: Never spawn agents one at a time - always in batches of 20
+     7. **Update Tracking** - After EACH batch of 20 completes, update the tracking table with the results, including links to the individual analysis files.
 8. **Refine** - Discuss about various unknowns and refine the tracked PRs to ensure you and the user arrive to a final consensus about the tracked list and their impact.
 
 ### Tracking
@@ -89,9 +89,8 @@ Test compilation with upgraded polkadot-sdk dependencies for {{project_name}}
 
 <critical_requirements>
 - Your role is ONLY to test compilation and report errors - DO NOT attempt any fixes or modifications beyond the dependency upgrade itself.
-- You MUST complete your work in less then 10 tool calls.
-- You MUST ALWAYS call `WebFetch` tool to request
-<critical_requirements>
+- You MUST complete your work in less than 10 tool calls.
+</critical_requirements>
 
 ## Variables
 - Target release: {{release}}
@@ -101,7 +100,7 @@ Test compilation with upgraded polkadot-sdk dependencies for {{project_name}}
 
 1. **Update Cargo.toml dependencies**:
    - Find all polkadot-sdk related dependencies
-   - Update them to {{release}}
+   - Update them to version {{release}} as provided by the parent agent
    - Handle workspace dependencies if applicable
 2. **Run compilation check**:
    - Execute: `cargo check --all-targets --message-format=short 2>&1` - NEVER specify a package. You MUST build the entire project.

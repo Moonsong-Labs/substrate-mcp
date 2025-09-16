@@ -36,10 +36,15 @@ pub(crate) struct FetchAndAnalyzeReleaseProperties {
 pub(crate) async fn handle_fetch_and_analyze_release(
     properties: FetchAndAnalyzeReleaseProperties,
 ) -> Result<CallToolResult, McpError> {
-    let response =
-        polkadot_sdk_releases::fetch_and_analyze_release(&properties.release, properties.force)
-            .await
-            .map_err(|e| mcp_error_internal(format!("Failed to fetch and analyze release: {e}")))?;
+    let client = polkadot_sdk_releases::GithubClient::new();
+    let response = polkadot_sdk_releases::fetch_and_analyze_release(
+        &properties.release,
+        properties.force,
+        None,
+        &client,
+    )
+    .await
+    .map_err(|e| mcp_error_internal(format!("Failed to fetch and analyze release: {e}")))?;
 
     // Format the response as JSON string
     let response_text = serde_json::to_string_pretty(&response)
