@@ -19,12 +19,10 @@ When invoked, you must follow these steps:
 1. **Prime Release Context** - Use `fetch_and_analyze_release` with release parameter "{{release}}" exactly as provided to retrieve all the relevant PR documentation, labels, etc.
 2. **Prime Project Context** - Use `find_runtime_pallets` to retrieve a distinct list of all the pallets configured in the substrate project's runtime.
 3. **Setup Analysis Directory** - Create the directory structure `.substrate-mcp/polkadot-upgrade/{{release}}/` to store individual PR analysis reports.
-4. **Compilation Check** - Spawn a Compilation Sub Agent to create a branch, upgrade dependencies, and check if the project compiles with the new version.
-5. **Track** - Create an md file with a markdown table checklist that tracks EVERY SINGLE PR doc from the release manifest without exception.
+4. **Track** - Create an md file with a markdown table checklist that tracks EVERY SINGLE PR doc from the release manifest without exception.
    - **CRITICAL**: You MUST add ALL PRs to the tracking table - DO NOT filter or pre-select based on perceived importance
    - **NO EXCEPTIONS**: Whether there are 15, 200, or 500+ PRs, EVERY single one must be tracked and analyzed
-   - Include compilation results in the tracking file
-6. **Analyze** - Delegate the analysis of EVERY SINGLE PR using the following BATCH PROCESSING approach:
+5. **Analyze** - Delegate the analysis of EVERY SINGLE PR using the following BATCH PROCESSING approach:
    - **BATCH SIZE**: Spawn EXACTLY 20 Analysis Sub Agents in parallel per batch
    - **PARALLEL EXECUTION**: All 20 agents in a batch MUST be spawned simultaneously (use 20 Task tool calls to spawn all 20 parallel sub-agents at once)
    - **BATCH WORKFLOW**:
@@ -34,8 +32,8 @@ When invoked, you must follow these steps:
      d. Update the tracking table with results from all 20 analyses
      e. Repeat with the next batch of 20 until ALL PRs are analyzed
      - **NO SEQUENTIAL PROCESSING**: Never spawn agents one at a time - always in batches of 20
-     7. **Update Tracking** - After EACH batch of 20 completes, update the tracking table with the results, including links to the individual analysis files.
-8. **Refine** - Discuss about various unknowns and refine the tracked PRs to ensure you and the user arrive to a final consensus about the tracked list and their impact.
+6. **Update Tracking** - After EACH batch of 20 completes, update the tracking table with the results, including links to the individual analysis files.
+7. **Refine** - Discuss about various unknowns and refine the tracked PRs to ensure you and the user arrive to a final consensus about the tracked list and their impact.
 
 ### Tracking
 
@@ -54,19 +52,6 @@ PR Tracking table column description:
 
 [project_context]
 
-## Compilation Results
-
-### Dependency Upgrade
-- Previous version: [detected from Cargo.toml]
-- New version: {{release}}
-
-### Compilation Errors
-[Only errors will be shown here, not full compilation output]
-
-```
-[compilation errors if any]
-```
-
 ## PR Tracking
 
 **Total PRs to Analyze**: [e.g., 237 - MUST match the total from fetch_and_analyze_release]
@@ -78,69 +63,6 @@ PR Tracking table column description:
 | ... | ... | ... | ... | ... | ...
 
 </track_md>
-
-### Compilation Sub Agent
-
-You MUST spawn a Compilation Sub Agent BEFORE analyzing individual PRs with the following prompt:
-
-<compilation_prompt>
-# Purpose
-Test compilation with upgraded polkadot-sdk dependencies for {{project_name}}
-
-<critical_requirements>
-- Your role is ONLY to test compilation and report errors - DO NOT attempt any fixes or modifications beyond the dependency upgrade itself.
-- You MUST complete your work in less than 10 tool calls.
-</critical_requirements>
-
-## Variables
-- Target release: {{release}}
-- Project: {{project_name}}
-
-## Workflow
-
-1. **Update Cargo.toml dependencies**:
-   - Find all polkadot-sdk related dependencies
-   - Update them to version {{release}} as provided by the parent agent
-   - Handle workspace dependencies if applicable
-2. **Run compilation check**:
-   - Execute: `cargo check --all-targets --message-format=short 2>&1` - NEVER specify a package. You MUST build the entire project.
-   - Filter to capture ONLY errors (exclude info messages)
-   - You MUST ONLY fix dependency based compilation issues (e.g. updating rust version in rust-toolchain, cargo updating, etc.)
-   - Simply record what fails
-3. **Clean and consolidate output**:
-   - Group similar/duplicate errors together
-   - For repeated errors, show one example and note: "This error occurs in X locations"
-   - Focus on unique error types rather than every instance
-4. **Report results**:
-   - List detected current versions
-   - List upgraded versions
-   - Provide cleaned compilation errors if any
-   - DO NOT suggest fixes or attempt resolution
-
-## Report Format
-
-<compilation_report>
-### Dependency Changes
-- Current: [list current polkadot-sdk versions found]
-- Upgraded to: {{release}}
-
-### Compilation Result
-[SUCCESS | FAILURE]
-
-### Errors (if any)
-```
-[Cleaned and consolidated error output]
-[Example: "error[E0425]: cannot find value `foo` in this scope (occurs in 5 files)"]
-```
-
-### Error Summary
-- Total unique error types: [number]
-- Most common errors: [list top 3-5 error patterns]
-- Affected modules: [list main areas with errors]
-
-**Note**: This report contains only diagnostic information. No fixes were attempted.
-</compilation_report>
-</compilation_prompt>
 
 ### Analysis Sub Agent
 
@@ -168,7 +90,6 @@ with the following messages if you were passed multiple PRs to analyze: "I canno
 - GitHub PR: https://github.com/paritytech/polkadot-sdk/pull/XXX
 - PR labels: [associated GitHub labels for this PR]
 - Project Context: [project_context]
-- Compilation Results: [reference compilation errors if available]
 - Analysis Output File: .substrate-mcp/polkadot-upgrade/{{release}}/pr_[XXX].md
 
 ## Required Tool Usage
@@ -182,40 +103,34 @@ You MUST use these tools to gather evidence:
 
 You MUST complete all of the tasks listed below:
 
-1. **Review compilation results** (if available)
-   - Check if this PR is related to any compilation errors
-   - Use errors as secondary evidence for impact assessment. If it is not relevant to the PR, do not include it in your report.
-
-2. **Read and understand the PRDoc content**
+1. **Read and understand the PRDoc content**
    - Extract affected crates and changes from the PRDoc
 
-3. **Analyze the GitHub labels** to understand PR significance
+2. **Analyze the GitHub labels** to understand PR significance
 
-4. **Visit the GitHub PR link** to read the PR description and discussion for deeper understanding
+3. **Visit the GitHub PR link** to read the PR description and discussion for deeper understanding
    - Note any migration guides or breaking change descriptions
 
-5. **Examine the PR diff** for implementation details (use `WebFetch` with the Files changed URL)
+4. **Examine the PR diff** for implementation details (use `WebFetch` with the Files changed URL)
    - Identify specific files changed: https://github.com/paritytech/polkadot-sdk/pull/XXX/files
    - Note function signatures that changed
    - Identify removed/deprecated items
    - Find new requirements or dependencies
 
-6. **Analyze project codebase** to understand impact
+5. **Analyze project codebase** to understand impact
    - Search for usage of changed APIs in the project using `Grep`
    - Check if project uses affected pallets/crates
    - Identify specific files and line numbers that need updates
-   - Cross-reference with compilation errors if available
 
-7. **Determine impact category** based on concrete evidence
+6. **Determine impact category** based on concrete evidence
 
-8. **Write the final analysis report** to the designated file at `.substrate-mcp/polkadot-upgrade/{{release}}/pr_[XXX].md`
+7. **Write the final analysis report** to the designated file at `.substrate-mcp/polkadot-upgrade/{{release}}/pr_[XXX].md`
 
 ## Evidence Requirements
 
 Your sentiment determination must be based on concrete evidence appropriate to the specific change:
 
 ### Types of Evidence to Consider
-- **Compilation errors** from the upgrade attempt (strongest signal)
 - **Code search results** showing current usage patterns
 - **PR documentation** describing breaking changes or migrations
 - **Dependency analysis** showing which crates/pallets are affected
@@ -234,7 +149,7 @@ Different PRs require different types of evidence:
 
 ### Confidence Factors
 Rate your confidence based on:
-- **HIGH**: Multiple corroborating sources (compilation errors + code usage + PR docs)
+- **HIGH**: Multiple corroborating sources (code usage + PR docs + GitHub details)
 - **MEDIUM**: Clear evidence from one or two sources
 - **LOW**: Indirect evidence or assumptions based on patterns
 
