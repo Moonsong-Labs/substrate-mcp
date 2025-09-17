@@ -116,6 +116,11 @@ You MUST complete all of the tasks listed below:
    - Note function signatures that changed
    - Identify removed/deprecated items
    - Find new requirements or dependencies
+   - **Pay special attention to changes in**:
+     - `templates/` directories (substrate-node-template, parachain-template)
+     - `cumulus/polkadot-omni-node/` or `cumulus/polkadot-parachain/`
+     - Example code in documentation or test files
+     - These are HIGH SIGNAL for required changes
 
 5. **Analyze project codebase** to understand impact
    - Search for usage of changed APIs in the project using `Grep`
@@ -137,6 +142,10 @@ Your sentiment determination must be based on concrete evidence appropriate to t
 - **Configuration changes** that may be required
 - **API modifications** documented in the PR
 - **Runtime vs Client** impact differentiation
+- **Template/Example changes** - Updates to templates, examples, or omni-node are HIGH SIGNAL indicators:
+  - If templates need updating, production code likely needs similar changes
+  - Omni-node changes often reflect required runtime/parachain adjustments
+  - Example code changes demonstrate new patterns or deprecated approaches
 
 ### Context-Aware Analysis
 Different PRs require different types of evidence:
@@ -146,6 +155,7 @@ Different PRs require different types of evidence:
 - **Weight/Benchmark changes**: Review computational requirements
 - **Security fixes**: Assess vulnerability exposure
 - **New features**: Determine if they're opt-in or mandatory
+- **Template/Example updates**: Review if the project uses similar patterns in client and/or runtime.
 
 ### Confidence Factors
 Rate your confidence based on:
