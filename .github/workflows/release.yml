@@ -18,16 +18,13 @@ jobs:
         include:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            artifact_name: testci
-            asset_name: testci-linux-x86_64
+            asset_name: substrate-mcp-linux-x86_64
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: testci
-            asset_name: testci-macos-x86_64
+            asset_name: substrate-mcp-macos-x86_64
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact_name: testci
-            asset_name: testci-macos-aarch64
+            asset_name: substrate-mcp-macos-aarch64
 
     steps:
       - name: Checkout code
@@ -39,13 +36,13 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Build binary
-        run: cargo build --profile dist --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: Create release directory
         run: mkdir -p release
 
       - name: Copy binary to release directory
-        run: cp target/${{ matrix.target }}/dist/${{ matrix.artifact_name }} release/${{ matrix.asset_name }}
+        run: cp target/${{ matrix.target }}/release/substrate-mcp release/${{ matrix.asset_name }}
 
       - name: Create tarball
         run: |
