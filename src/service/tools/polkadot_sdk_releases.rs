@@ -26,13 +26,13 @@ fn create_github_client() -> reqwest::Client {
             let auth_value = format!("Bearer {}", token.as_str());
             if let Ok(header_value) = reqwest::header::HeaderValue::from_str(&auth_value) {
                 headers.insert(reqwest::header::AUTHORIZATION, header_value);
-                log::debug!("Using authenticated GitHub API requests");
+                eprintln!("Using authenticated GitHub API requests");
             } else {
-                log::warn!("Invalid GITHUB_TOKEN format, using unauthenticated requests");
+                eprintln!("Invalid GITHUB_TOKEN format, using unauthenticated requests");
             }
         }
     } else {
-        log::debug!("No GITHUB_TOKEN found, using unauthenticated requests (60 req/hour limit)");
+        eprintln!("No GITHUB_TOKEN found, using unauthenticated requests (60 req/hour limit)");
     }
 
     reqwest::Client::builder()
