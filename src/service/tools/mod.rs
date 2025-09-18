@@ -13,8 +13,10 @@ use tokio::process::Command;
 use super::utils::{mcp_error_internal, mcp_error_invalid_params};
 
 pub(crate) mod polkadot_sdk_releases;
+pub(crate) mod runtime_discovery;
 pub(crate) mod substrate;
 
+pub(crate) use runtime_discovery::{FindRuntimePalletsProperties, handle_find_runtime_pallets};
 use substrate::{
     events::{EventsQuery, query_events},
     extrinsic::{ExtrinsicsQuery, query_extrinsics},
@@ -24,19 +26,46 @@ use substrate::{
 
 #[derive(Debug, schemars::JsonSchema, serde::Deserialize, serde::Serialize)]
 pub(crate) struct FetchAndAnalyzeReleaseProperties {
-    /// polkadot-sdk release (examples: '1.9.0', 'stable2412-1', 'stable2412')
+    /// polkadot-sdk release (examples: 'polkadot-stable2412-3', 'stable2412-1', '1.9.0')
     pub(crate) release: String,
+    /// Force re-download even if cached data exists (default: false)
+    #[serde(default)]
+    pub(crate) force: bool,
 }
 
 pub(crate) async fn handle_fetch_and_analyze_release(
     properties: FetchAndAnalyzeReleaseProperties,
 ) -> Result<CallToolResult, McpError> {
-    let response = polkadot_sdk_releases::fetch_and_analyze_release(&properties.release)
-        .await
-        .map_err(|e| mcp_error_internal(format!("Failed to fetch and analyze release: {e}")))?;
+    let client = polkadot_sdk_releases::GithubClient::new();
+    let response = polkadot_sdk_releases::fetch_and_analyze_release(
+        &properties.release,
+        properties.force,
+        None,
+        &client,
+    )
+    .await
+    .map_err(|e| mcp_error_internal(format!("Failed to fetch and analyze release: {e}")))?;
 
     // Format the response as JSON string
     let response_text = serde_json::to_string_pretty(&response)
+        .map_err(|e| mcp_error_internal(format!("Failed to serialize response: {e}")))?;
+
+    let result = CallToolResult::success(vec![Content {
+        annotations: None,
+        raw: RawContent::Text(RawTextContent {
+            text: response_text,
+            meta: None,
+        }),
+    }]);
+    Ok(result)
+}
+
+pub(crate) async fn handle_list_polkadot_releases() -> Result<CallToolResult, McpError> {
+    let available_releases = polkadot_sdk_releases::list_available_releases()
+        .await
+        .map_err(|e| mcp_error_internal(format!("Failed to list available releases: {e}")))?;
+
+    let response_text = serde_json::to_string_pretty(&available_releases)
         .map_err(|e| mcp_error_internal(format!("Failed to serialize response: {e}")))?;
 
     let result = CallToolResult::success(vec![Content {

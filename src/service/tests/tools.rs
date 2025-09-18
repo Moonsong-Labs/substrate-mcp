@@ -148,6 +148,13 @@ async fn test_tool_query_storage() {
 
 #[tokio::test]
 async fn test_submit_dev_extrinsic_and_related_queries() {
+    // Check if substrate-node is available
+    if !SubstrateRunner::is_available() {
+        panic!(
+            "substrate-node binary is required to run this test. Please install substrate-node first."
+        );
+    }
+
     // Spawn a local substrate node
     let _runner = SubstrateRunner::spawn().expect("Failed to spawn a substrate node");
 

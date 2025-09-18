@@ -42,6 +42,10 @@ scale-value = { version = "0.16", features = ["from-string"] }
 scale-info = "2.11"
 sp-core = "33.0"
 tokio-util = "0.7.16"
+zeroize = "1.8"
+ignore = "0.4.23"
+async-trait = "0.1"
 
 [dev-dependencies]
 rmcp = { version = "0.6.3", features = ["transport-io", "client"] }
+tempfile = "3.22.0"

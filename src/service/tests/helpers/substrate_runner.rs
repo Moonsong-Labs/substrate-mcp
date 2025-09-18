@@ -9,8 +9,24 @@ pub(crate) struct SubstrateRunner {
 }
 
 impl SubstrateRunner {
+    /// Check if substrate-node binary is available
+    pub(crate) fn is_available() -> bool {
+        Command::new("substrate-node")
+            .arg("--version")
+            .output()
+            .is_ok()
+    }
+
     /// Spawn a substrate-node process with dynamic port discovery from logs
     pub(crate) fn spawn() -> Result<Self, io::Error> {
+        // First check if substrate-node is available
+        if !Self::is_available() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "substrate-node binary is required. Please install substrate-node first.",
+            ));
+        }
+
         // Spawn the substrate-node process with OS-assigned ports
         let mut proc = Command::new("substrate-node")
             .arg("--dev")

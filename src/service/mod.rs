@@ -20,7 +20,8 @@ mod utils;
 use utils::catch_panic_as_mcp_error;
 
 use crate::service::prompts::{
-    analyze_release, get_started, release_comparison, scaffold_pallet, security_review,
+    analyze_release, get_started, polkadot_upgrade, release_comparison, scaffold_pallet,
+    security_review,
 };
 
 #[cfg(test)]
@@ -56,6 +57,24 @@ impl SubstrateService {
         Parameters(properties): Parameters<tools::FetchAndAnalyzeReleaseProperties>,
     ) -> Result<CallToolResult, McpError> {
         catch_panic_as_mcp_error(tools::handle_fetch_and_analyze_release(properties)).await
+    }
+
+    #[tool(
+        description = "List all available Polkadot SDK releases from the polkadot-sdk repository. Helps discover valid release identifiers before using other tools."
+    )]
+    pub(crate) async fn list_polkadot_releases(&self) -> Result<CallToolResult, McpError> {
+        catch_panic_as_mcp_error(tools::handle_list_polkadot_releases()).await
+    }
+
+    // TODO: Support old runtime definition macro
+    #[tool(
+        description = "Find and analyze runtime pallets configured in a given project directory. Scans for #[frame_support::runtime] attributes to discover all pallets used in your runtime(s)."
+    )]
+    pub(crate) async fn find_runtime_pallets(
+        &self,
+        Parameters(properties): Parameters<tools::FindRuntimePalletsProperties>,
+    ) -> Result<CallToolResult, McpError> {
+        catch_panic_as_mcp_error(tools::handle_find_runtime_pallets(properties)).await
     }
 
     #[tool(
@@ -170,6 +189,18 @@ impl SubstrateService {
         Parameters(args): Parameters<security_review::SecurityReviewArgs>,
     ) -> Vec<PromptMessage> {
         prompts::security_review::generate_prompt(args).await
+    }
+
+    /// User and agent discussion and issue creation workflow to track PRs in a polkadot release upgrade
+    #[prompt(
+        name = "polkadot_upgrade",
+        description = "User and agent discovery and discussion on what is needed to upgrade polkadot version in your substrate client and runtime"
+    )]
+    async fn polkadot_upgrade(
+        &self,
+        Parameters(args): Parameters<polkadot_upgrade::PolkadotUpgradeArgs>,
+    ) -> Vec<PromptMessage> {
+        prompts::polkadot_upgrade::generate_prompt(args).await
     }
 
     #[prompt(
