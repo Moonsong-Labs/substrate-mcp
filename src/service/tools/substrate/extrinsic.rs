@@ -236,7 +236,7 @@ async fn process_extrinsic(
 
     // Decode call arguments
     let args = match extrinsic.field_values() {
-        Ok(fields) => format!("{}", fields),
+        Ok(fields) => format!("{fields}"),
         Err(e) => format!("Failed to decode call arguments: {e}"),
     };
 

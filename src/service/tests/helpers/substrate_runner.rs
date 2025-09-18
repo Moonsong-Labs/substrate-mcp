@@ -80,8 +80,5 @@ fn find_port_from_logs(stderr: ChildStderr) -> io::Result<u16> {
         }
     }
 
-    Err(io::Error::new(
-        io::ErrorKind::Other,
-        "Could not find RPC port in node logs",
-    ))
+    Err(io::Error::other("Could not find RPC port in node logs"))
 }

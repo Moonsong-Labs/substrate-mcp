@@ -161,7 +161,7 @@ impl GitHubApiClient for GithubClient {
             .get(&api_url)
             .send()
             .await
-            .map_err(|e| anyhow!("Failed to fetch directory listing: {}", e))?;
+            .map_err(|e| anyhow!("Failed to fetch directory listing: {e}"))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -199,7 +199,7 @@ impl GitHubApiClient for GithubClient {
         let github_response: GitHubContentsResponse = response
             .json()
             .await
-            .map_err(|e| anyhow!("Failed to parse directory listing: {}", e))?;
+            .map_err(|e| anyhow!("Failed to parse directory listing: {e}"))?;
 
         Ok(github_response.0)
     }
@@ -210,7 +210,7 @@ impl GitHubApiClient for GithubClient {
             .get(url)
             .send()
             .await
-            .map_err(|e| anyhow!("Failed to fetch file: {}", e))?;
+            .map_err(|e| anyhow!("Failed to fetch file: {e}"))?;
 
         if !response.status().is_success() {
             return Err(anyhow!("Failed to fetch file: HTTP {}", response.status()));
@@ -219,7 +219,7 @@ impl GitHubApiClient for GithubClient {
         response
             .text()
             .await
-            .map_err(|e| anyhow!("Failed to read file content: {}", e))
+            .map_err(|e| anyhow!("Failed to read file content: {e}"))
     }
 
     async fn get_pr_labels(&self, pr_number: u32) -> Result<Vec<String>> {
@@ -233,7 +233,7 @@ impl GitHubApiClient for GithubClient {
             .get(&api_url)
             .send()
             .await
-            .map_err(|e| anyhow!("Failed to fetch labels for PR {}: {}", pr_number, e))?;
+            .map_err(|e| anyhow!("Failed to fetch labels for PR {pr_number}: {e}"))?;
 
         if !response.status().is_success() {
             if response.status() == 404 {
@@ -250,7 +250,7 @@ impl GitHubApiClient for GithubClient {
         let labels: Vec<GitHubLabel> = response
             .json()
             .await
-            .map_err(|e| anyhow!("Failed to parse labels for PR {}: {}", pr_number, e))?;
+            .map_err(|e| anyhow!("Failed to parse labels for PR {pr_number}: {e}"))?;
 
         Ok(labels.into_iter().map(|label| label.name).collect())
     }
@@ -267,7 +267,7 @@ impl GitHubApiClient for GithubClient {
                 .get(&url)
                 .send()
                 .await
-                .map_err(|e| anyhow!("Failed to fetch labels: {}", e))?;
+                .map_err(|e| anyhow!("Failed to fetch labels: {e}"))?;
 
             if !response.status().is_success() {
                 return Err(anyhow!(
@@ -296,7 +296,7 @@ impl GitHubApiClient for GithubClient {
             let page_labels: Vec<GitHubLabel> = response
                 .json()
                 .await
-                .map_err(|e| anyhow!("Failed to parse labels response: {}", e))?;
+                .map_err(|e| anyhow!("Failed to parse labels response: {e}"))?;
 
             all_labels.extend(page_labels);
         }
@@ -401,7 +401,7 @@ pub(crate) async fn list_available_releases() -> Result<AvailableReleases> {
         .get(api_url)
         .send()
         .await
-        .map_err(|e| anyhow!("Failed to fetch prdoc directory listing: {}", e))?;
+        .map_err(|e| anyhow!("Failed to fetch prdoc directory listing: {e}"))?;
 
     if !response.status().is_success() {
         let status = response.status();
@@ -435,7 +435,7 @@ pub(crate) async fn list_available_releases() -> Result<AvailableReleases> {
     let github_response: GitHubContentsResponse = response
         .json()
         .await
-        .map_err(|e| anyhow!("Failed to parse prdoc directory listing: {}", e))?;
+        .map_err(|e| anyhow!("Failed to parse prdoc directory listing: {e}"))?;
 
     let mut releases: Vec<String> = github_response
         .directories()
@@ -477,7 +477,7 @@ async fn fetch_and_save_github_labels(
     let labels_json = serde_json::to_string_pretty(&labels_metadata)?;
     fs::write(&labels_path, labels_json)
         .await
-        .map_err(|e| anyhow!("Failed to write labels.json: {}", e))?;
+        .map_err(|e| anyhow!("Failed to write labels.json: {e}"))?;
 
     Ok(())
 }

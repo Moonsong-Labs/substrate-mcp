@@ -24,7 +24,7 @@ pub(crate) async fn generate_prompt(args: GetStartedArgs) -> Vec<PromptMessage> 
 
     let content = handlebars
         .render_template(TEMPLATE, &context)
-        .unwrap_or_else(|e| format!("Template rendering failed: {}", e));
+        .unwrap_or_else(|e| format!("Template rendering failed: {e}"));
 
     vec![PromptMessage::new_text(PromptMessageRole::User, content)]
 }

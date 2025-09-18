@@ -5,38 +5,6 @@ use subxt::PolkadotConfig;
 
 use super::utils;
 
-/// Represents a decoded event from the chain
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct DecodedEvent {
-    /// The pallet that emitted the event
-    pub(crate) pallet: String,
-    /// The event variant name
-    pub(crate) variant: String,
-    /// The block number where the event occurred
-    pub(crate) block_number: u32,
-    /// The block hash where the event occurred
-    pub(crate) block_hash: String,
-    /// The event index within the block
-    pub(crate) event_index: u32,
-    /// The decoded event data as JSON
-    pub(crate) data: serde_json::Value,
-}
-
-/// Filter criteria for event queries
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct EventFilter {
-    /// Filter by pallet name (supports partial matching)
-    pub(crate) pallet: Option<String>,
-    /// Filter by event variant name (supports partial matching)
-    pub(crate) variant: Option<String>,
-    /// Start block number (inclusive)
-    pub(crate) from_block: Option<u32>,
-    /// End block number (inclusive)
-    pub(crate) to_block: Option<u32>,
-    /// Maximum number of events to return
-    pub(crate) limit: Option<usize>,
-}
-
 /// Query events from blocks
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct EventsQuery {
@@ -169,7 +137,7 @@ async fn decode_events_with_subxt(
 
         // Decode event data
         let data = match event.field_values() {
-            Ok(fields) => format!("{}", fields),
+            Ok(fields) => format!("{fields}"),
             Err(e) => format!("Failed to decode call arguments: {e}"),
         };
 
