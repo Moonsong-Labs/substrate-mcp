@@ -35,14 +35,14 @@ pub(crate) async fn generate_prompt(
 
     let content = handlebars
         .render_template(TEMPLATE, &context)
-        .map_err(|e| McpError::internal_error(format!("Template rendering failed: {}", e), None))?;
+        .map_err(|e| McpError::internal_error(format!("Template rendering failed: {e}"), None))?;
 
     let description = handlebars
       .render_template(
           "Compare changes between Polkadot SDK versions {{current_version}} and {{target_version}}",
           &context
       )
-      .map_err(|e| McpError::internal_error(format!("Description template rendering failed: {}", e), None))?;
+      .map_err(|e| McpError::internal_error(format!("Description template rendering failed: {e}"), None))?;
 
     Ok(GetPromptResult {
         description: Some(description),
