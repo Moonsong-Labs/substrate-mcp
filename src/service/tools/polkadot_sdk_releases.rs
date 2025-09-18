@@ -748,8 +748,7 @@ mod tests {
             for pr_num in &expected_prs_with_audience {
                 assert!(
                     all_indexed_prs.contains(pr_num),
-                    "PR {} is missing from audience index",
-                    pr_num
+                    "PR {pr_num} is missing from audience index"
                 );
             }
 
