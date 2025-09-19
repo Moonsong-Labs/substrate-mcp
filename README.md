@@ -4,15 +4,32 @@ An MCP (Model Context Protocol) server that provides tools for working with Subs
 
 ## Installation
 
-### Option 1: Install from GitHub
+### 1: Quick Install
+
+```bash
+curl -sSfL https://raw.githubusercontent.com/Moonsong-Labs/substrate-mcp/main/install.sh | bash
+```
+
+This will:
+- Download the appropriate binary for your platform
+- Install it to `~/.substrate-mcp/bin/substrate-mcp`
+- Add the binary to your PATH
+
+### 2: Download from Releases
+
+Download the binary for your platform from the [latest release](https://github.com/Moonsong-Labs/substrate-mcp/releases/latest).
+
+### Option 3: Install from Source (Requires cargo)
 
 ```bash
 cargo install --locked --git https://github.com/Moonsong-Labs/substrate-mcp
 ```
 
-### Option 2: Build locally (Requires cargo)
+### Option 4: Build Locally (Requires cargo)
 
 ```bash
+git clone https://github.com/Moonsong-Labs/substrate-mcp.git
+cd substrate-mcp
 cargo build --release
 ```
 
