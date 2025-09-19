@@ -19,13 +19,13 @@ This will:
 
 Download the binary for your platform from the [latest release](https://github.com/Moonsong-Labs/substrate-mcp/releases/latest).
 
-### Option 3: Install from Source (Requires cargo)
+### 3: Install from Source (Requires cargo)
 
 ```bash
 cargo install --locked --git https://github.com/Moonsong-Labs/substrate-mcp
 ```
 
-### Option 4: Build Locally (Requires cargo)
+### 4: Build Locally (Requires cargo)
 
 ```bash
 git clone https://github.com/Moonsong-Labs/substrate-mcp.git
