@@ -1,8 +1,53 @@
-# Substrate MCP Server
+<div align="center">
+  <img src="./docs/images/Polkadot-Logo.png" height="300" width="1000">
 
-An MCP (Model Context Protocol) server that provides tools for working with Substrate-based blockchains.
+  # ✨ Substrate MCP Server ✨
 
-## Installation
+  An MCP (Model Context Protocol) server that provides tools for working with Substrate-based blockchains.
+</div>
+
+## Table of Contents
+
+- [📖 About](#-about)
+- [🛠️ Prerequisites](#-prerequisites)
+- [Installation](#installation)
+  - [1: Quick Install](#1-quick-install)
+  - [2: Download from Releases](#2-download-from-releases)
+  - [3: Install from Source (Requires cargo)](#3-install-from-source)
+  - [4: Build Locally (Requires cargo)](#4-build-locally)
+- [Usage with Claude Code](#usage-with-claude-code)
+- [Configuration](#configuration)
+  - [GitHub API Rate Limits](#github-api-rate-limits)
+- [Available Tools](#available-tools)
+  - [Release Analysis](#release-analysis)
+  - [Chain Exploration](#chain-exploration)
+  - [Extrinsic Operations](#extrinsic-operations)
+- [Available Prompts](#available-prompts)
+  - [Polkadot SDK Release Analysis](#polkadot-sdk-release-analysis)
+    - [release_comparison](#release_comparison)
+    - [analyze_release](#analyze_release)
+    - [polkadot_upgrade](#polkadot_upgrade)
+  - [Development & Scaffolding](#development--scaffolding)
+    - [scaffold_pallet](#scaffold_pallet)
+  - [Security Analysis](#security-analysis)
+    - [security_review](#security_review)
+- [License](#license)
+
+## 📖 About
+Substrate MCP is a Rust-based Model Context Protocol server for the [Polkadot](https://polkadot.com/) ecosystem.
+It lets AI agents explore chain metadata and state, decode extrinsics, submit dev extrinsics, scaffold pallets, and analyze [Polkadot SDK](https://polkadot.com/platform/sdk/) releases to understand their impact on your codebase.
+
+## 🛠️ Prerequisites
+
+- [Rust Toolchain](https://www.rust-lang.org/tools/install)
+
+- For the `subxt_execute` tool, install the subxt CLI:
+
+```bash
+cargo install subxt-cli
+```
+
+## ⬇️ Installation
 
 ### 1: Quick Install
 
@@ -19,13 +64,13 @@ This will:
 
 Download the binary for your platform from the [latest release](https://github.com/Moonsong-Labs/substrate-mcp/releases/latest).
 
-### 3: Install from Source (Requires cargo)
+### 3: Install from Source
 
 ```bash
 cargo install --locked --git https://github.com/Moonsong-Labs/substrate-mcp
 ```
 
-### 4: Build Locally (Requires cargo)
+### 4: Build Locally
 
 ```bash
 git clone https://github.com/Moonsong-Labs/substrate-mcp.git
@@ -34,14 +79,6 @@ cargo build --release
 ```
 
 The binary will be available at `./target/release/substrate-mcp`
-
-## Prerequisites
-
-For the `subxt_execute` tool, install the subxt CLI:
-
-```bash
-cargo install subxt-cli
-```
 
 ## Usage with Claude Code
 
