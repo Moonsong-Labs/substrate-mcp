@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./docs/images/Polkadot-Logo.png" alt="Polkadot logo" height="300" width="800">
+  <img src="./docs/images/Polkadot-Logo.png" alt="Polkadot logo" height="300" width="500">
 
   # ✨ Substrate MCP Server ✨
 
@@ -11,18 +11,18 @@
 - [📖 About](#-about)
 - [🛠️ Prerequisites](#-prerequisites)
 - [⬇ Installation](#-installation)
-  - [Quick Install](#1-quick-install)
-  - [Download from Releases](#2-download-from-releases)
-  - [Install from Source (Requires cargo)](#3-install-from-source)
-  - [Build Locally (Requires cargo)](#4-build-locally)
+  - [Quick Install](#quick-install)
+  - [Download from Releases](#download-from-releases)
+  - [Install from Source (Requires cargo)](#install-from-source)
+  - [Build Locally (Requires cargo)](#build-locally)
 - [🤖 Usage with Claude Code](#-usage-with-claude-code)
-- [Configuration](#configuration)
+- [🎛️ Configuration](#%EF%B8%8F-configuration)
   - [GitHub API Rate Limits](#github-api-rate-limits)
-- [Available Tools](#available-tools)
+- [⚙️ Available Tools](#-available-tools)
   - [Release Analysis](#release-analysis)
   - [Chain Exploration](#chain-exploration)
   - [Extrinsic Operations](#extrinsic-operations)
-- [Available Prompts](#available-prompts)
+- [🚀 Available Prompts](#-available-prompts)
   - [Polkadot SDK Release Analysis](#polkadot-sdk-release-analysis)
     - [release_comparison](#release_comparison)
     - [analyze_release](#analyze_release)
@@ -31,7 +31,7 @@
     - [scaffold_pallet](#scaffold_pallet)
   - [Security Analysis](#security-analysis)
     - [security_review](#security_review)
-- [License](#license)
+- [📜 License](#-license)
 
 ## 📖 About
 Substrate MCP is a Rust-based Model Context Protocol server for the [Polkadot](https://polkadot.com/) ecosystem.
@@ -145,7 +145,7 @@ For Claude Code, you can set environment variables in your configuration:
 }
 ```
 
-## Available Tools
+## ⚙️ Available Tools
 
 ### Release Analysis
 
@@ -165,7 +165,7 @@ For Claude Code, you can set environment variables in your configuration:
 
 - **`submit_dev_extrinsic`** - Submit a generic extrinsic to a Substrate chain using dev accounts. Supports any pallet call with arbitrary arguments. Use dev account names like 'alice', 'bob', 'charlie', etc. for signing
 
-## Available Prompts
+## 🚀 Available Prompts
 
 The Substrate MCP server provides several specialized prompts for Substrate development and security analysis:
 
@@ -216,6 +216,6 @@ The Substrate MCP server provides several specialized prompts for Substrate deve
 
 This prompt combines code security audit, economic security assessment, threat modeling, and weight analysis into a comprehensive security review. NOTE: This prompt is designed to be used during development as a tool to provide an extra layer of analysis. It is not meant to replace professional security audits.
 
-## License
+## 📜 License
 
-[LICENSE](LICENSE)
+This Project is licenced under the Apache License. See the  [LICENSE](LICENSE) file for details
