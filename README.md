@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./docs/images/Polkadot-Logo.png" height="300" width="1000">
+  <img src="./docs/images/Polkadot-Logo.png" height="300" width="900">
 
   # ✨ Substrate MCP Server ✨
 
