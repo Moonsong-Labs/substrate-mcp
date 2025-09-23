@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./docs/images/Polkadot-Logo.png" height="300" width="900">
+  <img src="./docs/images/Polkadot-Logo.png" alt="Polkadot logo" height="300" width="800">
 
   # ✨ Substrate MCP Server ✨
 
@@ -10,12 +10,12 @@
 
 - [📖 About](#-about)
 - [🛠️ Prerequisites](#-prerequisites)
-- [Installation](#installation)
-  - [1: Quick Install](#1-quick-install)
-  - [2: Download from Releases](#2-download-from-releases)
-  - [3: Install from Source (Requires cargo)](#3-install-from-source)
-  - [4: Build Locally (Requires cargo)](#4-build-locally)
-- [Usage with Claude Code](#usage-with-claude-code)
+- [⬇ Installation](#-installation)
+  - [Quick Install](#1-quick-install)
+  - [Download from Releases](#2-download-from-releases)
+  - [Install from Source (Requires cargo)](#3-install-from-source)
+  - [Build Locally (Requires cargo)](#4-build-locally)
+- [🤖 Usage with Claude Code](#-usage-with-claude-code)
 - [Configuration](#configuration)
   - [GitHub API Rate Limits](#github-api-rate-limits)
 - [Available Tools](#available-tools)
@@ -37,7 +37,7 @@
 Substrate MCP is a Rust-based Model Context Protocol server for the [Polkadot](https://polkadot.com/) ecosystem.
 It lets AI agents explore chain metadata and state, decode extrinsics, submit dev extrinsics, scaffold pallets, and analyze [Polkadot SDK](https://polkadot.com/platform/sdk/) releases to understand their impact on your codebase.
 
-## 🛠️ Prerequisites
+## 🛠 Prerequisites
 
 - [Rust Toolchain](https://www.rust-lang.org/tools/install)
 
@@ -47,9 +47,10 @@ It lets AI agents explore chain metadata and state, decode extrinsics, submit de
 cargo install subxt-cli
 ```
 
-## ⬇️ Installation
+## ⬇ Installation
+Choose one of the following installation methods:
 
-### 1: Quick Install
+### Quick Install
 
 ```bash
 curl -sSfL https://raw.githubusercontent.com/Moonsong-Labs/substrate-mcp/main/install.sh | bash
@@ -60,17 +61,17 @@ This will:
 - Install it to `~/.substrate-mcp/bin/substrate-mcp`
 - Add the binary to your PATH
 
-### 2: Download from Releases
+### Download from Releases
 
 Download the binary for your platform from the [latest release](https://github.com/Moonsong-Labs/substrate-mcp/releases/latest).
 
-### 3: Install from Source
+### Install from Source
 
 ```bash
 cargo install --locked --git https://github.com/Moonsong-Labs/substrate-mcp
 ```
 
-### 4: Build Locally
+### Build Locally
 
 ```bash
 git clone https://github.com/Moonsong-Labs/substrate-mcp.git
@@ -80,7 +81,7 @@ cargo build --release
 
 The binary will be available at `./target/release/substrate-mcp`
 
-## Usage with Claude Code
+## 🤖 Usage with Claude Code
 
 To use this MCP server with Claude Code, add it to your Claude Code configuration.
 
@@ -106,13 +107,13 @@ If you built the server locally instead of installing it, use the full path:
 }
 ```
 
-Alternatively, you can add using cli:
+Alternatively, add via CLI:
 
-```
+```bash
 claude mcp add substrate /path/to/substrate-mcp/target/release/substrate-mcp
 ```
 
-## Configuration
+## 🎛️ Configuration
 
 ### GitHub API Rate Limits
 
