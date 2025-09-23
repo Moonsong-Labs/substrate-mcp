@@ -150,6 +150,7 @@ For Claude Code, you can set environment variables in your configuration:
 ### Release Analysis
 
 - **`fetch_and_analyze_release`** - Fetches and analyzes a Polkadot SDK release - downloads PRDocs and generates summaries (manifest, crate changes, audience breakdown)
+- **`find_runtime_pallets`** - Find and analyze runtime pallets configured in a given project directory. Scans for #[frame_support::runtime] attributes to discover all pallets used in your runtime(s)
 - **`list_polkadot_releases`** - List all available Polkadot SDK releases from the polkadot-sdk repository. Helps discover valid release identifiers before using other tools. Supports filtering by release type (stable, legacy, or all)
 
 ### Chain Exploration
