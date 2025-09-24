@@ -91,6 +91,43 @@ struct PrLabelsMapping {
     fetched_at: DateTime<Utc>,
     /// PR number → list of label names
     pr_labels: HashMap<u32, Vec<String>>,
+    /// PR number → title (added for backwards compatibility)
+    #[serde(default)]
+    pr_titles: HashMap<u32, String>,
+    /// PR number → description (added for backwards compatibility)
+    #[serde(default)]
+    pr_descriptions: HashMap<u32, String>,
+}
+
+/// Minimal struct to parse PRDoc YAML for title and description extraction
+#[derive(Debug, Deserialize)]
+struct PrDocYaml {
+    title: String,
+    #[serde(default)]
+    doc: Vec<PrDocSection>,
+}
+
+/// PRDoc documentation section
+#[derive(Debug, Deserialize)]
+struct PrDocSection {
+    #[serde(default, rename = "audience")]
+    _audience: AudienceField,
+    #[serde(default)]
+    description: String,
+}
+
+/// Audience field can be either a string or an array of strings
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum AudienceField {
+    Single(#[allow(dead_code)] String),
+    Multiple(#[allow(dead_code)] Vec<String>),
+}
+
+impl Default for AudienceField {
+    fn default() -> Self {
+        AudienceField::Single(String::new())
+    }
 }
 
 /// New structured result for the refactored workflow
@@ -107,6 +144,8 @@ pub(crate) struct PrDocWithLabels {
     pub(crate) pr_number: u32,
     pub(crate) file_path: String,
     pub(crate) labels: Vec<String>,
+    pub(crate) title: String,
+    pub(crate) description: String,
 }
 
 /// Summary information about the release download
@@ -486,15 +525,19 @@ async fn fetch_and_save_github_labels(
 async fn load_cached_prdocs(output_dir: &Path) -> Result<EnhancedPrdocsResult> {
     // First, load the PR labels mapping if it exists
     let pr_labels_path = output_dir.join("pr_labels_mapping.json");
-    let pr_labels_map: HashMap<u32, Vec<String>> = if pr_labels_path.exists() {
+    let (pr_labels_map, pr_titles_map, pr_descriptions_map) = if pr_labels_path.exists() {
         let pr_labels_content = fs::read_to_string(&pr_labels_path).await?;
         if let Ok(pr_labels_mapping) = serde_json::from_str::<PrLabelsMapping>(&pr_labels_content) {
-            pr_labels_mapping.pr_labels
+            (
+                pr_labels_mapping.pr_labels,
+                pr_labels_mapping.pr_titles,
+                pr_labels_mapping.pr_descriptions,
+            )
         } else {
-            HashMap::new()
+            (HashMap::new(), HashMap::new(), HashMap::new())
         }
     } else {
-        HashMap::new()
+        (HashMap::new(), HashMap::new(), HashMap::new())
     };
 
     // Read all .prdoc files from the directory
@@ -511,10 +554,40 @@ async fn load_cached_prdocs(output_dir: &Path) -> Result<EnhancedPrdocsResult> {
             // Load labels from the cached mapping
             let labels = pr_labels_map.get(&pr_num).cloned().unwrap_or_default();
 
+            // Load title and description from cache or parse from file
+            let (title, description) = if let (Some(cached_title), Some(cached_desc)) =
+                (pr_titles_map.get(&pr_num), pr_descriptions_map.get(&pr_num))
+            {
+                (cached_title.clone(), cached_desc.clone())
+            } else {
+                // Backwards compatibility: parse from file if not in cache
+                match fs::read_to_string(&path).await {
+                    Ok(content) => match serde_yaml::from_str::<PrDocYaml>(&content) {
+                        Ok(doc) => {
+                            let desc = doc
+                                .doc
+                                .iter()
+                                .map(|section| section.description.trim())
+                                .filter(|d| !d.is_empty())
+                                .collect::<Vec<_>>()
+                                .join(" ");
+                            (doc.title, desc)
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to parse cached PRDoc for PR {}: {}", pr_num, e);
+                            (format!("PR #{}", pr_num), String::new())
+                        }
+                    },
+                    Err(_) => (format!("PR #{}", pr_num), String::new()),
+                }
+            };
+
             prdocs_with_labels.push(PrDocWithLabels {
                 pr_number: pr_num,
                 file_path: path.to_string_lossy().to_string(),
                 labels,
+                title,
+                description,
             });
         }
     }
@@ -716,6 +789,26 @@ pub(crate) async fn fetch_and_analyze_release(
                     .await
                     .map_err(|e| anyhow!("Failed to write file {}: {}", file_path.display(), e))?;
 
+                // Parse title and description from PRDoc YAML
+                let (title, description) = match serde_yaml::from_str::<PrDocYaml>(&content) {
+                    Ok(doc) => {
+                        let desc = doc
+                            .doc
+                            .iter()
+                            .map(|section| section.description.trim())
+                            .filter(|d| !d.is_empty())
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        (doc.title, desc)
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to parse PRDoc {}: {}", file.name, e);
+                        eprintln!("Failed to parse PRDoc {}: {}", file.name, e);
+                        eprintln!("Content preview: {}", &content[..content.len().min(200)]);
+                        (format!("PR #{}", pr_num), String::new())
+                    }
+                };
+
                 // Fetch labels for this PR
                 let labels = client.get_pr_labels(pr_num).await.unwrap_or_default();
 
@@ -723,6 +816,8 @@ pub(crate) async fn fetch_and_analyze_release(
                     pr_number: pr_num,
                     file_path: file_path.to_string_lossy().to_string(),
                     labels,
+                    title,
+                    description,
                 });
             }
         }
@@ -741,13 +836,19 @@ pub(crate) async fn fetch_and_analyze_release(
 
     // Save PR labels mapping for cache
     let mut pr_labels_map = HashMap::new();
+    let mut pr_titles_map = HashMap::new();
+    let mut pr_descriptions_map = HashMap::new();
     for prdoc in &prdocs_with_labels {
         pr_labels_map.insert(prdoc.pr_number, prdoc.labels.clone());
+        pr_titles_map.insert(prdoc.pr_number, prdoc.title.clone());
+        pr_descriptions_map.insert(prdoc.pr_number, prdoc.description.clone());
     }
 
     let pr_labels_mapping = PrLabelsMapping {
         fetched_at: Utc::now(),
         pr_labels: pr_labels_map,
+        pr_titles: pr_titles_map,
+        pr_descriptions: pr_descriptions_map,
     };
 
     let pr_labels_path = output_dir.join("pr_labels_mapping.json");
@@ -772,7 +873,50 @@ pub(crate) async fn fetch_and_analyze_release(
 mod tests {
     use super::*;
     use std::sync::Arc;
+    use tempfile::TempDir;
     use tokio::sync::Mutex;
+
+    // ===== Test Helpers and Mock Data =====
+
+    mod test_data {
+        pub(super) const STABLE2503_PR1_CONTENT: &str = r#"title: "Test PR 1234"
+doc:
+  - audience: Runtime Dev
+    description: |
+      This is a test PR for stable2503
+crates:
+  - name: pallet-balances"#;
+
+        pub(super) const STABLE2503_PR2_CONTENT: &str = r#"title: "Test PR 5678"
+doc:
+  - audience: Node Dev
+    description: |
+      Another test PR for stable2503
+crates:
+  - name: sp-runtime"#;
+
+        pub(super) const STABLE2503_PR3_CONTENT: &str = r#"title: "Test PR 9012"
+doc:
+  - audience: Runtime User
+    description: |
+      Third test PR for stable2503
+crates:
+  - name: frame-system"#;
+
+        pub(super) const PR_WITH_ARRAY_AUDIENCE: &str = r#"title: Bring the latest compatibility fixes via litep2p v0.9.1
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      This release enhances compatibility between litep2p and libp2p by using the latest Yamux upstream version.
+      Additionally, it includes various improvements and fixes to boost the stability and performance of the WebSocket stream and the multistream-select protocol.
+
+crates:
+  - name: sc-network
+    bump: minor"#;
+    }
+
+    // ===== Mock GitHub Client Implementation =====
 
     /// Mock GitHub API client for testing
     pub(super) struct MockGitHubClient {
@@ -792,132 +936,92 @@ mod tests {
             }
         }
 
+        /// Add a PRDoc file to the mock
+        async fn add_prdoc(&self, release: &str, pr_number: u32, content: &str) {
+            let filename = format!("pr_{}.prdoc", pr_number);
+            let url = format!("https://mock.github.com/{}", filename);
+            let path = format!("prdoc/{}", release);
+
+            // Add to directory listing
+            let mut dir_contents = self.directory_contents.lock().await;
+            let dir_entry = dir_contents.entry(path).or_insert_with(Vec::new);
+            dir_entry.push(GitHubContent {
+                name: filename,
+                content_type: "file".to_string(),
+                download_url: Some(url.clone()),
+            });
+
+            // Add file content
+            let mut file_contents = self.file_contents.lock().await;
+            file_contents.insert(url, content.to_string());
+        }
+
+        /// Add labels for a PR
+        async fn add_pr_labels(&self, pr_number: u32, labels: Vec<&str>) {
+            let mut pr_labels = self.pr_labels.lock().await;
+            pr_labels.insert(pr_number, labels.iter().map(|s| s.to_string()).collect());
+        }
+
+        /// Add repository label definitions
+        async fn add_repo_label(&self, name: &str, color: &str, description: Option<&str>) {
+            let mut repo_labels = self.repository_labels.lock().await;
+            repo_labels.push(GitHubLabel {
+                name: name.to_string(),
+                color: color.to_string(),
+                description: description.map(|s| s.to_string()),
+            });
+        }
+
         /// Create a mock client with test data for stable2503
-        pub(super) async fn with_stable2503_data() -> Self {
+        async fn with_stable2503_data() -> Self {
             let client = Self::new();
 
-            // Add mock directory contents for stable2503
-            {
-                let mut dir_contents = client.directory_contents.lock().await;
+            // Add prdoc directory structure
+            client.directory_contents.lock().await.insert(
+                "prdoc".to_string(),
+                vec![GitHubContent {
+                    name: "stable2503".to_string(),
+                    content_type: "dir".to_string(),
+                    download_url: None,
+                }],
+            );
 
-                // Mock prdoc directory listing
-                dir_contents.insert(
-                    "prdoc".to_string(),
-                    vec![
-                        GitHubContent {
-                            name: "stable2503".to_string(),
-                            content_type: "dir".to_string(),
-                            download_url: None,
-                        },
-                        GitHubContent {
-                            name: "stable2412-1".to_string(),
-                            content_type: "dir".to_string(),
-                            download_url: None,
-                        },
-                    ],
-                );
+            // Add PRDocs
+            client
+                .add_prdoc("stable2503", 1234, test_data::STABLE2503_PR1_CONTENT)
+                .await;
+            client
+                .add_prdoc("stable2503", 5678, test_data::STABLE2503_PR2_CONTENT)
+                .await;
+            client
+                .add_prdoc("stable2503", 9012, test_data::STABLE2503_PR3_CONTENT)
+                .await;
 
-                // Mock stable2503 prdoc files
-                dir_contents.insert(
-                    "prdoc/stable2503".to_string(),
-                    vec![
-                        GitHubContent {
-                            name: "pr_1234.prdoc".to_string(),
-                            content_type: "file".to_string(),
-                            download_url: Some("https://mock.github.com/pr_1234.prdoc".to_string()),
-                        },
-                        GitHubContent {
-                            name: "pr_5678.prdoc".to_string(),
-                            content_type: "file".to_string(),
-                            download_url: Some("https://mock.github.com/pr_5678.prdoc".to_string()),
-                        },
-                        GitHubContent {
-                            name: "pr_9012.prdoc".to_string(),
-                            content_type: "file".to_string(),
-                            download_url: Some("https://mock.github.com/pr_9012.prdoc".to_string()),
-                        },
-                    ],
-                );
-            }
+            // Add PR labels
+            client
+                .add_pr_labels(1234, vec!["T0-node", "D1-audited"])
+                .await;
+            client.add_pr_labels(5678, vec!["T1-runtime"]).await;
+            client
+                .add_pr_labels(9012, vec!["T2-pallets", "E1-breaking"])
+                .await;
 
-            // Add mock file contents
-            {
-                let mut file_contents = client.file_contents.lock().await;
-                file_contents.insert(
-                    "https://mock.github.com/pr_1234.prdoc".to_string(),
-                    r#"title: "Test PR 1234"
-doc:
-  - audience: Runtime Dev
-    description: |
-      This is a test PR for stable2503
-crates:
-  - name: pallet-balances"#
-                        .to_string(),
-                );
-                file_contents.insert(
-                    "https://mock.github.com/pr_5678.prdoc".to_string(),
-                    r#"title: "Test PR 5678"
-doc:
-  - audience: Node Dev
-    description: |
-      Another test PR for stable2503
-crates:
-  - name: sp-runtime"#
-                        .to_string(),
-                );
-                file_contents.insert(
-                    "https://mock.github.com/pr_9012.prdoc".to_string(),
-                    r#"title: "Test PR 9012"
-doc:
-  - audience: Runtime User
-    description: |
-      Third test PR for stable2503
-crates:
-  - name: frame-system"#
-                        .to_string(),
-                );
-            }
-
-            // Add mock PR labels
-            {
-                let mut pr_labels = client.pr_labels.lock().await;
-                pr_labels.insert(1234, vec!["T0-node".to_string(), "D1-audited".to_string()]);
-                pr_labels.insert(5678, vec!["T1-runtime".to_string()]);
-                pr_labels.insert(
-                    9012,
-                    vec!["T2-pallets".to_string(), "E1-breaking".to_string()],
-                );
-            }
-
-            // Add mock repository labels
-            {
-                let mut repo_labels = client.repository_labels.lock().await;
-                repo_labels.push(GitHubLabel {
-                    name: "T0-node".to_string(),
-                    color: "000000".to_string(),
-                    description: Some("Node-related changes".to_string()),
-                });
-                repo_labels.push(GitHubLabel {
-                    name: "T1-runtime".to_string(),
-                    color: "111111".to_string(),
-                    description: Some("Runtime-related changes".to_string()),
-                });
-                repo_labels.push(GitHubLabel {
-                    name: "T2-pallets".to_string(),
-                    color: "222222".to_string(),
-                    description: Some("Pallet-related changes".to_string()),
-                });
-                repo_labels.push(GitHubLabel {
-                    name: "D1-audited".to_string(),
-                    color: "333333".to_string(),
-                    description: Some("Audited code".to_string()),
-                });
-                repo_labels.push(GitHubLabel {
-                    name: "E1-breaking".to_string(),
-                    color: "444444".to_string(),
-                    description: Some("Breaking change".to_string()),
-                });
-            }
+            // Add repository label definitions
+            client
+                .add_repo_label("T0-node", "000000", Some("Node-related changes"))
+                .await;
+            client
+                .add_repo_label("T1-runtime", "111111", Some("Runtime-related changes"))
+                .await;
+            client
+                .add_repo_label("T2-pallets", "222222", Some("Pallet-related changes"))
+                .await;
+            client
+                .add_repo_label("D1-audited", "333333", Some("Audited code"))
+                .await;
+            client
+                .add_repo_label("E1-breaking", "444444", Some("Breaking change"))
+                .await;
 
             client
         }
@@ -952,127 +1056,255 @@ crates:
         }
     }
 
-    #[test]
-    fn test_normalize_release_input() {
-        // Test stripping polkadot- prefix
-        assert_eq!(
-            normalize_release_input("polkadot-stable2503-8"),
-            "stable2503-8"
-        );
-        assert_eq!(
-            normalize_release_input("polkadot-stable2412-1"),
-            "stable2412-1"
-        );
-        assert_eq!(normalize_release_input("polkadot-v1.9.0"), "v1.9.0");
+    // ===== Unit Tests =====
 
-        // Test stripping release- prefix
-        assert_eq!(normalize_release_input("release-v1.9.0"), "v1.9.0");
-        assert_eq!(normalize_release_input("release-stable2503"), "stable2503");
+    mod unit_tests {
+        use super::*;
 
-        // Test no change for already normalized inputs
-        assert_eq!(normalize_release_input("stable2503-8"), "stable2503-8");
-        assert_eq!(normalize_release_input("1.9.0"), "1.9.0");
-        assert_eq!(normalize_release_input("v1.9.0"), "v1.9.0");
+        #[test]
+        fn normalize_release_input_strips_polkadot_prefix() {
+            assert_eq!(
+                normalize_release_input("polkadot-stable2503-8"),
+                "stable2503-8"
+            );
+            assert_eq!(
+                normalize_release_input("polkadot-stable2412-1"),
+                "stable2412-1"
+            );
+            assert_eq!(normalize_release_input("polkadot-v1.9.0"), "v1.9.0");
+        }
 
-        // Test trimming whitespace
-        assert_eq!(normalize_release_input("  stable2503-8  "), "stable2503-8");
-        assert_eq!(
-            normalize_release_input("  polkadot-stable2503-8  "),
-            "stable2503-8"
-        );
+        #[test]
+        fn normalize_release_input_strips_release_prefix() {
+            assert_eq!(normalize_release_input("release-v1.9.0"), "v1.9.0");
+            assert_eq!(normalize_release_input("release-stable2503"), "stable2503");
+        }
+
+        #[test]
+        fn normalize_release_input_preserves_normalized_names() {
+            assert_eq!(normalize_release_input("stable2503-8"), "stable2503-8");
+            assert_eq!(normalize_release_input("1.9.0"), "1.9.0");
+            assert_eq!(normalize_release_input("v1.9.0"), "v1.9.0");
+        }
+
+        #[test]
+        fn normalize_release_input_trims_whitespace() {
+            assert_eq!(normalize_release_input("  stable2503-8  "), "stable2503-8");
+            assert_eq!(
+                normalize_release_input("  polkadot-stable2503-8  "),
+                "stable2503-8"
+            );
+        }
+
+        #[test]
+        fn extract_pr_number_from_valid_filename() {
+            assert_eq!(extract_pr_number("pr_1234.prdoc"), Some(1234));
+            assert_eq!(extract_pr_number("pr_5678.prdoc"), Some(5678));
+            assert_eq!(extract_pr_number("pr_0.prdoc"), Some(0));
+        }
+
+        #[test]
+        fn extract_pr_number_from_invalid_filename() {
+            assert_eq!(extract_pr_number("invalid.prdoc"), None);
+            assert_eq!(extract_pr_number("pr_abc.prdoc"), None);
+            assert_eq!(extract_pr_number("pr_1234.txt"), None);
+            assert_eq!(extract_pr_number("pr_1234"), None);
+        }
     }
 
-    #[tokio::test]
-    async fn test_stable2503_caching_with_mock() {
+    // ===== PRDoc Parsing Tests =====
+
+    mod prdoc_parsing_tests {
+        use super::*;
+
+        fn parse_prdoc_and_extract_description(content: &str) -> Result<(String, String)> {
+            let doc = serde_yaml::from_str::<PrDocYaml>(content)?;
+            let desc = doc
+                .doc
+                .iter()
+                .map(|section| section.description.trim())
+                .filter(|d| !d.is_empty())
+                .collect::<Vec<_>>()
+                .join(" ");
+            Ok((doc.title, desc))
+        }
+
+        #[test]
+        fn parse_prdoc_with_string_audience() {
+            let (title, desc) =
+                parse_prdoc_and_extract_description(test_data::STABLE2503_PR1_CONTENT)
+                    .expect("Should parse PRDoc with string audience");
+
+            assert_eq!(title, "Test PR 1234");
+            assert!(desc.contains("This is a test PR for stable2503"));
+        }
+
+        #[test]
+        fn parse_prdoc_with_array_audience() {
+            let (title, desc) =
+                parse_prdoc_and_extract_description(test_data::PR_WITH_ARRAY_AUDIENCE)
+                    .expect("Should parse PRDoc with array audience");
+
+            assert_eq!(
+                title,
+                "Bring the latest compatibility fixes via litep2p v0.9.1"
+            );
+            assert!(desc.contains("litep2p and libp2p"));
+            assert!(desc.contains("WebSocket stream"));
+        }
+
+        #[test]
+        fn parse_prdoc_extracts_multiline_descriptions() {
+            let (_, desc) = parse_prdoc_and_extract_description(test_data::PR_WITH_ARRAY_AUDIENCE)
+                .expect("Should parse PRDoc");
+
+            // Verify multiline description is properly joined
+            assert!(desc.contains("This release enhances compatibility"));
+            assert!(desc.contains("Additionally, it includes various improvements"));
+        }
+
+        #[tokio::test]
+        async fn parse_real_pr7640_if_exists() {
+            let test_file = "/Users/snowmead/.substrate-mcp/sh-cloned/releases/stable2412-2/pr-docs/pr_7640.prdoc";
+
+            if tokio::fs::try_exists(test_file).await.unwrap_or(false) {
+                let content = tokio::fs::read_to_string(test_file)
+                    .await
+                    .expect("Should read test file");
+
+                let (title, desc) = parse_prdoc_and_extract_description(&content)
+                    .expect("Should parse real PR 7640");
+
+                assert!(!title.is_empty(), "Title should not be empty");
+                assert!(!desc.is_empty(), "Description should not be empty");
+                assert!(
+                    desc.contains("litep2p"),
+                    "Description should mention litep2p"
+                );
+            }
+        }
+    }
+
+    // ===== Integration Tests =====
+
+    mod integration_tests {
+        use super::*;
         use std::time::Instant;
-        use tempfile::TempDir;
 
-        println!("\n=== Testing stable2503 caching with mock ===");
+        #[tokio::test]
+        async fn fetch_and_cache_release_workflow() {
+            // Create temporary directory for cache
+            let temp_dir = TempDir::new().unwrap();
+            let cache_dir = temp_dir.path();
 
-        // Create temporary directory for cache
-        let temp_dir = TempDir::new().unwrap();
-        let cache_dir = temp_dir.path();
+            // Create mock client with test data
+            let mock_client = MockGitHubClient::with_stable2503_data().await;
 
-        // Create mock client with test data
-        let mock_client = MockGitHubClient::with_stable2503_data().await;
+            // First fetch - download from mock API
+            let start = Instant::now();
+            let result1 =
+                fetch_and_analyze_release("stable2503", false, Some(cache_dir), &mock_client)
+                    .await
+                    .expect("First fetch should succeed");
+            let first_duration = start.elapsed();
 
-        // First fetch - "download" from mock API
-        println!("First fetch (downloading from mock API)...");
-        let start = Instant::now();
-        let result1 = fetch_and_analyze_release("stable2503", false, Some(cache_dir), &mock_client)
-            .await
-            .unwrap();
-        let first_duration = start.elapsed();
-        println!("  Completed in: {:?}", first_duration);
-        println!("  Total PRs: {}", result1.summary.total_prs);
-        println!("  Download date: {:?}", result1.summary.download_date);
+            // Verify results
+            assert_eq!(result1.summary.total_prs, 3);
+            assert!(
+                result1.summary.download_date.is_some(),
+                "First fetch should have download date"
+            );
 
-        // Verify cache files were created
-        let cache_path = std::path::Path::new(&result1.summary.output_directory);
-        let labels_json = cache_path.join("labels.json");
-        let pr_labels_json = cache_path.join("pr_labels_mapping.json");
+            // Verify cache files were created
+            verify_cache_files_exist(&result1.summary.output_directory);
 
-        println!("\nChecking cache files:");
-        assert!(
-            labels_json.exists(),
-            "labels.json should exist at {:?}",
-            labels_json
-        );
-        assert!(
-            pr_labels_json.exists(),
-            "pr_labels_mapping.json should exist at {:?}",
-            pr_labels_json
-        );
-        println!("  ✅ labels.json exists");
-        println!("  ✅ pr_labels_mapping.json exists");
+            // Second fetch - should use cache
+            let start = Instant::now();
+            let result2 =
+                fetch_and_analyze_release("stable2503", false, Some(cache_dir), &mock_client)
+                    .await
+                    .expect("Second fetch should succeed");
+            let second_duration = start.elapsed();
 
-        // Count PRDocs
-        let prdoc_count = std::fs::read_dir(&cache_path)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("prdoc"))
-            .count();
-        println!("  PRDoc files: {}", prdoc_count);
-        assert!(prdoc_count > 0, "Should have downloaded PRDoc files");
+            // Verify cache was used
+            assert!(
+                result2.summary.download_date.is_none(),
+                "Cached fetch should have None for download_date"
+            );
+            assert!(
+                second_duration < first_duration,
+                "Cache should be faster than initial fetch"
+            );
 
-        // Second fetch - should use cache
-        println!("\nSecond fetch (should use cache)...");
-        let start = Instant::now();
-        let result2 = fetch_and_analyze_release("stable2503", false, Some(cache_dir), &mock_client)
-            .await
-            .unwrap();
-        let second_duration = start.elapsed();
-        println!("  Completed in: {:?}", second_duration);
-        println!(
-            "  Download date: {:?} (should be None)",
-            result2.summary.download_date
-        );
+            // Verify data consistency
+            verify_results_match(&result1, &result2);
 
-        // Verify cache was used
-        assert!(
-            result2.summary.download_date.is_none(),
-            "Cached fetch should have None for download_date"
-        );
-        // With mock client, first fetch is already fast, so cache might not be 3x faster
-        // Just verify cache is faster
-        assert!(
-            second_duration < first_duration,
-            "Cache should be faster than first fetch. First: {:?}, Second: {:?}",
-            first_duration,
-            second_duration
-        );
+            // Verify PR data is complete
+            for prdoc in &result1.prdocs {
+                assert!(!prdoc.title.is_empty(), "Title should not be empty");
+                assert!(
+                    !prdoc.description.is_empty(),
+                    "Description should not be empty"
+                );
+                assert!(!prdoc.labels.is_empty(), "Should have labels");
+            }
+        }
 
-        println!(
-            "\n✅ Cache is working! Second fetch was {}x faster",
-            first_duration.as_micros() / second_duration.as_micros().max(1)
-        );
+        #[tokio::test]
+        async fn force_flag_bypasses_cache() {
+            let temp_dir = TempDir::new().unwrap();
+            let cache_dir = temp_dir.path();
+            let mock_client = MockGitHubClient::with_stable2503_data().await;
 
-        // Verify data consistency
-        assert_eq!(result1.summary.total_prs, result2.summary.total_prs);
-        assert_eq!(result1.prdocs.len(), result2.prdocs.len());
+            // First fetch
+            let result1 =
+                fetch_and_analyze_release("stable2503", false, Some(cache_dir), &mock_client)
+                    .await
+                    .expect("First fetch should succeed");
+            assert!(result1.summary.download_date.is_some());
 
-        // Verify labels are preserved
-        let labels_preserved = result2.prdocs.iter().any(|p| !p.labels.is_empty());
-        println!("  Labels preserved in cache: {}", labels_preserved);
+            // Second fetch with force flag
+            let result2 =
+                fetch_and_analyze_release("stable2503", true, Some(cache_dir), &mock_client)
+                    .await
+                    .expect("Force fetch should succeed");
+
+            // Force flag should cause re-download
+            assert!(
+                result2.summary.download_date.is_some(),
+                "Force fetch should have download date"
+            );
+        }
+
+        fn verify_cache_files_exist(output_dir: &str) {
+            let cache_path = std::path::Path::new(output_dir);
+            assert!(
+                cache_path.join("labels.json").exists(),
+                "labels.json should exist"
+            );
+            assert!(
+                cache_path.join("pr_labels_mapping.json").exists(),
+                "pr_labels_mapping.json should exist"
+            );
+
+            let prdoc_count = std::fs::read_dir(&cache_path)
+                .unwrap()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("prdoc"))
+                .count();
+            assert!(prdoc_count > 0, "Should have PRDoc files");
+        }
+
+        fn verify_results_match(result1: &EnhancedPrdocsResult, result2: &EnhancedPrdocsResult) {
+            assert_eq!(result1.summary.total_prs, result2.summary.total_prs);
+            assert_eq!(result1.prdocs.len(), result2.prdocs.len());
+
+            for (prdoc1, prdoc2) in result1.prdocs.iter().zip(result2.prdocs.iter()) {
+                assert_eq!(prdoc1.pr_number, prdoc2.pr_number);
+                assert_eq!(prdoc1.title, prdoc2.title);
+                assert_eq!(prdoc1.description, prdoc2.description);
+                assert_eq!(prdoc1.labels, prdoc2.labels);
+            }
+        }
     }
 }

@@ -39,11 +39,14 @@ When invoked, you must follow these steps:
 
 PR Tracking table column description:
 
-- "PR": The local PRDoc file that has been reviewed and analyzed.
+- "PRDoc": The local PRDoc file that has been reviewed and analyzed.
 - "GitHub": Direct link to the GitHub pull request for additional context.
 - "Title": The title of the pull request.
 - "Status": Indicates the current status of the PR analysis process.
 - "Initial Sentiment": Reflects the initial sentiment of the Analysis Sub Agent, whether it is a "MUST", "OPTIONAL", "INHERITED", "DON'T KNOW".
+- "Migrations": Whether the PR requires any storage migrations (Yes/No/Unknown).
+- "Host Functions": Whether the PR introduces or modifies host functions (Yes/No/Unknown).
+- "Runtime APIs": Whether the PR introduces or modifies runtime APIs (Yes/No/Unknown).
 - "Analysis": Link to the detailed analysis file (.substrate-mcp/polkadot-upgrade/{{release}}/pr_XXX.md).
 
 <track_md>
@@ -56,11 +59,11 @@ PR Tracking table column description:
 
 **Total PRs to Analyze**: [e.g., 237 - MUST match the total from fetch_and_analyze_release]
 
-| PR | GitHub | Title | Status | Initial Sentiment | Analysis
-| --- | --- | --- | --- | --- | ---
-| [pr_XXXX.prdoc](local-path-to-prdoc) | [#XXXX](https://github.com/paritytech/polkadot-sdk/pull/XXXX) | Title of PR | Pending | Pending | [View Analysis](.substrate-mcp/polkadot-upgrade/{{release}}/pr_XXXX.md)
-| ... | ... | ... | ... | ... | ...
-| ... | ... | ... | ... | ... | ...
+| PRDoc | GitHub | Title | Status | Initial Sentiment | Migrations | Host Functions | Runtime APIs | Analysis
+| --- | --- | --- | --- | --- | --- | --- | --- | ---
+| [pr_XXXX.prdoc](local-path-to-prdoc) | [#XXXX](https://github.com/paritytech/polkadot-sdk/pull/XXXX) | Title of PR | Pending | Pending | Unknown | Unknown | Unknown | [View Analysis](.substrate-mcp/polkadot-upgrade/{{release}}/pr_XXXX.md)
+| ... | ... | ... | ... | ... | ... | ... | ... | ...
+| ... | ... | ... | ... | ... | ... | ... | ... | ...
 
 </track_md>
 
@@ -129,7 +132,12 @@ You MUST complete all of the tasks listed below:
 
 6. **Determine impact category** based on concrete evidence
 
-7. **Write the final analysis report** to the designated file at `.substrate-mcp/polkadot-upgrade/{{release}}/pr_[XXX].md`
+7. **Assess special considerations**:
+   - **Migrations**: Check for storage migrations, version bumps, or migration guides
+   - **Host Functions**: Look for changes to host functions or runtime interfaces
+   - **Runtime APIs**: Identify new or modified runtime API traits or implementations
+
+8. **Write the final analysis report** to the designated file at `.substrate-mcp/polkadot-upgrade/{{release}}/pr_[XXX].md`
 
 ## Evidence Requirements
 
@@ -201,6 +209,9 @@ You MUST write the following structured report to the file `.substrate-mcp/polka
 ### Impact Assessment
 - **Initial Sentiment**: ["MUST"|"OPTIONAL"|"INHERITED"|"DON'T KNOW"]
 - **Confidence Level**: [HIGH|MEDIUM|LOW] based on evidence quality
+- **Requires Migration**: [Yes|No|Unknown]
+- **Host Function Changes**: [Yes|No|Unknown]
+- **Runtime API Changes**: [Yes|No|Unknown]
 
 ### Analysis
 **Affected Components**:
@@ -215,6 +226,19 @@ You MUST write the following structured report to the file `.substrate-mcp/polka
 - [Specific files in project that need updates with file:line references]
 - [Current usage patterns found via grep]
 - [Required changes with code snippets]
+
+**Migration Requirements** (if applicable):
+- [Specific migration steps needed]
+- [Storage version changes]
+- [Migration code examples]
+
+**Host Function Impact** (if applicable):
+- [New or modified host functions]
+- [Required runtime interface changes]
+
+**Runtime API Impact** (if applicable):
+- [New or modified runtime APIs]
+- [Implementation requirements]
 
 ### Evidence & References
 **From PR (polkadot-sdk)**:
