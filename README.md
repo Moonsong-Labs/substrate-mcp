@@ -1,10 +1,56 @@
-# Substrate MCP Server
+<div align="center">
+  <img src="./docs/images/Polkadot-Logo.png" alt="Polkadot logo" height="300" width="500">
 
-An MCP (Model Context Protocol) server that provides tools for working with Substrate-based blockchains.
+  # ✨ Substrate MCP Server ✨
 
-## Installation
+  An MCP (Model Context Protocol) server that provides tools for working with Substrate-based blockchains.
+</div>
 
-### 1: Quick Install
+## Table of Contents
+
+- [📖 About](#-about)
+- [🛠️ Prerequisites](#-prerequisites)
+- [⬇ Installation](#-installation)
+  - [Quick Install](#quick-install)
+  - [Download from Releases](#download-from-releases)
+  - [Install from Source (Requires cargo)](#install-from-source)
+  - [Build Locally (Requires cargo)](#build-locally)
+- [🤖 Usage with Claude Code](#-usage-with-claude-code)
+- [🎛️ Configuration](#%EF%B8%8F-configuration)
+  - [GitHub API Rate Limits](#github-api-rate-limits)
+- [⚙️ Available Tools](#-available-tools)
+  - [Release Analysis](#release-analysis)
+  - [Chain Exploration](#chain-exploration)
+  - [Extrinsic Operations](#extrinsic-operations)
+- [🚀 Available Prompts](#-available-prompts)
+  - [Polkadot SDK Release Analysis](#polkadot-sdk-release-analysis)
+    - [release_comparison](#release_comparison)
+    - [analyze_release](#analyze_release)
+    - [polkadot_upgrade](#polkadot_upgrade)
+  - [Development & Scaffolding](#development--scaffolding)
+    - [scaffold_pallet](#scaffold_pallet)
+  - [Security Analysis](#security-analysis)
+    - [security_review](#security_review)
+- [📜 License](#-license)
+
+## 📖 About
+Substrate MCP is a Rust-based Model Context Protocol server for the [Polkadot](https://polkadot.com/) ecosystem.
+It lets AI agents explore chain metadata and state, decode extrinsics, submit dev extrinsics, scaffold pallets, and analyze [Polkadot SDK](https://polkadot.com/platform/sdk/) releases to understand their impact on your codebase.
+
+## 🛠 Prerequisites
+
+- [Rust Toolchain](https://www.rust-lang.org/tools/install)
+
+- For the `subxt_execute` tool, install the subxt CLI:
+
+```bash
+cargo install subxt-cli
+```
+
+## ⬇ Installation
+Choose one of the following installation methods:
+
+### Quick Install
 
 ```bash
 curl -sSfL https://raw.githubusercontent.com/Moonsong-Labs/substrate-mcp/main/install.sh | bash
@@ -15,17 +61,17 @@ This will:
 - Install it to `~/.substrate-mcp/bin/substrate-mcp`
 - Add the binary to your PATH
 
-### 2: Download from Releases
+### Download from Releases
 
 Download the binary for your platform from the [latest release](https://github.com/Moonsong-Labs/substrate-mcp/releases/latest).
 
-### 3: Install from Source (Requires cargo)
+### Install from Source
 
 ```bash
 cargo install --locked --git https://github.com/Moonsong-Labs/substrate-mcp
 ```
 
-### 4: Build Locally (Requires cargo)
+### Build Locally
 
 ```bash
 git clone https://github.com/Moonsong-Labs/substrate-mcp.git
@@ -35,15 +81,7 @@ cargo build --release
 
 The binary will be available at `./target/release/substrate-mcp`
 
-## Prerequisites
-
-For the `subxt_execute` tool, install the subxt CLI:
-
-```bash
-cargo install subxt-cli
-```
-
-## Usage with Claude Code
+## 🤖 Usage with Claude Code
 
 To use this MCP server with Claude Code, add it to your Claude Code configuration.
 
@@ -69,13 +107,13 @@ If you built the server locally instead of installing it, use the full path:
 }
 ```
 
-Alternatively, you can add using cli:
+Alternatively, add via CLI:
 
-```
+```bash
 claude mcp add substrate /path/to/substrate-mcp/target/release/substrate-mcp
 ```
 
-## Configuration
+## 🎛️ Configuration
 
 ### GitHub API Rate Limits
 
@@ -107,11 +145,12 @@ For Claude Code, you can set environment variables in your configuration:
 }
 ```
 
-## Available Tools
+## ⚙️ Available Tools
 
 ### Release Analysis
 
 - **`fetch_and_analyze_release`** - Fetches and analyzes a Polkadot SDK release - downloads PRDocs and generates summaries (manifest, crate changes, audience breakdown)
+- **`find_runtime_pallets`** - Find and analyze runtime pallets configured in a given project directory. Scans for #[frame_support::runtime] attributes to discover all pallets used in your runtime(s)
 - **`list_polkadot_releases`** - List all available Polkadot SDK releases from the polkadot-sdk repository. Helps discover valid release identifiers before using other tools. Supports filtering by release type (stable, legacy, or all)
 
 ### Chain Exploration
@@ -127,7 +166,7 @@ For Claude Code, you can set environment variables in your configuration:
 
 - **`submit_dev_extrinsic`** - Submit a generic extrinsic to a Substrate chain using dev accounts. Supports any pallet call with arbitrary arguments. Use dev account names like 'alice', 'bob', 'charlie', etc. for signing
 
-## Available Prompts
+## 🚀 Available Prompts
 
 The Substrate MCP server provides several specialized prompts for Substrate development and security analysis:
 
@@ -178,6 +217,6 @@ The Substrate MCP server provides several specialized prompts for Substrate deve
 
 This prompt combines code security audit, economic security assessment, threat modeling, and weight analysis into a comprehensive security review. NOTE: This prompt is designed to be used during development as a tool to provide an extra layer of analysis. It is not meant to replace professional security audits.
 
-## License
+## 📜 License
 
-[LICENSE](LICENSE)
+This Project is licenced under the Apache License. See the  [LICENSE](LICENSE) file for details
