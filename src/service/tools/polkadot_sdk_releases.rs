@@ -76,27 +76,12 @@ pub(crate) struct GitHubLabel {
     pub(crate) description: Option<String>,
 }
 
-// Label metadata structure
-#[derive(Debug, Serialize, Deserialize)]
-struct LabelsMetadata {
-    fetched_at: DateTime<Utc>,
-    repository: String,
-    total_labels: usize,
-    labels: Vec<GitHubLabel>,
-}
-
 /// PR labels mapping for caching which labels belong to which PR
 #[derive(Debug, Serialize, Deserialize)]
 struct PrLabelsMapping {
     fetched_at: DateTime<Utc>,
     /// PR number → list of label names
     pr_labels: HashMap<u32, Vec<String>>,
-    /// PR number → title (added for backwards compatibility)
-    #[serde(default)]
-    pr_titles: HashMap<u32, String>,
-    /// PR number → description (added for backwards compatibility)
-    #[serde(default)]
-    pr_descriptions: HashMap<u32, String>,
 }
 
 /// Minimal struct to parse PRDoc YAML for title and description extraction
@@ -494,50 +479,19 @@ pub(crate) async fn list_available_releases() -> Result<AvailableReleases> {
     })
 }
 
-// Fetch labels and save to JSON file
-async fn fetch_and_save_github_labels(
-    client: &dyn GitHubApiClient,
-    output_dir: &Path,
-    _pr_numbers: &[u32], // Keeping for potential future use
-) -> Result<()> {
-    // Fetch all repository labels
-    let github_labels = client.get_repository_labels().await?;
-
-    // Create labels metadata with raw GitHub data
-    let labels_metadata = LabelsMetadata {
-        fetched_at: Utc::now(),
-        repository: "paritytech/polkadot-sdk".to_string(),
-        total_labels: github_labels.len(),
-        labels: github_labels,
-    };
-
-    // Save as labels.json (simple, descriptive name)
-    let labels_path = output_dir.join("labels.json");
-    let labels_json = serde_json::to_string_pretty(&labels_metadata)?;
-    fs::write(&labels_path, labels_json)
-        .await
-        .map_err(|e| anyhow!("Failed to write labels.json: {e}"))?;
-
-    Ok(())
-}
-
 /// Load cached PR docs from disk
 async fn load_cached_prdocs(output_dir: &Path) -> Result<EnhancedPrdocsResult> {
-    // First, load the PR labels mapping if it exists
+    // Load the PR labels mapping
     let pr_labels_path = output_dir.join("pr_labels_mapping.json");
-    let (pr_labels_map, pr_titles_map, pr_descriptions_map) = if pr_labels_path.exists() {
+    let pr_labels_map = if pr_labels_path.exists() {
         let pr_labels_content = fs::read_to_string(&pr_labels_path).await?;
         if let Ok(pr_labels_mapping) = serde_json::from_str::<PrLabelsMapping>(&pr_labels_content) {
-            (
-                pr_labels_mapping.pr_labels,
-                pr_labels_mapping.pr_titles,
-                pr_labels_mapping.pr_descriptions,
-            )
+            pr_labels_mapping.pr_labels
         } else {
-            (HashMap::new(), HashMap::new(), HashMap::new())
+            HashMap::new()
         }
     } else {
-        (HashMap::new(), HashMap::new(), HashMap::new())
+        HashMap::new()
     };
 
     // Read all .prdoc files from the directory
@@ -554,32 +508,25 @@ async fn load_cached_prdocs(output_dir: &Path) -> Result<EnhancedPrdocsResult> {
             // Load labels from the cached mapping
             let labels = pr_labels_map.get(&pr_num).cloned().unwrap_or_default();
 
-            // Load title and description from cache or parse from file
-            let (title, description) = if let (Some(cached_title), Some(cached_desc)) =
-                (pr_titles_map.get(&pr_num), pr_descriptions_map.get(&pr_num))
-            {
-                (cached_title.clone(), cached_desc.clone())
-            } else {
-                // Backwards compatibility: parse from file if not in cache
-                match fs::read_to_string(&path).await {
-                    Ok(content) => match serde_yaml::from_str::<PrDocYaml>(&content) {
-                        Ok(doc) => {
-                            let desc = doc
-                                .doc
-                                .iter()
-                                .map(|section| section.description.trim())
-                                .filter(|d| !d.is_empty())
-                                .collect::<Vec<_>>()
-                                .join(" ");
-                            (doc.title, desc)
-                        }
-                        Err(e) => {
-                            log::warn!("Failed to parse cached PRDoc for PR {}: {}", pr_num, e);
-                            (format!("PR #{}", pr_num), String::new())
-                        }
-                    },
-                    Err(_) => (format!("PR #{}", pr_num), String::new()),
-                }
+            // Parse title and description from file
+            let (title, description) = match fs::read_to_string(&path).await {
+                Ok(content) => match serde_yaml::from_str::<PrDocYaml>(&content) {
+                    Ok(doc) => {
+                        let desc = doc
+                            .doc
+                            .iter()
+                            .map(|section| section.description.trim())
+                            .filter(|d| !d.is_empty())
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        (doc.title, desc)
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to parse cached PRDoc for PR {}: {}", pr_num, e);
+                        (format!("PR #{}", pr_num), String::new())
+                    }
+                },
+                Err(_) => (format!("PR #{}", pr_num), String::new()),
             };
 
             prdocs_with_labels.push(PrDocWithLabels {
@@ -595,17 +542,8 @@ async fn load_cached_prdocs(output_dir: &Path) -> Result<EnhancedPrdocsResult> {
     // Sort by PR number for consistency
     prdocs_with_labels.sort_by(|a, b| a.pr_number.cmp(&b.pr_number));
 
-    // Load label definitions from labels.json if it exists
-    let mut label_definitions = HashMap::new();
-    let labels_path = output_dir.join("labels.json");
-    if labels_path.exists() {
-        let labels_content = fs::read_to_string(&labels_path).await?;
-        if let Ok(labels_metadata) = serde_json::from_str::<LabelsMetadata>(&labels_content) {
-            for label in labels_metadata.labels {
-                label_definitions.insert(label.name.clone(), label);
-            }
-        }
-    }
+    // Load label definitions from repository labels
+    let label_definitions = HashMap::new(); // Will be populated from API calls in the future
 
     // Get release name from the directory structure
     let release_name = output_dir
@@ -634,9 +572,8 @@ async fn has_valid_cache(output_dir: &Path) -> bool {
         return false;
     }
 
-    // Check if we have at least one .prdoc file, labels.json, and pr_labels_mapping.json
+    // Check if we have at least one .prdoc file and pr_labels_mapping.json
     let mut has_prdoc = false;
-    let has_labels = output_dir.join("labels.json").exists();
     let has_pr_labels_mapping = output_dir.join("pr_labels_mapping.json").exists();
 
     if let Ok(mut entries) = fs::read_dir(output_dir).await {
@@ -651,7 +588,7 @@ async fn has_valid_cache(output_dir: &Path) -> bool {
         }
     }
 
-    has_prdoc && has_labels && has_pr_labels_mapping
+    has_prdoc && has_pr_labels_mapping
 }
 
 /// Enhanced version that returns structured data for parallel sub-agent workflow
@@ -826,29 +763,15 @@ pub(crate) async fn fetch_and_analyze_release(
     // Sort by PR number for consistency
     prdocs_with_labels.sort_by(|a, b| a.pr_number.cmp(&b.pr_number));
 
-    // Also save the traditional manifest files for compatibility
-    let pr_numbers: Vec<u32> = prdocs_with_labels.iter().map(|p| p.pr_number).collect();
-
-    // Save labels.json for compatibility
-    if let Err(e) = fetch_and_save_github_labels(client, &output_dir, &pr_numbers).await {
-        eprintln!("Warning: Failed to save GitHub labels: {e}");
-    }
-
     // Save PR labels mapping for cache
     let mut pr_labels_map = HashMap::new();
-    let mut pr_titles_map = HashMap::new();
-    let mut pr_descriptions_map = HashMap::new();
     for prdoc in &prdocs_with_labels {
         pr_labels_map.insert(prdoc.pr_number, prdoc.labels.clone());
-        pr_titles_map.insert(prdoc.pr_number, prdoc.title.clone());
-        pr_descriptions_map.insert(prdoc.pr_number, prdoc.description.clone());
     }
 
     let pr_labels_mapping = PrLabelsMapping {
         fetched_at: Utc::now(),
         pr_labels: pr_labels_map,
-        pr_titles: pr_titles_map,
-        pr_descriptions: pr_descriptions_map,
     };
 
     let pr_labels_path = output_dir.join("pr_labels_mapping.json");
@@ -1278,10 +1201,6 @@ crates:
 
         fn verify_cache_files_exist(output_dir: &str) {
             let cache_path = std::path::Path::new(output_dir);
-            assert!(
-                cache_path.join("labels.json").exists(),
-                "labels.json should exist"
-            );
             assert!(
                 cache_path.join("pr_labels_mapping.json").exists(),
                 "pr_labels_mapping.json should exist"
