@@ -25,6 +25,9 @@ impl From<MarkdownResource> for Resource {
                 description: Some(val.description),
                 mime_type: Some("text/markdown".to_string()),
                 size: Some(val.content.len() as u32),
+                icons: None,
+                meta: None,
+                title: None,
             },
             Some(Annotations {
                 audience: val.audience,
@@ -215,6 +218,9 @@ fn https_resources() -> Vec<Resource> {
                 description: Some("Index with LLM friendly Polkadot documentation. Use this to get proper context on how Polkadot works or how to perform a specific task within Polkadot or Substrate based chains (e.g: create a pallet, add benchmarks or work with XCM)".into()),
                 mime_type: None,
                 size: None,
+                icons: None,
+                meta: None,
+                title: None,
             },
             Some(Annotations {
                 audience: Some(vec![Role::Assistant]),
@@ -229,6 +235,9 @@ fn https_resources() -> Vec<Resource> {
                 description: Some("Polkadot SDK GitHub Repository.".into()),
                 mime_type: None,
                 size: None,
+                icons: None,
+                meta: None,
+                title: None,
             },
             Some(Annotations {
                 audience: Some(vec![Role::Assistant, Role::User]),
@@ -243,6 +252,9 @@ fn https_resources() -> Vec<Resource> {
                 description: Some("`polkadot-sdk` crate documentation".into()),
                 mime_type: None,
                 size: None,
+                icons: None,
+                meta: None,
+                title: None,
             },
             Some(Annotations {
                 audience: Some(vec![Role::Assistant, Role::User]),

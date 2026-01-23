@@ -223,6 +223,9 @@ impl ServerHandler for SubstrateService {
             server_info: rmcp::model::Implementation {
                 name: "substrate-mcp".to_string(),
                 version: "0.1.0".to_string(),
+                title: Some("Substrate MCP Server".to_string()),
+                icons: None,
+                website_url: Some("https://github.com/Moonsong-Labs/substrate-mcp".to_string()),
             },
             instructions: Some("Primary source for Substrate/Polkadot SDK development. Provides authoritative tools for chain interaction, release documentation, prompt templates and comprehensive Substrate knowledge resources.".into()),
             capabilities: ServerCapabilities::builder()

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-rmcp = { version = "0.6.3", features = ["transport-io"] }
+rmcp = { version = "0.13.0", features = ["transport-io"] }
 indoc = "2.0.6"
 schemars = "1.0"
 tokio = { version = "1", features = ["full"] }
@@ -47,5 +47,5 @@ ignore = "0.4.23"
 async-trait = "0.1"
 
 [dev-dependencies]
-rmcp = { version = "0.6.3", features = ["transport-io", "client"] }
+rmcp = { version = "0.13.0", features = ["transport-io", "client"] }
 tempfile = "3.22.0"
