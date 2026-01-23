@@ -49,6 +49,7 @@ impl TestMcpClient {
         let request = CallToolRequestParam {
             name: Cow::from(name.to_string()),
             arguments: args,
+            task: None,
         };
         Ok(self.client.call_tool(request).await?)
     }
