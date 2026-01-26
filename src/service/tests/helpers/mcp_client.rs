@@ -1,5 +1,8 @@
 use anyhow::Result;
-use rmcp::model::{CallToolRequestParam, CallToolResult};
+use rmcp::model::{
+    CallToolRequestParam, CallToolResult, GetPromptRequestParam, GetPromptResult,
+    ListPromptsResult,
+};
 use rmcp::service::{RoleClient, RunningService, ServiceExt};
 use std::borrow::Cow;
 
@@ -52,5 +55,25 @@ impl TestMcpClient {
             task: None,
         };
         Ok(self.client.call_tool(request).await?)
+    }
+
+    /// List all available prompts
+    pub(crate) async fn list_prompts(&self) -> Result<ListPromptsResult> {
+        Ok(self.client.list_prompts(None).await?)
+    }
+
+    /// Get a prompt with arguments
+    pub(crate) async fn get_prompt(
+        &self,
+        name: &str,
+        arguments: serde_json::Value,
+    ) -> Result<GetPromptResult> {
+        let args = arguments.as_object().cloned();
+
+        let request = GetPromptRequestParam {
+            name: name.to_string(),
+            arguments: args,
+        };
+        Ok(self.client.get_prompt(request).await?)
     }
 }

@@ -1,7 +1,7 @@
 //! Scaffold pallet prompt implementation
 
 use handlebars::Handlebars;
-use rmcp::model::{PromptMessage, PromptMessageRole};
+use rmcp::model::{ErrorData as McpError, GetPromptResult, PromptMessage, PromptMessageRole};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -17,7 +17,7 @@ pub(crate) struct ScaffoldPalletArgs {
 }
 
 /// Generate scaffold pallet prompt content
-pub(crate) async fn generate_prompt(args: ScaffoldPalletArgs) -> Vec<PromptMessage> {
+pub(crate) async fn generate_prompt(args: ScaffoldPalletArgs) -> Result<GetPromptResult, McpError> {
     let handlebars = Handlebars::new();
 
     let context = json!({
@@ -27,9 +27,12 @@ pub(crate) async fn generate_prompt(args: ScaffoldPalletArgs) -> Vec<PromptMessa
 
     let content = handlebars
         .render_template(TEMPLATE, &context)
-        .unwrap_or_else(|e| format!("Template rendering failed: {e}"));
+        .map_err(|e| McpError::internal_error(format!("Template rendering failed: {e}"), None))?;
 
-    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
+    Ok(GetPromptResult {
+        description: Some("Generate pallet structure and implementation templates".to_string()),
+        messages: vec![PromptMessage::new_text(PromptMessageRole::User, content)],
+    })
 }
 
 /// Scaffold pallet prompt template

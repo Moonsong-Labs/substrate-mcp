@@ -4,7 +4,7 @@ use rmcp::handler::server::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
     CallToolResult, GetPromptRequestParam, GetPromptResult, ListPromptsResult,
-    ListResourceTemplatesResult, ListResourcesResult, PaginatedRequestParam, PromptMessage,
+    ListResourceTemplatesResult, ListResourcesResult, PaginatedRequestParam,
     ReadResourceRequestParam, ReadResourceResult, ResourceContents, ServerCapabilities, ServerInfo,
 };
 use rmcp::service::{RequestContext, RoleServer};
@@ -165,7 +165,7 @@ impl SubstrateService {
     async fn analyze_release(
         &self,
         Parameters(args): Parameters<analyze_release::AnalyzeReleaseArgs>,
-    ) -> Vec<PromptMessage> {
+    ) -> Result<GetPromptResult, McpError> {
         prompts::analyze_release::generate_prompt(args).await
     }
 
@@ -176,7 +176,7 @@ impl SubstrateService {
     async fn scaffold_pallet(
         &self,
         Parameters(args): Parameters<scaffold_pallet::ScaffoldPalletArgs>,
-    ) -> Vec<PromptMessage> {
+    ) -> Result<GetPromptResult, McpError> {
         prompts::scaffold_pallet::generate_prompt(args).await
     }
 
@@ -187,7 +187,7 @@ impl SubstrateService {
     async fn security_review(
         &self,
         Parameters(args): Parameters<security_review::SecurityReviewArgs>,
-    ) -> Vec<PromptMessage> {
+    ) -> Result<GetPromptResult, McpError> {
         prompts::security_review::generate_prompt(args).await
     }
 
@@ -199,7 +199,7 @@ impl SubstrateService {
     async fn polkadot_upgrade(
         &self,
         Parameters(args): Parameters<polkadot_upgrade::PolkadotUpgradeArgs>,
-    ) -> Vec<PromptMessage> {
+    ) -> Result<GetPromptResult, McpError> {
         prompts::polkadot_upgrade::generate_prompt(args).await
     }
 
@@ -210,7 +210,7 @@ impl SubstrateService {
     async fn get_started(
         &self,
         Parameters(args): Parameters<get_started::GetStartedArgs>,
-    ) -> Vec<PromptMessage> {
+    ) -> Result<GetPromptResult, McpError> {
         prompts::get_started::generate_prompt(args).await
     }
 }

@@ -4,7 +4,7 @@
 //! and weight analysis into a single development security review.
 
 use handlebars::Handlebars;
-use rmcp::model::{PromptMessage, PromptMessageRole};
+use rmcp::model::{ErrorData as McpError, GetPromptResult, PromptMessage, PromptMessageRole};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -20,7 +20,7 @@ pub(crate) struct SecurityReviewArgs {
 }
 
 /// Generate security review prompt content
-pub(crate) async fn generate_prompt(args: SecurityReviewArgs) -> Vec<PromptMessage> {
+pub(crate) async fn generate_prompt(args: SecurityReviewArgs) -> Result<GetPromptResult, McpError> {
     let handlebars = Handlebars::new();
 
     let context = json!({
@@ -30,9 +30,14 @@ pub(crate) async fn generate_prompt(args: SecurityReviewArgs) -> Vec<PromptMessa
 
     let content = handlebars
         .render_template(TEMPLATE, &context)
-        .unwrap_or_else(|e| format!("Template rendering failed: {e}"));
+        .map_err(|e| McpError::internal_error(format!("Template rendering failed: {e}"), None))?;
 
-    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
+    let description = format!("Security review for {}", args.target);
+
+    Ok(GetPromptResult {
+        description: Some(description),
+        messages: vec![PromptMessage::new_text(PromptMessageRole::User, content)],
+    })
 }
 
 const TEMPLATE: &str = r#"{{security_disclaimer}}
