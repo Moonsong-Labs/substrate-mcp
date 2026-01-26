@@ -1,7 +1,7 @@
 //! Analyze release prompt implementation
 
 use handlebars::Handlebars;
-use rmcp::model::{PromptMessage, PromptMessageRole};
+use rmcp::model::{ErrorData as McpError, GetPromptResult, PromptMessage, PromptMessageRole};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -19,7 +19,7 @@ pub(crate) struct AnalyzeReleaseArgs {
 }
 
 /// Generate analyze release prompt content
-pub(crate) async fn generate_prompt(args: AnalyzeReleaseArgs) -> Vec<PromptMessage> {
+pub(crate) async fn generate_prompt(args: AnalyzeReleaseArgs) -> Result<GetPromptResult, McpError> {
     let handlebars = Handlebars::new();
 
     let context = json!({
@@ -30,9 +30,17 @@ pub(crate) async fn generate_prompt(args: AnalyzeReleaseArgs) -> Vec<PromptMessa
 
     let content = handlebars
         .render_template(TEMPLATE, &context)
-        .unwrap_or_else(|e| format!("Template rendering failed: {e}"));
+        .map_err(|e| McpError::internal_error(format!("Template rendering failed: {e}"), None))?;
 
-    vec![PromptMessage::new_text(PromptMessageRole::User, content)]
+    let description = format!(
+        "Analyze how Polkadot SDK release {} impacts your project",
+        args.release
+    );
+
+    Ok(GetPromptResult {
+        description: Some(description),
+        messages: vec![PromptMessage::new_text(PromptMessageRole::User, content)],
+    })
 }
 
 const TEMPLATE: &str = r#"{{security_disclaimer}}

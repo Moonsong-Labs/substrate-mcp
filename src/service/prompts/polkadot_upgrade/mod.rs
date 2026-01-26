@@ -3,7 +3,7 @@
 use std::env;
 
 use handlebars::Handlebars;
-use rmcp::model::{PromptMessage, PromptMessageRole};
+use rmcp::model::{ErrorData as McpError, GetPromptResult, PromptMessage, PromptMessageRole};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -22,9 +22,9 @@ pub(crate) struct PolkadotUpgradeArgs {
 }
 
 /// Generate analyze release prompt content
-pub(crate) async fn generate_prompt(args: PolkadotUpgradeArgs) -> Vec<PromptMessage> {
-    let mut messages = Vec::new();
-
+pub(crate) async fn generate_prompt(
+    args: PolkadotUpgradeArgs,
+) -> Result<GetPromptResult, McpError> {
     // Render the main prompt with context
     let handlebars = Handlebars::new();
     let context = json!({
@@ -35,11 +35,14 @@ pub(crate) async fn generate_prompt(args: PolkadotUpgradeArgs) -> Vec<PromptMess
 
     let content = handlebars
         .render_template(TEMPLATE, &context)
-        .unwrap_or_else(|e| format!("Template rendering failed: {}", e));
+        .map_err(|e| McpError::internal_error(format!("Template rendering failed: {e}"), None))?;
 
-    messages.push(PromptMessage::new_text(PromptMessageRole::User, content));
+    let description = format!("Polkadot SDK upgrade guide for release {}", args.release);
 
-    messages
+    Ok(GetPromptResult {
+        description: Some(description),
+        messages: vec![PromptMessage::new_text(PromptMessageRole::User, content)],
+    })
 }
 
 /// Get the project name from the current directory
